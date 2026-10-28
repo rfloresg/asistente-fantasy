@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ask, type ChatTurn } from "@/lib/chat/agent";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Claude puede tardar unos segundos
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { messages?: ChatTurn[] } | null;

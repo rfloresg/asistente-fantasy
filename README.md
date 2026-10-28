@@ -38,6 +38,14 @@ Opciones de la ingesta: `INGEST_LIMIT=20` (solo 20 jugadores, para probar) e `IN
 
 Para usar esa misma base en local, pon la URL en `.env` como `DATABASE_URL=...`.
 
+## Web en internet (Vercel)
+
+1. Entra en vercel.com con tu cuenta de GitHub y pulsa Add New → Project → importa el repo.
+2. En Environment Variables añade `DATABASE_URL`, `ANTHROPIC_API_KEY` y `APP_PASSWORD` (la contraseña para entrar).
+3. Deploy. Corre en Frankfurt (`vercel.json`), junto a la base de Neon.
+
+Con `APP_PASSWORD` definida, toda la web y la API piden contraseña (cookie de 90 días). Las capturas se comprimen en el navegador antes de subirlas: Vercel no acepta más de 4,5 MB.
+
 ## Nota Fantasy
 
 Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de su posición.

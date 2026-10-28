@@ -49,6 +49,23 @@ function Search({ onPick }: { onPick: (o: Option) => void }) {
   );
 }
 
+// Reduce la captura antes de subirla: lado largo máx. 1600 px, JPEG. Suficiente para leer nombres.
+async function compress(file: File): Promise<File> {
+  if (file.size < 1_000_000) return file;
+  try {
+    const img = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    return blob ? new File([blob], "captura.jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
+}
+
 export default function Upload({ tipo, hasIds }: { tipo: "plantilla" | "mercado"; hasIds: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<Item[] | null>(null);
@@ -68,7 +85,7 @@ export default function Upload({ tipo, hasIds }: { tipo: "plantilla" | "mercado"
     setItems(null);
     try {
       const fd = new FormData();
-      fd.append("imagen", file);
+      fd.append("imagen", await compress(file));
       const res = await fetch("/api/captura", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error");

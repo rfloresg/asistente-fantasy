@@ -77,3 +77,4 @@ ul.reasons li.bad::marker { color: var(--down); }
 .chip { font: inherit; font-size: 12px; padding: 3px 8px; margin: 2px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--fg); cursor: pointer; }
 .primary { font: inherit; font-size: 14px; margin-top: 12px; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--fg); color: var(--bg); cursor: pointer; }
 .primary:disabled { opacity: .5; cursor: default; }
+.ask-input { display: block; width: 100%; margin-top: 6px; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
