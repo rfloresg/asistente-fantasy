@@ -34,6 +34,9 @@ export function reasons(s: PlayerScore, status: string, teamName: (id: string) =
   if (s.minutesAvg !== null && s.m >= 75) out.push({ good: true, text: `Muchos minutos: ${Math.round(s.minutesAvg)} por partido` });
   if (s.minutesAvg !== null && s.m <= 25) out.push({ good: false, text: `Juega poco: ${Math.round(s.minutesAvg)} min por partido` });
 
+  if (s.startProb !== null && s.startProb >= 70) out.push({ good: true, text: `Titular probable: ${s.startProb} % (futbolfantasy)` });
+  if (s.startProb !== null && s.startProb <= 40) out.push({ good: false, text: `Probable suplente: ${s.startProb} % de ser titular (futbolfantasy)` });
+
   const rivals = s.nextOpponents.map((o) => `${teamName(o.teamId)}${o.home ? "" : " (f)"}`).join(", ");
   if (rivals && s.c >= 75) out.push({ good: true, text: `Calendario fácil: ${rivals}` });
   if (rivals && s.c <= 25) out.push({ good: false, text: `Calendario difícil: ${rivals}` });

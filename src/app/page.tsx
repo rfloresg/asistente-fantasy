@@ -64,6 +64,7 @@ export default async function Home({ searchParams }: { searchParams: Search }) {
               <th className="n">Valor</th>
               <th className="n">7 días</th>
               <th className="n">Forma</th>
+              <th className="n">Titular</th>
               <th className="n">Puja máx.</th>
             </tr>
           </thead>
@@ -80,6 +81,7 @@ export default async function Home({ searchParams }: { searchParams: Search }) {
                 <td className="n">{money(s.value)}</td>
                 <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s.pct7)}</td>
                 <td className="n">{n1(s.formAvg)}</td>
+                <td className="n">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
                 <td className="n">{s.action === "fichar" ? money(s.maxBidPlay) : "–"}</td>
               </tr>
             ))}
@@ -87,7 +89,7 @@ export default async function Home({ searchParams }: { searchParams: Search }) {
         </table>
       </div>
       <p className="muted">
-        Forma: puntos por partido en los últimos 5 de su equipo. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
+        Forma: puntos por partido en los últimos 5 de su equipo. Titular: probabilidad según el once probable de futbolfantasy. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
       </p>
     </main>
   );

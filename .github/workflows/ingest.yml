@@ -22,6 +22,11 @@ jobs:
       - run: npm run ingest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Si futbolfantasy falla, la nota se calcula igual (solo con minutos)
+      - run: npm run onces
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: npm run score
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

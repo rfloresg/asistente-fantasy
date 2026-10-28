@@ -100,6 +100,15 @@ describe("computeScores", () => {
     expect(by("bench").maxBidSpec).toBeNull();
   });
 
+  it("con once probable: suplente probable no se recomienda fichar", () => {
+    const inp = input();
+    inp.lineups = new Map([["star", { starter: false, prob: 20 }]]);
+    const s = computeScores(inp).find((x) => x.playerId === "star")!;
+    expect(s.startProb).toBe(20);
+    expect(s.action).not.toBe("fichar");
+    expect(reasons(s, "ok", String).some((r) => !r.good && r.text.includes("20 %"))).toBe(true);
+  });
+
   it("explica la nota con sus cifras", () => {
     const r = reasons(by("star"), "ok", (id) => `Equipo ${id}`);
     expect(r.some((x) => x.good && x.text.includes("9 pts"))).toBe(true);

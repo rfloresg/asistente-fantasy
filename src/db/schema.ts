@@ -90,6 +90,7 @@ export const playerScores = pgTable(
     value: bigint("value", { mode: "number" }).notNull(),
     formAvg: real("form_avg"),
     minutesAvg: real("minutes_avg"),
+    startProb: integer("start_prob"),
     seasonAvg: real("season_avg"),
     pct3: real("pct3"),
     pct7: real("pct7"),
@@ -101,6 +102,20 @@ export const playerScores = pgTable(
     maxBidSpec: bigint("max_bid_spec", { mode: "number" }),
     maxBidPlay: bigint("max_bid_play", { mode: "number" }).notNull(),
     action: text("action").$type<"fichar" | "mantener" | "vender">().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.day] })],
+);
+
+// Once probable por jugador y día (futbolfantasy).
+export const lineups = pgTable(
+  "lineups",
+  {
+    playerId: text("player_id").notNull(),
+    day: date("day").notNull(),
+    ffId: text("ff_id").notNull(),
+    starter: boolean("starter").notNull(),
+    prob: integer("prob"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.playerId, t.day] })],
 );

@@ -12,6 +12,7 @@ export const CONFIG = {
   maxDailyRate: 0.08, // tope de subida/bajada diaria al proyectar
   buy: 70, // nota mínima para fichar
   buyMinForm: 4, // y al menos 4 pts por partido en los últimos partidos
+  buyMinProb: 50, // y, si hay once probable, al menos 50 % de ser titular
   sell: 40, // por debajo, y bajando, vender
 };
 
@@ -40,6 +41,8 @@ export interface EngineInput {
   values: Map<string, Map<string, number>>; // jugador -> día -> valor
   weeks: Map<string, Map<number, { points: number; minutes: number }>>; // jugador -> jornada
   matches: EngineMatch[];
+  // Once probable del día asOf (futbolfantasy). Sin dato = solo minutos.
+  lineups?: Map<string, { starter: boolean; prob: number | null }>;
 }
 
 export type Action = "fichar" | "mantener" | "vender";
@@ -59,6 +62,7 @@ export interface PlayerScore {
   value: number;
   formAvg: number | null; // puntos por partido, últimos N del equipo
   minutesAvg: number | null; // minutos por partido, últimos N
+  startProb: number | null; // % de ser titular en el próximo partido (once probable)
   seasonAvg: number | null; // puntos por partido del equipo en la temporada
   pct3: number | null; // % de cambio de valor en 3 días
   pct7: number | null;
@@ -170,6 +174,8 @@ export function computeScores(input: EngineInput): PlayerScore[] {
     const recent = (team?.playedWeeks ?? []).slice(0, CONFIG.formWeeks);
     const season = team?.playedWeeks ?? [];
     const formAvg = mean(recent.map((w) => weekStat(w).points));
+    const lu = input.lineups?.get(pl.id);
+    const startProb = lu ? (lu.prob ?? (lu.starter ? 70 : 20)) : null;
     const minutesAvg = mean(recent.map((w) => weekStat(w).minutes));
     const seasonAvg = mean(season.map((w) => weekStat(w).points));
 
@@ -193,6 +199,7 @@ export function computeScores(input: EngineInput): PlayerScore[] {
       value: v0,
       formAvg,
       minutesAvg,
+      startProb,
       seasonAvg,
       pct3: v3 ? ((v0 - v3) / v3) * 100 : null,
       pct7: v7 ? ((v0 - v7) / v7) * 100 : null,
@@ -215,7 +222,14 @@ export function computeScores(input: EngineInput): PlayerScore[] {
     const F = percentiles(group.map((g) => g.formAvg));
     const T = percentiles(group.map((g) => g.dailyRate));
     const P = percentiles(group.map((g) => g.ptsPerM));
-    const M = percentiles(group.map((g) => g.minutesAvg));
+    // Minutos: mitad lo que ha jugado, mitad la probabilidad de ser titular si la hay
+    const M = percentiles(
+      group.map((g) => {
+        const played = g.minutesAvg === null ? null : Math.min(g.minutesAvg / 90, 1);
+        if (g.startProb === null) return played;
+        return 0.5 * (played ?? 0) + 0.5 * (g.startProb / 100);
+      }),
+    );
     // menos dificultad = mejor: invertimos el signo
     const C = percentiles(group.map((g) => (g.calendarDifficulty === null ? null : -g.calendarDifficulty)));
 
@@ -225,7 +239,10 @@ export function computeScores(input: EngineInput): PlayerScore[] {
       );
       const falling = (g.dailyRate ?? 0) < 0;
       const action: Action =
-        nota >= CONFIG.buy && (g.formAvg ?? 0) >= CONFIG.buyMinForm && (g.status === "ok" || g.status === "doubtful")
+        nota >= CONFIG.buy &&
+        (g.formAvg ?? 0) >= CONFIG.buyMinForm &&
+        (g.startProb === null || g.startProb >= CONFIG.buyMinProb) &&
+        (g.status === "ok" || g.status === "doubtful")
           ? "fichar"
           : (nota < CONFIG.sell && falling) || (g.status === "injured" && falling)
             ? "vender"

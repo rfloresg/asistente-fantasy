@@ -15,6 +15,13 @@
       "when": 1793184165818,
       "tag": "0001_player_scores",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793185447847,
+      "tag": "0002_lineups",
+      "breakpoints": true
     }
   ]
 }

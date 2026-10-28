@@ -5,7 +5,7 @@
 import "dotenv/config";
 import { getTableColumns, max, sql, type SQL } from "drizzle-orm";
 import { getConn } from "../src/db";
-import { matches, players, playerScores, playerValues, playerWeeks } from "../src/db/schema";
+import { lineups, matches, players, playerScores, playerValues, playerWeeks } from "../src/db/schema";
 import { addDays, computeScores } from "../src/lib/nota/engine";
 
 const DAYS = Number(process.env.SCORE_DAYS ?? 1);
@@ -16,11 +16,12 @@ async function main() {
     const [{ last }] = await db.select({ last: max(playerValues.day) }).from(playerValues);
     if (!last) throw new Error("Sin valores. Ejecuta antes npm run ingest.");
 
-    const [pl, vals, wks, mts] = await Promise.all([
+    const [pl, vals, wks, mts, lus] = await Promise.all([
       db.select().from(players),
       db.select().from(playerValues),
       db.select().from(playerWeeks),
       db.select().from(matches),
+      db.select().from(lineups),
     ]);
 
     const values = new Map<string, Map<string, number>>();
@@ -41,13 +42,18 @@ async function main() {
 
     for (let i = DAYS - 1; i >= 0; i--) {
       const asOf = addDays(last, -i);
-      const scores = computeScores({ asOf, players: pl, values, weeks, matches: mts });
+      // Once probable de ese día, o del anterior si hoy no se pudo leer
+      const lineupFor = new Map<string, { starter: boolean; prob: number | null }>();
+      for (const d of [addDays(asOf, -1), asOf]) {
+        for (const l of lus) if (l.day === d) lineupFor.set(l.playerId, { starter: l.starter, prob: l.prob });
+      }
+      const scores = computeScores({ asOf, players: pl, values, weeks, matches: mts, lineups: lineupFor });
       for (let k = 0; k < scores.length; k += 200) {
         await db.insert(playerScores).values(scores.slice(k, k + 200))
           .onConflictDoUpdate({ target: [playerScores.playerId, playerScores.day], set });
       }
       const count = (a: string) => scores.filter((s) => s.action === a).length;
-      console.log(`${asOf}: ${scores.length} notas · fichar ${count("fichar")} · vender ${count("vender")}`);
+      console.log(`${asOf}: ${scores.length} notas · fichar ${count("fichar")} · vender ${count("vender")} · con once ${lineupFor.size}`);
     }
   } finally {
     await close();

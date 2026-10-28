@@ -2,13 +2,14 @@
 
 Asistente para LaLiga Fantasy: analiza tu plantilla y el mercado y te dice qué vender, qué fichar y cuánto pujar. Las cifras salen de datos reales, nunca del LLM.
 
-Estado: **fase 2, Nota Fantasy**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Después se calcula la nota de cada jugador, con su recomendación y puja máxima.
+Estado: **fase 3, onces probables**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Lee los onces probables de futbolfantasy y calcula la nota de cada jugador, con su recomendación y puja máxima.
 
 ## Arrancar en local
 
 ```bash
 npm install
 npm run ingest   # ~1 min. La primera vez rellena toda la temporada
+npm run onces    # onces probables de futbolfantasy (~40 s)
 npm run score    # calcula la Nota Fantasy del día
 npm run dev      # http://localhost:3000
 ```
@@ -20,6 +21,7 @@ Sin `DATABASE_URL` usa PGlite, un Postgres embebido en `./.data`. Solo admite un
 | Comando | Qué hace |
 | --- | --- |
 | `npm run ingest` | Descarga y guarda los datos. Se puede repetir sin duplicar |
+| `npm run onces` | Onces probables de hoy. Avisa de titulares que no sabe emparejar |
 | `npm run score` | Calcula la nota del último día. `SCORE_DAYS=30` recalcula también días anteriores |
 | `npm test` | Tests del parser con respuestas reales de la API |
 | `npm run db:generate` | Genera una migración tras cambiar `src/db/schema.ts` |
@@ -32,7 +34,7 @@ Opciones de la ingesta: `INGEST_LIMIT=20` (solo 20 jugadores, para probar) e `IN
 1. Crea una base Postgres gratuita (Neon o Supabase) y copia su URL de conexión.
 2. Sube el repo a GitHub.
 3. En el repo: Settings → Secrets and variables → Actions → nuevo secreto `DATABASE_URL`.
-4. El workflow `.github/workflows/ingest.yml` se ejecuta cada día a las 05:45 (hora de Madrid en invierno): ingesta y luego nota. También se puede lanzar a mano desde la pestaña Actions.
+4. El workflow `.github/workflows/ingest.yml` se ejecuta cada día a las 05:45 (hora de Madrid en invierno): ingesta, onces y nota. Si futbolfantasy falla, la nota se calcula igual, solo con minutos. También se puede lanzar a mano desde la pestaña Actions.
 
 Para usar esa misma base en local, pon la URL en `.env` como `DATABASE_URL=...`.
 
@@ -45,11 +47,11 @@ Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de s
 | Forma | Puntos por partido en los últimos 5 de su equipo | 30 % |
 | Tendencia | Ritmo diario de subida del valor (3 y 7 días) | 20 % |
 | Pts por millón | Puntos por partido en la temporada / valor en millones | 20 % |
-| Minutos | Minutos por partido en los últimos 5 | 15 % |
+| Minutos | Mitad minutos en los últimos 5, mitad % de ser titular (once probable) | 15 % |
 | Calendario | Fuerza de los 3 próximos rivales (jugar fuera suma) | 15 % |
 | Riesgo | Lesión −25, sanción −20, duda −10 | resta |
 
-- **Fichar:** nota de 70 o más, al menos 4 pts por partido y sin lesión ni sanción.
+- **Fichar:** nota de 70 o más, al menos 4 pts por partido, 50 % o más de ser titular (si hay once) y sin lesión ni sanción.
 - **Vender:** nota menor de 40 y bajando de valor, o lesionado y bajando.
 - **Valor esperado:** valor actual proyectado 7 días con su ritmo diario (tope ±8 % al día).
 - **Puja máx. para especular:** valor esperado menos un 5 % de margen. Si no supera el valor actual, no compensa.
@@ -72,12 +74,20 @@ API no oficial de LaLiga Fantasy (`fantasy-api.llt-services.com/api`). Todos los
 
 Es una API no oficial: puede cambiar sin aviso. Si la ingesta falla en más del 10 % de jugadores, termina con error y queda registrado en la tabla `ingest_runs`. Las condiciones de LaLiga Fantasy solo permiten uso privado y no comercial.
 
+## Onces probables
+
+`scripts/onces.ts` lee la página de cada equipo en futbolfantasy.com (su robots.txt lo permite), una vez al día y con pausa de 1,5 s entre páginas. De cada jugador saca si es titular y su probabilidad.
+
+Los nombres no coinciden con los de LaLiga ("M. Dituro" vs "Dituro", "Diaby" vs "Bambo"), así que `src/lib/onces/match.ts` empareja por nombre y slug, dentro del mismo equipo, y no empareja si hay dudas. Si un titular no se empareja, el log lo dice: añádelo a `src/lib/onces/aliases.ts`.
+
 ## Estructura
 
 ```
 scripts/ingest.ts        ingesta diaria
 scripts/score.ts         cálculo diario de la nota
 src/lib/nota/            motor de la nota y motivos en texto
+scripts/onces.ts         onces probables diarios
+src/lib/onces/           parser de futbolfantasy, emparejado y alias
 src/lib/laliga/          cliente de la API, tipos y parser
 src/db/                  esquema (Drizzle) y conexión
 src/lib/queries.ts       consultas para la web

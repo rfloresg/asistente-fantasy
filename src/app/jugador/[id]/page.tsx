@@ -64,6 +64,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
         <>
           <div className="grid">
             <div className="card"><div className="k">Recomendación</div><div className="v">{ACTION[s.action]}</div></div>
+            <div className="card"><div className="k">Titular probable</div><div className="v">{s.startProb === null ? "Sin dato" : `${s.startProb} %`}</div></div>
             <div className="card"><div className="k">Valor hoy</div><div className="v">{money(s.value)}</div></div>
             <div className="card"><div className="k">Esperado en {CONFIG.holdDays} días</div><div className="v">{money(s.expected)}</div></div>
             <div className="card"><div className="k">Puja máx. para especular</div><div className="v">{s.maxBidSpec ? money(s.maxBidSpec) : "No compensa"}</div></div>
