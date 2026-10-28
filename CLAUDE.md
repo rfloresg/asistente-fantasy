@@ -30,6 +30,6 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 1. Datos (hecho)
 2. Motor de la Nota Fantasy (hecho): `src/lib/nota/engine.ts`, pesos y umbrales en `CONFIG`
 3. Onces probables (hecho): `src/lib/onces/`. Pendiente: contrastar estado con otra fuente
-4. LLM como voz, con herramientas de solo lectura
+4. LLM como voz (hecho): `src/lib/chat/`. El control de cifras de `guard.ts` no se quita
 5. Lectura de capturas
 6. Validación de la nota con el histórico

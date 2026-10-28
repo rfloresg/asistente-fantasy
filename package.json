@@ -15,6 +15,7 @@
     "onces": "tsx scripts/onces.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@electric-sql/pglite": "^0.3.8",
     "drizzle-orm": "^0.44.5",
     "next": "15.5.4",

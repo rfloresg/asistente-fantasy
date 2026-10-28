@@ -2,7 +2,7 @@
 
 Asistente para LaLiga Fantasy: analiza tu plantilla y el mercado y te dice qué vender, qué fichar y cuánto pujar. Las cifras salen de datos reales, nunca del LLM.
 
-Estado: **fase 3, onces probables**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Lee los onces probables de futbolfantasy y calcula la nota de cada jugador, con su recomendación y puja máxima.
+Estado: **fase 4, chat con IA**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Lee los onces probables de futbolfantasy y calcula la nota de cada jugador, con su recomendación y puja máxima.
 
 ## Arrancar en local
 
@@ -74,6 +74,14 @@ API no oficial de LaLiga Fantasy (`fantasy-api.llt-services.com/api`). Todos los
 
 Es una API no oficial: puede cambiar sin aviso. Si la ingesta falla en más del 10 % de jugadores, termina con error y queda registrado en la tabla `ingest_runs`. Las condiciones de LaLiga Fantasy solo permiten uso privado y no comercial.
 
+## Chat con IA
+
+En `/chat` puedes preguntar en lenguaje normal ("¿qué delantero ficho con 5 M?"). Claude consulta tres herramientas de solo lectura (`src/lib/chat/tools.ts`): buscar jugador, ficha de jugador y mercado. Luego explica con esos datos.
+
+- **No inventa cifras:** `src/lib/chat/guard.ts` comprueba que cada número de la respuesta sale de las herramientas o de tu pregunta. Si no, le pide reescribir una vez; si insiste, la web lo marca en rojo.
+- **Necesita** `ANTHROPIC_API_KEY` en `.env`. Modelo por defecto: `claude-haiku-5-5` (el más barato). Cámbialo con `ASISTENTE_MODEL`.
+- Como mucho 6 consultas a herramientas por pregunta y 10 mensajes de historial, para que cada pregunta cueste poco.
+
 ## Onces probables
 
 `scripts/onces.ts` lee la página de cada equipo en futbolfantasy.com (su robots.txt lo permite), una vez al día y con pausa de 1,5 s entre páginas. De cada jugador saca si es titular y su probabilidad.
@@ -91,6 +99,7 @@ src/lib/onces/           parser de futbolfantasy, emparejado y alias
 src/lib/laliga/          cliente de la API, tipos y parser
 src/db/                  esquema (Drizzle) y conexión
 src/lib/queries.ts       consultas para la web
+src/lib/chat/            herramientas, control de cifras y bucle con Claude
 src/app/                 web (Next.js)
 tests/                   tests con respuestas reales en tests/fixtures
 drizzle/                 migraciones SQL

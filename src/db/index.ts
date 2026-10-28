@@ -12,7 +12,7 @@ async function create() {
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const { migrate } = await import("drizzle-orm/postgres-js/migrator");
     const postgres = (await import("postgres")).default;
-    const client = postgres(url, { max: 5, prepare: false });
+    const client = postgres(url, { max: 5, prepare: false, onnotice: () => {} });
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: MIGRATIONS });
     return { db, close: () => client.end() };

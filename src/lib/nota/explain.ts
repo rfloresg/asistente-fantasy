@@ -9,6 +9,7 @@ export interface Reason {
 }
 
 const n1 = (x: number) => x.toLocaleString("es-ES", { maximumFractionDigits: 1 });
+const n2 = (x: number) => x.toLocaleString("es-ES", { maximumFractionDigits: 2 });
 const signed = (x: number) => `${x > 0 ? "+" : ""}${n1(x)} %`;
 export const money = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
 
@@ -28,8 +29,8 @@ export function reasons(s: PlayerScore, status: string, teamName: (id: string) =
   if (s.pct7 !== null && s.t >= 75) out.push({ good: true, text: `Sube de valor: ${signed(s.pct7)} en 7 días` });
   if (s.pct7 !== null && s.t <= 25) out.push({ good: false, text: `Baja de valor: ${signed(s.pct7)} en 7 días` });
 
-  if (s.ptsPerM !== null && s.p >= 75) out.push({ good: true, text: `Barato para lo que puntúa: ${n1(s.ptsPerM)} pts por millón` });
-  if (s.ptsPerM !== null && s.p <= 25) out.push({ good: false, text: `Caro para lo que puntúa: ${n1(s.ptsPerM)} pts por millón` });
+  if (s.ptsPerM !== null && s.p >= 75) out.push({ good: true, text: `Barato para lo que puntúa: ${n2(s.ptsPerM)} pts por millón` });
+  if (s.ptsPerM !== null && s.p <= 25) out.push({ good: false, text: `Caro para lo que puntúa: ${n2(s.ptsPerM)} pts por millón` });
 
   if (s.minutesAvg !== null && s.m >= 75) out.push({ good: true, text: `Muchos minutos: ${Math.round(s.minutesAvg)} por partido` });
   if (s.minutesAvg !== null && s.m <= 25) out.push({ good: false, text: `Juega poco: ${Math.round(s.minutesAvg)} min por partido` });

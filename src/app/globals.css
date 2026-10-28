@@ -57,3 +57,16 @@ ul.reasons { padding-left: 18px; font-size: 14px; }
 ul.reasons li.good::marker { color: var(--up); }
 ul.reasons li.bad::marker { color: var(--down); }
 .back { font-size: 14px; color: var(--muted); text-decoration: none; }
+
+.chat { margin-top: 16px; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.examples button, .ask button { font: inherit; font-size: 14px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--fg); cursor: pointer; }
+.msg { margin: 12px 0; }
+.msg.user { text-align: right; }
+.msg .bubble { display: inline-block; max-width: 85%; padding: 10px 14px; border-radius: 12px; white-space: pre-wrap; text-align: left; line-height: 1.45; font-size: 15px; }
+.msg.user .bubble { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.msg.assistant .bubble { border: 1px solid var(--line); }
+.msg .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 13px; }
+.ask { display: flex; gap: 8px; margin-top: 16px; position: sticky; bottom: 0; background: var(--bg); padding: 8px 0; }
+.ask input { flex: 1; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); min-width: 0; }
+.nav { display: flex; gap: 16px; font-size: 14px; margin-bottom: 8px; }
