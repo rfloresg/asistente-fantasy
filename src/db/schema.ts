@@ -74,6 +74,37 @@ export const matches = pgTable("matches", {
   visitorScore: integer("visitor_score"),
 });
 
+// Nota Fantasy de cada jugador y día. Se guarda para validar con lo que pasó después.
+export const playerScores = pgTable(
+  "player_scores",
+  {
+    playerId: text("player_id").notNull(),
+    day: date("day").notNull(),
+    nota: integer("nota").notNull(),
+    f: integer("f").notNull(),
+    t: integer("t").notNull(),
+    p: integer("p").notNull(),
+    m: integer("m").notNull(),
+    c: integer("c").notNull(),
+    r: integer("r").notNull(),
+    value: bigint("value", { mode: "number" }).notNull(),
+    formAvg: real("form_avg"),
+    minutesAvg: real("minutes_avg"),
+    seasonAvg: real("season_avg"),
+    pct3: real("pct3"),
+    pct7: real("pct7"),
+    dailyRate: real("daily_rate"),
+    ptsPerM: real("pts_per_m"),
+    nextOpponents: jsonb("next_opponents").$type<{ teamId: string; home: boolean }[]>().notNull(),
+    calendarDifficulty: real("calendar_difficulty"),
+    expected: bigint("expected", { mode: "number" }).notNull(),
+    maxBidSpec: bigint("max_bid_spec", { mode: "number" }),
+    maxBidPlay: bigint("max_bid_play", { mode: "number" }).notNull(),
+    action: text("action").$type<"fichar" | "mantener" | "vender">().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.day] })],
+);
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

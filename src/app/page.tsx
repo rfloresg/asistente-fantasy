@@ -1,70 +1,94 @@
-// Fase 1: página para comprobar que la ingesta guarda bien los datos.
-// La Nota Fantasy llega en la fase 2.
+// Mercado: todos los jugadores con su Nota Fantasy del día.
 
-import { lastRun, movers, type Mover } from "@/lib/queries";
+import Link from "next/link";
+import { ACTION, money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
+import { lastRun, market, type Order } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-const POS = ["", "POR", "DEF", "MED", "DEL", "ENT"];
-const STATUS: Record<string, string> = { injured: "Lesión", doubtful: "Duda", suspended: "Sanción" };
-const money = (n: number) => `${(n / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
-const fmtDate = (d: Date) =>
-  d.toLocaleString("es-ES", { timeZone: "Europe/Madrid", dateStyle: "medium", timeStyle: "short" });
+type Search = Promise<Record<string, string | undefined>>;
 
-function Table({ rows }: { rows: Mover[] }) {
-  return (
-    <div className="wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Jugador</th>
-            <th>Pos.</th>
-            <th className="n">Valor</th>
-            <th className="n">7 días</th>
-            <th className="n">Pujas ayer</th>
-            <th className="n">Media pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id}>
-              <td>
-                {r.nickname} <span className="muted">{r.team}</span>{" "}
-                {STATUS[r.status] && <span className="bad">{STATUS[r.status]}</span>}
-              </td>
-              <td>{POS[r.position] ?? r.position}</td>
-              <td className="n">{money(r.value)}</td>
-              <td className={`n ${r.pct7 >= 0 ? "up" : "down"}`}>
-                {r.pct7 > 0 ? "+" : ""}
-                {r.pct7.toLocaleString("es-ES")} %
-              </td>
-              <td className="n">{r.bids}</td>
-              <td className="n">{r.avg.toLocaleString("es-ES", { maximumFractionDigits: 1 })}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+export default async function Home({ searchParams }: { searchParams: Search }) {
+  const q = await searchParams;
+  const pos = Number(q.pos) || undefined;
+  const action = q.accion || undefined;
+  const order = (["nota", "forma", "tendencia", "valor"].includes(q.orden ?? "") ? q.orden : "nota") as Order;
+  const maxValue = Number(q.max) ? Number(q.max) * 1e6 : undefined;
 
-export default async function Home() {
-  const [run, up, down] = await Promise.all([lastRun(), movers("up"), movers("down")]);
+  const [run, { day, rows }] = await Promise.all([lastRun(), market({ pos, action, order, maxValue })]);
 
   return (
     <main>
       <h1>Asistente Fantasy</h1>
       <p className="muted">
-        {run
-          ? `Última ingesta: ${fmtDate(run.startedAt)} · ${run.ok ? "correcta" : "con fallos"} · ${run.players} jugadores`
-          : "Sin datos. Ejecuta npm run ingest."}
+        {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Sin datos. Ejecuta npm run ingest."}
+        {day ? ` · Nota del ${day}` : " · Sin notas. Ejecuta npm run score."}
       </p>
 
-      <h2>Más suben en 7 días</h2>
-      <Table rows={up} />
+      <form className="filters">
+        <select name="pos" defaultValue={q.pos ?? ""}>
+          <option value="">Todas las posiciones</option>
+          {[1, 2, 3, 4, 5].map((p) => (
+            <option key={p} value={p}>{POS[p]}</option>
+          ))}
+        </select>
+        <select name="accion" defaultValue={q.accion ?? ""}>
+          <option value="">Todas las acciones</option>
+          <option value="fichar">Fichar</option>
+          <option value="mantener">Mantener</option>
+          <option value="vender">Vender</option>
+        </select>
+        <select name="max" defaultValue={q.max ?? ""}>
+          <option value="">Cualquier precio</option>
+          {[2, 5, 10, 20, 50].map((m) => (
+            <option key={m} value={m}>Hasta {m} M</option>
+          ))}
+        </select>
+        <select name="orden" defaultValue={order}>
+          <option value="nota">Ordenar por nota</option>
+          <option value="forma">Ordenar por forma</option>
+          <option value="tendencia">Ordenar por subida 7 días</option>
+          <option value="valor">Ordenar por valor</option>
+        </select>
+        <button type="submit">Filtrar</button>
+      </form>
 
-      <h2>Más bajan en 7 días</h2>
-      <Table rows={down} />
+      <div className="wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nota</th>
+              <th>Jugador</th>
+              <th>Pos.</th>
+              <th>Acción</th>
+              <th className="n">Valor</th>
+              <th className="n">7 días</th>
+              <th className="n">Forma</th>
+              <th className="n">Puja máx.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ id, nickname, team, position, status, s }) => (
+              <tr key={id}>
+                <td><span className={notaClass(s.nota)}>{s.nota}</span></td>
+                <td>
+                  <Link href={`/jugador/${id}`}>{nickname}</Link> <span className="muted">{team}</span>{" "}
+                  {STATUS[status] && <span className="bad">{STATUS[status]}</span>}
+                </td>
+                <td>{POS[position]}</td>
+                <td>{ACTION[s.action]}</td>
+                <td className="n">{money(s.value)}</td>
+                <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s.pct7)}</td>
+                <td className="n">{n1(s.formAvg)}</td>
+                <td className="n">{s.action === "fichar" ? money(s.maxBidPlay) : "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted">
+        Forma: puntos por partido en los últimos 5 de su equipo. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
+      </p>
     </main>
   );
 }

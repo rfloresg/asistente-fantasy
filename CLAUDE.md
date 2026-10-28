@@ -12,7 +12,7 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 
 ## Comandos
 
-- `npm run ingest` (apaga `npm run dev` si usas PGlite)
+- `npm run ingest` y luego `npm run score` (apaga `npm run dev` si usas PGlite)
 - `npm test`, `npm run typecheck`, `npm run lint`
 - Cambio de esquema: editar `src/db/schema.ts` y luego `npm run db:generate`
 
@@ -27,7 +27,7 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 ## Hoja de ruta
 
 1. Datos (hecho)
-2. Motor de la Nota Fantasy: forma, tendencia, puntos por millón, minutos, calendario, riesgo
+2. Motor de la Nota Fantasy (hecho): `src/lib/nota/engine.ts`, pesos y umbrales en `CONFIG`
 3. Onces probables y contraste de fuentes
 4. LLM como voz, con herramientas de solo lectura
 5. Lectura de capturas
