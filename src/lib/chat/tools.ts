@@ -9,7 +9,7 @@ import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
 import { norm } from "@/lib/onces/match";
 import { ACTION, money, n1, pct, POS, STATUS } from "@/lib/format";
-import { market, playerCard, teamNames } from "@/lib/queries";
+import { market, playerCard, scoresFor, teamNames } from "@/lib/queries";
 
 export const TOOLS: Anthropic.Tool[] = [
   {
@@ -29,6 +29,15 @@ export const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { id: { type: "string" } },
       required: ["id"],
+    },
+  },
+  {
+    name: "varios_jugadores",
+    description: "Nota, recomendación, valor, tendencia, forma, % de titular y pujas de varios jugadores a la vez (hasta 30 ids). Úsala para analizar una plantilla o una lista.",
+    input_schema: {
+      type: "object",
+      properties: { ids: { type: "array", items: { type: "string" }, maxItems: 30 } },
+      required: ["ids"],
     },
   },
   {
@@ -138,6 +147,36 @@ async function mercadoTool(i: Input) {
   };
 }
 
+async function variosJugadores({ ids }: Input) {
+  const list = (Array.isArray(ids) ? ids : []).map(String).slice(0, 30);
+  const names = await teamNames();
+  const { day, rows } = await scoresFor(list);
+  return {
+    dia_de_los_datos: day,
+    jugadores: rows.map(({ id, nickname, team, position, status, s }) => ({
+      id,
+      jugador: nickname,
+      equipo: team,
+      posicion: POS[position],
+      estado: STATUS[status] ?? "Disponible",
+      ...(s
+        ? {
+            nota: s.nota,
+            recomendacion: ACTION[s.action],
+            motivos: reasons(s, status, (tid) => names.get(tid) ?? tid).map((r) => `${r.good ? "+" : "-"} ${r.text}`),
+            valor: money(s.value),
+            cambio_valor_7_dias: pct(s.pct7),
+            forma_pts_por_partido: n1(s.formAvg),
+            titular_probable: s.startProb === null ? "sin dato" : `${s.startProb} %`,
+            [`valor_esperado_en_${CONFIG.holdDays}_dias`]: money(s.expected),
+            puja_maxima_para_jugar: money(s.maxBidPlay),
+            puja_maxima_para_especular: s.maxBidSpec ? money(s.maxBidSpec) : "no compensa especular",
+          }
+        : { nota: "sin nota hoy" }),
+    })),
+  };
+}
+
 export async function runTool(name: string, input: Input): Promise<unknown> {
   switch (name) {
     case "buscar_jugador":
@@ -146,6 +185,8 @@ export async function runTool(name: string, input: Input): Promise<unknown> {
       return fichaJugador(input);
     case "mercado":
       return mercadoTool(input);
+    case "varios_jugadores":
+      return variosJugadores(input);
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }

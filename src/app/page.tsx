@@ -20,7 +20,11 @@ export default async function Home({ searchParams }: { searchParams: Search }) {
   return (
     <main>
       <h1>Asistente Fantasy</h1>
-      <div className="nav"><Link href="/chat">Pregúntale al asistente →</Link></div>
+      <div className="nav">
+        <Link href="/plantilla">Mi plantilla</Link>
+        <Link href="/plantilla?tipo=mercado">Mercado de mi liga</Link>
+        <Link href="/chat">Pregúntale al asistente</Link>
+      </div>
       <p className="muted">
         {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Sin datos. Ejecuta npm run ingest."}
         {day ? ` · Nota del ${day}` : " · Sin notas. Ejecuta npm run score."}

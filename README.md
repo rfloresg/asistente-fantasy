@@ -2,7 +2,7 @@
 
 Asistente para LaLiga Fantasy: analiza tu plantilla y el mercado y te dice qué vender, qué fichar y cuánto pujar. Las cifras salen de datos reales, nunca del LLM.
 
-Estado: **fase 4, chat con IA**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Lee los onces probables de futbolfantasy y calcula la nota de cada jugador, con su recomendación y puja máxima.
+Estado: **fase 5, capturas**. La ingesta diaria guarda jugadores, histórico de valor (con pujas), estadísticas por jornada y calendario. Lee los onces probables de futbolfantasy y calcula la nota de cada jugador, con su recomendación y puja máxima.
 
 ## Arrancar en local
 
@@ -82,6 +82,16 @@ En `/chat` puedes preguntar en lenguaje normal ("¿qué delantero ficho con 5 M?
 - **Necesita** `ANTHROPIC_API_KEY` en `.env`. Modelo por defecto: `claude-haiku-5-5` (el más barato). Cámbialo con `ASISTENTE_MODEL`.
 - Como mucho 6 consultas a herramientas por pregunta y 10 mensajes de historial, para que cada pregunta cueste poco.
 
+## Mi plantilla y mercado de mi liga
+
+En `/plantilla` subes una captura de tu equipo (o, en `/plantilla?tipo=mercado`, de los jugadores en venta de tu liga) y te dice qué vender, qué mantener y por quién pujar.
+
+1. Claude con visión lee solo los nombres, el equipo y la posición (`src/lib/captura/read.ts`). Nunca lee cifras.
+2. `src/lib/captura/match.ts` empareja cada nombre con un jugador real. Si hay dudas ("Williams"), te deja elegir; si no lo encuentra, puedes buscarlo.
+3. El análisis sale de la base de datos: nota, consejo, valor, tendencia, titularidad y valor esperado o puja máxima.
+4. La lista se guarda en tu navegador (localStorage): al volver, la verás con los datos del día sin subir nada.
+5. "Pídele al asistente que lo analice" abre el chat con tu plantilla ya escrita.
+
 ## Onces probables
 
 `scripts/onces.ts` lee la página de cada equipo en futbolfantasy.com (su robots.txt lo permite), una vez al día y con pausa de 1,5 s entre páginas. De cada jugador saca si es titular y su probabilidad.
@@ -100,6 +110,7 @@ src/lib/laliga/          cliente de la API, tipos y parser
 src/db/                  esquema (Drizzle) y conexión
 src/lib/queries.ts       consultas para la web
 src/lib/chat/            herramientas, control de cifras y bucle con Claude
+src/lib/captura/         lectura de capturas y emparejado de nombres
 src/app/                 web (Next.js)
 tests/                   tests con respuestas reales en tests/fixtures
 drizzle/                 migraciones SQL

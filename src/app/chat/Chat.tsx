@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Msg {
   role: "user" | "assistant";
@@ -17,11 +17,21 @@ const EXAMPLES = [
   "¿Quién está subiendo más esta semana?",
 ];
 
-export default function Chat() {
+export default function Chat({ initial }: { initial?: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pregunta que llega desde otra página (p. ej. Mi plantilla): se envía sola una vez
+  const sent = useRef(false);
+  useEffect(() => {
+    if (initial && !sent.current) {
+      sent.current = true;
+      send(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
 
   async function send(q: string) {
     if (!q.trim() || busy) return;

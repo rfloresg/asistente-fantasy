@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, max, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, max, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { ingestRuns, players, playerScores, playerValues, playerWeeks, teams } from "@/db/schema";
 
@@ -89,4 +89,36 @@ export async function playerCard(id: string) {
     .where(eq(playerWeeks.playerId, id))
     .orderBy(desc(playerWeeks.week));
   return { ...p, score: score ?? null, values, weeks };
+}
+
+// Jugadores activos para emparejar capturas.
+export async function candidates() {
+  const db = await getDb();
+  return db
+    .select({ id: players.id, nickname: players.nickname, positionId: players.positionId, teamShort: teams.shortName, teamName: teams.name })
+    .from(players)
+    .leftJoin(teams, eq(teams.id, players.teamId))
+    .where(ne(players.status, "out_of_league"));
+}
+
+// Nota de hoy de una lista de jugadores (plantilla o mercado de tu liga).
+export async function scoresFor(ids: string[]) {
+  if (!ids.length) return { day: null, rows: [] };
+  const db = await getDb();
+  const day = await lastScoreDay();
+  if (!day) return { day: null, rows: [] };
+  const rows = await db
+    .select({
+      id: players.id,
+      nickname: players.nickname,
+      team: teams.shortName,
+      position: players.positionId,
+      status: players.status,
+      s: playerScores,
+    })
+    .from(players)
+    .leftJoin(teams, eq(teams.id, players.teamId))
+    .leftJoin(playerScores, and(eq(playerScores.playerId, players.id), eq(playerScores.day, day)))
+    .where(inArray(players.id, ids.slice(0, 40)));
+  return { day, rows };
 }
