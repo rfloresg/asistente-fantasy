@@ -92,6 +92,28 @@ En `/plantilla` subes una captura de tu equipo (o, en `/plantilla?tipo=mercado`,
 4. La lista se guarda en tu navegador (localStorage): al volver, la verás con los datos del día sin subir nada.
 5. "Pídele al asistente que lo analice" abre el chat con tu plantilla ya escrita.
 
+## Sesión de tu liga (para el Espía)
+
+Para leer tu liga (actividad, clasificación, plantillas) hace falta tu sesión de LaLiga, solo lectura.
+
+1. `npx playwright install chromium` (una vez; no hace falta si tienes Chrome).
+2. `npm run liga:login`: se abre el login oficial de LaLiga. Entra con email (Google puede bloquear navegadores automatizados). El script no ve tu contraseña: solo captura el código de vuelta y guarda la sesión en la base de datos (tabla `app_secrets`).
+3. `npm run liga:probe`: guarda las respuestas en `liga-probe/` (no se sube a git) y muestra su estructura. `LIGA_INDEX=1` si tienes varias ligas.
+
+La sesión se renueva sola en cada uso (`src/lib/laliga/auth.ts`). Si caduca, repite el paso 2.
+
+## El Espía (Telegram)
+
+Bot para el grupo de Telegram de tu liga. Publica fichajes, ventas, cláusulas y blindajes al momento, y un resumen cada mañana (clasificación, gasto en 24 h, bajas en las plantillas y lo mejor del mercado con su nota). Solo lee: nunca toca la liga.
+
+1. Haz antes `npm run liga:login` (sesión de LaLiga).
+2. Crea el bot en Telegram con @BotFather (`/newbot`), mételo en el grupo y escribe `/start` en el grupo.
+3. En `.env`: `TELEGRAM_BOT_TOKEN=...` y `LIGA_ID=...` (sale en `npm run liga:probe`). Luego `npm run telegram:chat` te da el ID del grupo para `TELEGRAM_CHAT_ID`.
+4. `npm run espia preview`: muestra en la terminal lo que publicaría, sin enviar nada.
+5. En GitHub, secretos `LIGA_ID`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`. El workflow `espia.yml` mira la liga cada 30 min (07:00 a 01:00) y manda el resumen a las 09:00.
+
+La primera vez no publica el historial: solo un mensaje de "Espía activado". Las actividades ya avisadas se guardan en `espia_events`.
+
 ## Onces probables
 
 `scripts/onces.ts` lee la página de cada equipo en futbolfantasy.com (su robots.txt lo permite), una vez al día y con pausa de 1,5 s entre páginas. De cada jugador saca si es titular y su probabilidad.
@@ -111,6 +133,8 @@ src/db/                  esquema (Drizzle) y conexión
 src/lib/queries.ts       consultas para la web
 src/lib/chat/            herramientas, control de cifras y bucle con Claude
 src/lib/captura/         lectura de capturas y emparejado de nombres
+src/lib/espia/           lectura de la liga, mensajes y Telegram
+scripts/espia.ts         avisos, resumen diario y vista previa
 src/app/                 web (Next.js)
 tests/                   tests con respuestas reales en tests/fixtures
 drizzle/                 migraciones SQL

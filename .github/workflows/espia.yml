@@ -1,0 +1,40 @@
+name: Espía de la liga
+
+on:
+  schedule:
+    # Cada 30 min de 07:00 a 01:00 (hora de Madrid en invierno = UTC+1).
+    # Cada run gasta ~1 min de los 2.000 gratis al mes de GitHub.
+    - cron: "*/30 6-23 * * *"
+    - cron: "0 0 * * *"
+    # Resumen diario a las 09:00 de Madrid
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "eventos o resumen"
+        default: "eventos"
+
+jobs:
+  espia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LIGA_ID: ${{ secrets.LIGA_ID }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=optional
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Resumen diario
+        if: github.event.schedule == '0 8 * * *' || github.event.inputs.modo == 'resumen'
+        run: npm run espia resumen
+      - name: Avisos de actividad
+        if: github.event.schedule != '0 8 * * *' && github.event.inputs.modo != 'resumen'
+        run: npm run espia

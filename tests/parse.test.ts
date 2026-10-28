@@ -68,3 +68,22 @@ describe("parseMatch", () => {
     expect(m.date).toBeInstanceOf(Date);
   });
 });
+
+import crypto from "node:crypto";
+import { authorizeUrl, pkce } from "../src/lib/laliga/auth";
+
+describe("auth PKCE", () => {
+  it("el challenge es SHA-256 del verifier en base64url", () => {
+    const { verifier, challenge } = pkce();
+    const expected = crypto.createHash("sha256").update(verifier).digest("base64url");
+    expect(challenge).toBe(expected);
+    expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+  it("la URL de login lleva cliente móvil, PKCE y redirect de la app", () => {
+    const u = new URL(authorizeUrl("abc", "xyz"));
+    expect(u.searchParams.get("code_challenge")).toBe("abc");
+    expect(u.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(u.searchParams.get("redirect_uri")).toBe("authredirect://com.lfp.laligafantasy");
+    expect(u.searchParams.get("state")).toBe("xyz");
+  });
+});

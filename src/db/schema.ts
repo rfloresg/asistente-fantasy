@@ -120,6 +120,31 @@ export const lineups = pgTable(
   (t) => [primaryKey({ columns: [t.playerId, t.day] })],
 );
 
+// Secretos de la app (p. ej. sesión de LaLiga, que se renueva en cada uso).
+export const appSecrets = pgTable("app_secrets", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+// Espía: actividades de la liga ya procesadas (para no repetir avisos).
+export const espiaEvents = pgTable(
+  "espia_events",
+  {
+    leagueId: text("league_id").notNull(),
+    activityId: text("activity_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }), // null = vista al activar, no enviada
+  },
+  (t) => [primaryKey({ columns: [t.leagueId, t.activityId] })],
+);
+
+// Espía: último resumen diario enviado por liga.
+export const espiaState = pgTable("espia_state", {
+  leagueId: text("league_id").primaryKey(),
+  lastSummaryDay: date("last_summary_day"),
+});
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
