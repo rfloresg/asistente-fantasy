@@ -12,6 +12,10 @@ const all: Candidate[] = [
   { id: "3", nickname: "M. Dituro", positionId: 1, teamShort: "ELC", teamName: "Elche CF" },
   { id: "4", nickname: "Cuti Romero", positionId: 2, teamShort: "ATM", teamName: "Atlético de Madrid" },
   { id: "5", nickname: "Isaac Romero", positionId: 4, teamShort: "SEV", teamName: "Sevilla FC" },
+  { id: "6", nickname: "Livakovic", positionId: 1, teamShort: "BAR", teamName: "FC Barcelona" },
+  { id: "7", nickname: "Foyth", positionId: 2, teamShort: "VIL", teamName: "Villarreal CF" },
+  { id: "8", nickname: "Guido Rodríguez", positionId: 3, teamShort: "VAL", teamName: "Valencia CF" },
+  { id: "9", nickname: "Guido Pizarro", positionId: 3, teamShort: "SEV", teamName: "Sevilla FC" },
 ];
 const r = (nombre: string, equipo: string | null = null, posicion: "POR" | "DEF" | "MED" | "DEL" | null = null) => ({ nombre, equipo, posicion });
 
@@ -30,6 +34,15 @@ describe("matchRead", () => {
 
   it("el equipo leído deshace la duda", () => {
     expect(matchRead([r("Romero", "Atlético")], all)[0].id).toBe("4");
+  });
+
+  it("abreviaturas de la app distintas a las de la API (FCB, CVF)", () => {
+    expect(matchRead([r("Livakovic", "FCB"), r("Foyth", "CVF")], all).map((x) => x.id)).toEqual(["6", "7"]);
+  });
+
+  it("nombres cortados con puntos suspensivos", () => {
+    expect(matchRead([r("Guido Ro...", "VAL")], all)[0].id).toBe("8");
+    expect(matchRead([r("Guido Ro…")], all)[0].id).toBe("8");
   });
 
   it("sin parecido no empareja", () => {
