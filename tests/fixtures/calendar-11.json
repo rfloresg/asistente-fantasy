@@ -1,0 +1,26 @@
+[
+ {
+  "id": "101",
+  "matchDate": "2026-10-30T21:00:00+01:00",
+  "date": "2026-10-30T21:00:00+01:00",
+  "time": "2026-10-30T21:00:00+01:00",
+  "localId": 20,
+  "visitorId": 8,
+  "matchState": 1,
+  "localScore": null,
+  "visitorScore": null,
+  "featured": false
+ },
+ {
+  "id": "102",
+  "matchDate": "2026-10-31T16:15:00+01:00",
+  "date": "2026-10-31T16:15:00+01:00",
+  "time": "2026-10-31T16:15:00+01:00",
+  "localId": 14,
+  "visitorId": 6,
+  "matchState": 1,
+  "localScore": null,
+  "visitorScore": null,
+  "featured": false
+ }
+]

@@ -1,0 +1,99 @@
+[
+ {
+  "id": "68",
+  "positionId": "1",
+  "nickname": "Unai Simón",
+  "lastSeasonPoints": "211",
+  "playerStatus": "ok",
+  "marketValue": "39369943",
+  "points": 75,
+  "averagePoints": 7.5,
+  "weekPoints": [
+   {
+    "weekNumber": 2,
+    "points": 1
+   },
+   {
+    "weekNumber": 1,
+    "points": 10
+   },
+   {
+    "weekNumber": 3,
+    "points": 10
+   },
+   {
+    "weekNumber": 4,
+    "points": 13
+   },
+   {
+    "weekNumber": 5,
+    "points": 4
+   },
+   {
+    "weekNumber": 6,
+    "points": 4
+   },
+   {
+    "weekNumber": 7,
+    "points": 8
+   },
+   {
+    "weekNumber": 8,
+    "points": 4
+   },
+   {
+    "weekNumber": 9,
+    "points": 11
+   },
+   {
+    "weekNumber": 10,
+    "points": 10
+   }
+  ],
+  "image": "https://assets-fantasy.llt-services.com/players/t174/p68/256x256/p68_t174_1_001_000.png",
+  "teamId": "3"
+ },
+ {
+  "id": "140",
+  "positionId": "1",
+  "nickname": "Iván Villar",
+  "lastSeasonPoints": "0",
+  "playerStatus": "ok",
+  "marketValue": "600668",
+  "points": 0,
+  "averagePoints": 0,
+  "weekPoints": [
+   {
+    "weekNumber": 5,
+    "points": 0
+   },
+   {
+    "weekNumber": 8,
+    "points": 0
+   },
+   {
+    "weekNumber": 9,
+    "points": 0
+   },
+   {
+    "weekNumber": 10,
+    "points": 0
+   }
+  ],
+  "image": "https://assets-fantasy.llt-services.com/players/t176/p140/256x256/p140_t176_1_001_000.png",
+  "teamId": "6"
+ },
+ {
+  "id": "2351",
+  "positionId": "1",
+  "nickname": "Iñaki Peña",
+  "lastSeasonPoints": "102",
+  "playerStatus": "out_of_league",
+  "marketValue": "4015501",
+  "points": 0,
+  "averagePoints": 0,
+  "weekPoints": [],
+  "image": "https://assets-fantasy.llt-services.com/players/t954/p2351/256x256/p2351_t954_1_001_000.png",
+  "teamId": "7"
+ }
+]

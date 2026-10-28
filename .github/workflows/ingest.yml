@@ -1,0 +1,24 @@
+name: Ingesta diaria
+
+on:
+  schedule:
+    # 04:45 UTC = 05:45 en Madrid en invierno (06:45 en verano).
+    # El mercado se actualiza entre las 04:00 y las 05:30.
+    - cron: "45 4 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
