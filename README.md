@@ -118,7 +118,10 @@ Bot para el grupo de Telegram de tu liga. Publica fichajes, ventas, cláusulas y
 2. Crea el bot en Telegram con @BotFather (`/newbot`), mételo en el grupo y escribe `/start` en el grupo.
 3. En `.env`: `TELEGRAM_BOT_TOKEN=...` y `LIGA_ID=...` (sale en `npm run liga:probe`). Luego `npm run telegram:chat` te da el ID del grupo para `TELEGRAM_CHAT_ID`.
 4. `npm run espia preview`: muestra en la terminal lo que publicaría, sin enviar nada.
-5. En GitHub, secretos `LIGA_ID`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`. El workflow `espia.yml` mira la liga cada 30 min (07:00 a 01:00) y manda el resumen a las 09:00.
+
+Varias ligas: `ESPIA_LIGAS=018477470:-5110647810,018218984:-100...` (id de liga:id del grupo, separados por comas). El mismo bot sirve para todos los grupos.
+
+5. En GitHub, secretos `TELEGRAM_BOT_TOKEN` y `ESPIA_LIGAS` (o `LIGA_ID` + `TELEGRAM_CHAT_ID` para una sola liga). El workflow `espia.yml` mira la liga cada 30 min (07:00 a 01:00) y manda el resumen a las 09:00.
 
 La primera vez no publica el historial: solo un mensaje de "Espía activado". Las actividades ya avisadas se guardan en `espia_events`.
 

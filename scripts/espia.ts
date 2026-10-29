@@ -3,7 +3,9 @@
 //   npm run espia            avisos de actividad nueva (fichajes, ventas, cláusulas...)
 //   npm run espia resumen    resumen diario (una vez al día)
 //   npm run espia preview    muestra en la terminal lo que publicaría, sin enviar nada
-// Config (.env o secretos de GitHub): LIGA_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+// Config (.env o secretos de GitHub): TELEGRAM_BOT_TOKEN y
+//   ESPIA_LIGAS=liga:chat,liga:chat   (varias ligas, cada una con su grupo)
+//   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
 import { and, eq, inArray, max } from "drizzle-orm";
@@ -45,17 +47,44 @@ async function send(chatId: string | undefined, messages: string[]) {
   for (const m of messages) await sendMessage(chatId, m);
 }
 
+// "018477470:-5110647810,018218984:-100123" -> [{ leagueId, chatId }]
+export function parseLeagues(env: NodeJS.ProcessEnv): { leagueId: string; chatId?: string }[] {
+  if (env.ESPIA_LIGAS?.trim()) {
+    return env.ESPIA_LIGAS.split(",").map((pair) => {
+      const [leagueId, chatId] = pair.trim().split(":").map((x) => x.trim());
+      return { leagueId, chatId: chatId || undefined };
+    }).filter((l) => l.leagueId);
+  }
+  return env.LIGA_ID ? [{ leagueId: env.LIGA_ID, chatId: env.TELEGRAM_CHAT_ID }] : [];
+}
+
 async function main() {
-  const leagueId = process.env.LIGA_ID;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!leagueId) throw new Error("Falta LIGA_ID (sale en npm run liga:probe, p. ej. 018477470)");
-  if (mode !== "preview" && !chatId) throw new Error("Falta TELEGRAM_CHAT_ID (npm run telegram:chat)");
+  const leagues = parseLeagues(process.env);
+  if (!leagues.length) throw new Error("Falta ESPIA_LIGAS (liga:chat,liga:chat) o LIGA_ID");
+  if (mode !== "preview" && leagues.some((l) => !l.chatId)) throw new Error("Falta el chat de Telegram de alguna liga (npm run telegram:chat)");
 
   const { db, close } = await getConn();
   try {
     const token = await getAccessToken(db);
+    const names = new Map((await myLeagues(token)).map((l) => [String(l.id), l.name?.trim()]));
+    let failed = 0;
+    for (const { leagueId, chatId } of leagues) {
+      try {
+        await runLeague(db, token, leagueId, chatId, names.get(leagueId) ?? "Tu liga");
+      } catch (e) {
+        failed++;
+        console.error(`${leagueId}: ${String(e instanceof Error ? e.message : e)}`);
+      }
+    }
+    if (failed) throw new Error(`${failed} liga(s) con error`);
+  } finally {
+    await close();
+  }
+}
+
+async function runLeague(db: Db, token: string, leagueId: string, chatId: string | undefined, leagueName: string) {
+  {
     const liga = leagueClient(token, leagueId);
-    const leagueName = (await myLeagues(token)).find((l) => String(l.id) === leagueId)?.name?.trim() ?? "Tu liga";
     const standing = await liga.standing();
 
     // Actividad: hasta 3 páginas o hasta salir de las últimas 48 h
@@ -101,7 +130,7 @@ async function main() {
       const day = today();
       const [state] = await db.select().from(espiaState).where(eq(espiaState.leagueId, leagueId));
       if (mode === "resumen" && state?.lastSummaryDay === day && !process.env.FORCE) {
-        console.log("Resumen de hoy ya enviado");
+        console.log(`${leagueName}: resumen de hoy ya enviado`);
         return;
       }
       const teams = [];
@@ -123,15 +152,13 @@ async function main() {
       if (mode === "resumen") {
         await db.insert(espiaState).values({ leagueId, lastSummaryDay: day })
           .onConflictDoUpdate({ target: espiaState.leagueId, set: { lastSummaryDay: day } });
-        console.log("Resumen enviado");
+        console.log(`${leagueName}: resumen enviado`);
       }
     }
-  } finally {
-    await close();
   }
 }
 
-main().catch((e) => {
+if (process.argv[1]?.endsWith("espia.ts")) main().catch((e) => {
   console.error(String(e instanceof Error ? e.message : e));
   process.exit(1);
 });

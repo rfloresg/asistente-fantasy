@@ -66,3 +66,18 @@ describe("pack", () => {
     expect(out.every((m) => m.length <= 70)).toBe(true);
   });
 });
+
+import { parseLeagues } from "../scripts/espia";
+
+describe("parseLeagues", () => {
+  it("varias ligas con su grupo", () => {
+    expect(parseLeagues({ ESPIA_LIGAS: "018477470:-5110647810, 018218984:-100123" } as unknown as NodeJS.ProcessEnv)).toEqual([
+      { leagueId: "018477470", chatId: "-5110647810" },
+      { leagueId: "018218984", chatId: "-100123" },
+    ]);
+  });
+  it("una sola liga con las variables de antes", () => {
+    expect(parseLeagues({ LIGA_ID: "1", TELEGRAM_CHAT_ID: "-2" } as unknown as NodeJS.ProcessEnv)).toEqual([{ leagueId: "1", chatId: "-2" }]);
+    expect(parseLeagues({} as unknown as NodeJS.ProcessEnv)).toEqual([]);
+  });
+});

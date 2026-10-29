@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 5
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ESPIA_LIGAS: ${{ secrets.ESPIA_LIGAS }}
       LIGA_ID: ${{ secrets.LIGA_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
