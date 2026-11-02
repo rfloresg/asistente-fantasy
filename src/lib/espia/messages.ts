@@ -4,6 +4,8 @@
 
 import type { Activity, MarketItem, Standing, Team } from "./league";
 
+export const MIN_NOTA_MERCADO = 60; // en el resumen solo salen jugadores con nota de 60 o más
+
 export interface Ctx {
   managers: Map<string, string>; // managerId -> nombre
   players: Map<string, { nickname: string; value: number }>; // id -> jugador (valor de hoy)
@@ -116,6 +118,7 @@ export function dailySummary(i: SummaryInput): string {
   const onSale = i.market
     .filter((m) => m.status === "on_sale")
     .map((m) => ({ m, n: i.notas.get(String(m.playerMaster.id)) }))
+    .filter(({ n }) => (n?.nota ?? 0) >= MIN_NOTA_MERCADO)
     .sort((a, b) => (b.n?.nota ?? 0) - (a.n?.nota ?? 0))
     .slice(0, 5);
   if (onSale.length) {

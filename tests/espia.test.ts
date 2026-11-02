@@ -44,8 +44,9 @@ describe("dailySummary", () => {
   const text = dailySummary({
     leagueName: "Los Súbditos de Willy", day: "2026-10-28", standing, teams,
     last24h: [act({ user1Id: 3295526, playerMasterId: 2703, amount: 1_350_000 })],
-    market: [{ id: "m", salePrice: 1_047_068, expirationDate: "", status: "on_sale", numberOfBids: 2, playerMaster: { id: "2703", nickname: "Aitor Fdez", marketValue: 1, positionId: 1, playerStatus: "ok" } }],
-    notas: new Map([["2703", { nota: 85, action: "fichar" }]]),
+    market: [{ id: "m", salePrice: 1_047_068, expirationDate: "", status: "on_sale", numberOfBids: 2, playerMaster: { id: "2703", nickname: "Aitor Fdez", marketValue: 1, positionId: 1, playerStatus: "ok" } },
+      { id: "m2", salePrice: 500_000, expirationDate: "", status: "on_sale", numberOfBids: 0, playerMaster: { id: "9999", nickname: "Malo", marketValue: 1, positionId: 2, playerStatus: "ok" } }],
+    notas: new Map([["2703", { nota: 85, action: "fichar" }], ["9999", { nota: 49, action: "mantener" }]]),
     ctx,
   });
   it("ordena la clasificación y marca subidas", () => {
@@ -56,6 +57,7 @@ describe("dailySummary", () => {
     expect(text).toContain("• Jonix: gasta 1,35 M");
     expect(text).toContain("Vini Jr. (sanción)");
     expect(text).toContain("• Aitor Fdez · nota 85 · 1,05 M · 2 pujas");
+    expect(text).not.toContain("Malo"); // nota < 60 no sale
   });
 });
 
