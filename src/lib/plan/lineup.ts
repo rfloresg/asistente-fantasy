@@ -22,7 +22,8 @@ export interface Lineup {
   starters: Pick[];
   captain: Pick | null;
   expected: number; // puntos esperados del once (capitán doble)
-  out: Pick[]; // de tu plantilla, los que no pueden jugar o no van a jugar
+  out: Pick[]; // fuera del once: los que no pueden jugar o no van a jugar
+  holes: Pick[]; // en el once por obligación (no tienes otro en su puesto) pero no van a jugar
 }
 
 const STATUS_FACTOR: Record<string, number> = { injured: 0, suspended: 0, doubtful: 0.5, out_of_league: 0 };
@@ -48,9 +49,12 @@ export function bestLineup(players: LineupPlayer[]): Lineup | null {
     const starters = need.flatMap(([pos, n]) => byPos(pos).slice(0, n));
     const captain = [...starters].sort((x, y) => y.expected - x.expected)[0] ?? null;
     const expected = Math.round((starters.reduce((s, p) => s + p.expected, 0) + (captain?.expected ?? 0)) * 10) / 10;
-    if (!best || expected > best.expected) best = { formation: f, starters, captain, expected, out: [] };
+    if (!best || expected > best.expected) best = { formation: f, starters, captain, expected, out: [], holes: [] };
   }
   if (!best) return null;
-  best.out = picks.filter((p) => (STATUS_FACTOR[p.status] ?? 1) === 0 || (p.startProb !== null && p.startProb < 30));
+  const wontPlay = (p: Pick) => (STATUS_FACTOR[p.status] ?? 1) === 0 || (p.startProb !== null && p.startProb < 30);
+  const inXI = new Set(best.starters.map((p) => p.id));
+  best.out = picks.filter((p) => !inXI.has(p.id) && wontPlay(p));
+  best.holes = best.starters.filter(wontPlay);
   return best;
 }

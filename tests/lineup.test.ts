@@ -35,6 +35,19 @@ describe("mejor once", () => {
     expect(l.captain!.id).toBe("A1");
     expect(l.out.map((p) => p.id)).toEqual(["A3"]);
   });
+  it("detecta huecos: titulares por obligación que no van a jugar", () => {
+    const thin = [pl("POR1", 1, 5, { startProb: 5 }), ...squad.filter((p) => p.positionId !== 1)];
+    const t = bestLineup(thin)!;
+    expect(t.holes.map((p) => p.id)).toEqual(["POR1"]);
+    expect(t.out.map((p) => p.id)).not.toContain("POR1");
+    const acc = dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 1, rivals: [], market: [], scores: new Map(), lineup: t });
+    expect(planMessage("L", 1, acc)).toContain("<b>POR1</b> (POR, 5 %) entra por obligación y no va a jugar. Ficha un portero que juegue.");
+    // y en las pujas aparece un portero titular aunque su nota no sea de "fichar"
+    const gk = { id: "m", salePrice: 1_000_000, expirationDate: "", status: "on_sale", playerMaster: { id: "gk", nickname: "Portero", marketValue: 1, positionId: 1, playerStatus: "ok" } };
+    const sc = new Map([["gk", { nota: 58, action: "mantener" as const, value: 1_000_000, maxBidPlay: 1_000_000, maxBidSpec: null, formAvg: 4, startProb: 90 }]]);
+    const acc2 = dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 5_000_000, rivals: [], market: [gk], scores: sc, lineup: t });
+    expect(acc2.find((a) => a.tipo === "pujar")!.texto).toContain("Te falta un titular en su puesto");
+  });
   it("sale en el plan", () => {
     const acc = dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 1, rivals: [], market: [], scores: new Map(), lineup: l });
     const text = planMessage("Liga", 1, acc);

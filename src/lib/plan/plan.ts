@@ -14,6 +14,7 @@ export const PLAN = {
   cheapClause: 1.1, // cláusula hasta un 10 % sobre el valor = barata: a cualquiera le compensa
   raiseOver: 1.05, // subir la cláusula un 5 % por encima de lo que le compensa pagar a un rival (o de su dinero)
   raiseMaxShare: 0.25, // y solo si cuesta como mucho el 25 % de tu dinero; si no, blindar
+  needNota: 55, // si te falta un titular en un puesto, vale con esta nota (y 60 % de ser titular)
   bidExtra: 0.05, // puja: valor + 5 %...
   bidExtraWithBids: 0.12, // ... o + 12 % si ya hay pujas
 };
@@ -187,12 +188,17 @@ export function dailyPlan(i: PlanInput): Accion[] {
   }
 
   // 4. Pujas en el mercado de la liga
+  const needPos = new Set((i.lineup?.holes ?? []).map((p) => p.positionId));
   const myIds = new Set(i.myTeam.players.map(id));
   const pujas = i.market
     .filter((m) => m.status === "on_sale" && !myIds.has(String(m.playerMaster.id)))
     .map((m) => ({ m, s: sc(String(m.playerMaster.id)) }))
-    .filter(({ m, s }) => s && ((s.action === "fichar" && m.salePrice <= s.maxBidPlay) || (s.maxBidSpec !== null && m.salePrice < s.maxBidSpec)))
-    .sort((a, c) => c.s!.nota - a.s!.nota);
+    .filter(({ m, s }) => s && (
+      (s.action === "fichar" && m.salePrice <= s.maxBidPlay)
+      || (s.maxBidSpec !== null && m.salePrice < s.maxBidSpec)
+      || (needPos.has(m.playerMaster.positionId) && s.nota >= PLAN.needNota && (s.startProb ?? 100) >= 60 && m.salePrice <= s.maxBidPlay)))
+    // primero los de los puestos donde te faltan titulares, luego por nota
+    .sort((a, c) => Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId)) || c.s!.nota - a.s!.nota);
   let nPujas = 0;
   for (const { m, s } of pujas) {
     if (nPujas >= PLAN.maxPerType) break;
@@ -207,14 +213,15 @@ export function dailyPlan(i: PlanInput): Accion[] {
     budget -= bid;
     cash -= bid;
     const name = m.playerMaster.nickname;
-    const why = forPlay ? `para jugar (nota ${s!.nota})` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
+    const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
+    const why = forPlay || need ? `para jugar (nota ${s!.nota})` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
     const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
     out.push({
       tipo: "pujar",
       prioridad: 3,
       jugador: name,
       playerId: String(m.playerMaster.id),
-      texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}. Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
+      texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
     });
   }
 
@@ -236,18 +243,29 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const l = i.lineup;
     const POS = ["", "POR", "DEF", "MED", "DEL"];
     const row = (pos: number) => l.starters.filter((p) => p.positionId === pos).map((p) => esc(p.name)).join(", ");
-    const doubts = l.starters.filter((p) => p.status === "doubtful" || (p.startProb !== null && p.startProb < 60));
+    const holeIds = new Set(l.holes.map((p) => p.id));
+    const doubts = l.starters.filter((p) => !holeIds.has(p.id) && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
     const lines = [
       `📋 Alinea un ${b(l.formation)} (unos ${l.expected.toLocaleString("es-ES")} pts esperados con el capitán):`,
       ...[1, 2, 3, 4].map((pos) => `${POS[pos]}: ${row(pos)}`),
     ];
     if (l.captain) lines.push(`©️ Capitán: ${b(l.captain.name)} (${l.captain.expected.toLocaleString("es-ES")} pts esperados${l.captain.startProb !== null ? `, ${l.captain.startProb} % de ser titular` : ""}).`);
     if (doubts.length) lines.push(`Dudas: ${doubts.map((p) => `${b(p.name)}${p.startProb !== null ? ` (${p.startProb} %)` : " (en duda)"}`).join(", ")}. Revisa el once antes de la jornada.`);
+    if (l.holes.length) {
+      lines.push(`⚠️ Te faltan titulares: ${l.holes.map((p) => `${b(p.name)} (${POS[p.positionId]}${p.startProb !== null ? `, ${p.startProb} %` : ""})`).join(", ")} ${l.holes.length > 1 ? "entran por obligación y no van" : "entra por obligación y no va"} a jugar. Ficha ${needText(l.holes)} que ${l.holes.length > 1 ? "jueguen" : "juegue"}.`);
+    }
     if (l.out.length) lines.push(`No alinees: ${l.out.map((p) => b(p.name)).join(", ")}.`);
     out.push({ tipo: "alinear", prioridad: 3, texto: lines.join("\n") });
   }
 
   return out.sort((a, c) => a.prioridad - c.prioridad);
+}
+
+const NEED: Record<number, [string, string]> = { 1: ["un portero", "porteros"], 2: ["un defensa", "defensas"], 3: ["un centrocampista", "centrocampistas"], 4: ["un delantero", "delanteros"] };
+function needText(holes: { positionId: number }[]): string {
+  const count = new Map<number, number>();
+  for (const h of holes) count.set(h.positionId, (count.get(h.positionId) ?? 0) + 1);
+  return [...count].map(([pos, n]) => (n === 1 ? NEED[pos][0] : `${n} ${NEED[pos][1]}`)).join(" y ");
 }
 
 const TITLES: Record<Tipo, string> = {
