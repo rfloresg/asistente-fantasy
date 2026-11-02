@@ -33,10 +33,17 @@ export function pack(lines: string[], max = 3500): string[] {
 
 export async function chatsFromUpdates() {
   const res = await fetch(api("getUpdates"));
-  const body = (await res.json()) as { result?: { message?: { chat: { id: number; title?: string; type: string } } }[] };
+  type Chat = { id: number; title?: string; type: string };
+  const body = (await res.json()) as {
+    ok: boolean;
+    description?: string;
+    result?: { message?: { chat: Chat }; my_chat_member?: { chat: Chat } }[];
+  };
+  if (!body.ok) throw new Error(`Telegram: ${body.description ?? res.status}. Revisa TELEGRAM_BOT_TOKEN en .env`);
   const chats = new Map<number, string>();
   for (const u of body.result ?? []) {
-    const c = u.message?.chat;
+    // message: /start@bot en el grupo. my_chat_member: el bot ha entrado en un grupo.
+    const c = u.message?.chat ?? u.my_chat_member?.chat;
     if (c) chats.set(c.id, `${c.title ?? "chat privado"} (${c.type})`);
   }
   return chats;
