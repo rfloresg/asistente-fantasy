@@ -7,7 +7,7 @@ chatsFromUpdates()
   .then((chats) => {
     if (!chats.size) return console.log("No veo mensajes. Escribe /start en el grupo y vuelve a ejecutarlo.");
     for (const [id, name] of chats) console.log(`${id}  ${name}`);
-    console.log("\nCopia el ID del grupo (empieza por -) en TELEGRAM_CHAT_ID.");
+    console.log("\nCopia el ID del grupo (empieza por -) en ESPIA_LIGAS=liga:grupo,liga:grupo");
   })
   .catch((e) => {
     console.error(String(e instanceof Error ? e.message : e));
