@@ -234,6 +234,12 @@ async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standin
       const types = new Map<number, number>();
       for (const a of all) types.set(a.activityTypeId, (types.get(a.activityTypeId) ?? 0) + 1);
       console.log(`  Tipos en la liga: ${[...types].map(([t, n]) => `${t}×${n}`).join(" ")} · más antigua ${all.at(-1)?.createdAt ?? "?"}`);
+      // Tipos que no se cuentan como dinero: ejemplo de cada uno, para saber qué son
+      for (const t of types.keys()) {
+        if ([1, 4, 6, 31, 32, 33].includes(t)) continue;
+        const ex = all.find((a) => a.activityTypeId === t)!;
+        console.log(`  Tipo ${t} (no cuenta): ${JSON.stringify(ex)}`);
+      }
     }
     return byTeam;
   } catch (e) {

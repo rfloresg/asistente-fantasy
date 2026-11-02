@@ -162,7 +162,7 @@ export function dailySummary(i: SummaryInput): string {
   }
 
   if (i.money?.size) {
-    lines.push("", "<b>Dinero estimado</b>");
+    lines.push("", "<b>Dinero estimado</b> (como mucho: no cuenta subidas de cláusula antiguas)");
     const rows = i.standing
       .flatMap((st) => (i.money!.has(st.team.id) ? [{ name: st.team.manager?.managerName ?? "?", m: i.money!.get(st.team.id)! }] : []))
       .sort((a, b) => b.m - a.m);
