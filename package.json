@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
     "score": "tsx scripts/score.ts",
+    "validar": "tsx scripts/validar.ts",
     "onces": "tsx scripts/onces.ts",
     "liga:login": "tsx scripts/liga-login.ts",
     "liga:probe": "tsx scripts/liga-probe.ts",

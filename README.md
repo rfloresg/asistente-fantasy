@@ -23,6 +23,7 @@ Sin `DATABASE_URL` usa PGlite, un Postgres embebido en `./.data`. Solo admite un
 | `npm run ingest` | Descarga y guarda los datos. Se puede repetir sin duplicar |
 | `npm run onces` | Onces probables de hoy. Avisa de titulares que no sabe emparejar |
 | `npm run score` | Calcula la nota del último día. `SCORE_DAYS=30` recalcula también días anteriores |
+| `npm run validar` | ¿Acierta la nota? Compara cada nota con lo que pasó después y sugiere pesos |
 | `npm test` | Tests del parser con respuestas reales de la API |
 | `npm run db:generate` | Genera una migración tras cambiar `src/db/schema.ts` |
 | `npm run typecheck` | Comprueba tipos |
