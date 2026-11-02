@@ -6,12 +6,14 @@ on:
     # Cada run gasta ~1 min de los 2.000 gratis al mes de GitHub.
     - cron: "*/30 6-23 * * *"
     - cron: "0 0 * * *"
-    # Resumen diario a las 09:00 de Madrid
+    # Resumen diario a las 09:00 de Madrid (y después tu plan)
     - cron: "0 8 * * *"
+    # Segundo plan del día a las 18:00 de Madrid
+    - cron: "0 17 * * *"
   workflow_dispatch:
     inputs:
       modo:
-        description: "eventos o resumen"
+        description: "eventos, resumen o plan"
         default: "eventos"
 
 jobs:
@@ -23,6 +25,7 @@ jobs:
       ESPIA_LIGAS: ${{ secrets.ESPIA_LIGAS }}
       ESPIA_DINERO: ${{ vars.ESPIA_DINERO }}
       ESPIA_SUBIDAS: ${{ vars.ESPIA_SUBIDAS }}
+      ESPIA_PLAN_CHAT: ${{ secrets.ESPIA_PLAN_CHAT }}
       LIGA_ID: ${{ secrets.LIGA_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -38,6 +41,9 @@ jobs:
       - name: Resumen diario
         if: github.event.schedule == '0 8 * * *' || github.event.inputs.modo == 'resumen'
         run: npm run espia resumen
+      - name: Plan del día (privado)
+        if: github.event.schedule == '0 8 * * *' || github.event.schedule == '0 17 * * *' || github.event.inputs.modo == 'plan'
+        run: npm run espia plan
       - name: Avisos de actividad
-        if: github.event.schedule != '0 8 * * *' && github.event.inputs.modo != 'resumen'
+        if: github.event.schedule != '0 8 * * *' && github.event.schedule != '0 17 * * *' && github.event.inputs.modo != 'resumen' && github.event.inputs.modo != 'plan'
         run: npm run espia

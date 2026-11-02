@@ -4,7 +4,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, desc, eq, max, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { players, playerScores, teams } from "@/db/schema";
+import { espiaPlans, players, playerScores, teams } from "@/db/schema";
 import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
 import { norm } from "@/lib/onces/match";
@@ -57,6 +57,12 @@ export const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "plan_del_dia",
+    description:
+      "Último plan del día de Rubén en cada liga: qué vender, a quién proteger (subir cláusula o blindar), por quién pujar y cuánto, y clausulazos. Úsala cuando pregunte qué hacer hoy o qué movimientos hacer.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "meta",
     description:
       "Manual de cómo se juega a LaLiga Fantasy y cómo juegan los pros: reglas (dinero, puntuación, mercado, cláusulas, blindaje, capitán) y consejos de estrategia con fuentes. Úsala para explicar el porqué de una decisión o cuando pregunten cómo funciona algo. 'todo' devuelve el índice.",
@@ -69,6 +75,24 @@ export const TOOLS: Anthropic.Tool[] = [
 ];
 
 type Input = Record<string, unknown>;
+
+async function planDelDia() {
+  const db = await getDb();
+  const rows = await db.select().from(espiaPlans).orderBy(desc(espiaPlans.createdAt)).limit(20);
+  const seen = new Set<string>();
+  const out = [];
+  for (const r of rows) {
+    if (seen.has(r.leagueId)) continue;
+    seen.add(r.leagueId);
+    out.push({
+      liga: r.leagueName,
+      generado: r.createdAt.toISOString().slice(0, 16).replace("T", " "),
+      tu_dinero: money(r.myMoney),
+      acciones: r.acciones.map((a) => `${a.tipo}: ${a.texto.replace(/<\/?b>/g, "")}`),
+    });
+  }
+  return out.length ? { planes: out } : { error: "Aún no hay plan: se genera a las 9:00 y a las 18:00" };
+}
 
 async function buscarJugador({ nombre }: Input) {
   const q = norm(String(nombre ?? ""));
@@ -190,6 +214,8 @@ async function variosJugadores({ ids }: Input) {
 
 export async function runTool(name: string, input: Input): Promise<unknown> {
   switch (name) {
+    case "plan_del_dia":
+      return planDelDia();
     case "meta":
       return tema(String(input.tema ?? "todo"));
     case "buscar_jugador":

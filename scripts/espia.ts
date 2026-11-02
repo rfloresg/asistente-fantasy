@@ -2,6 +2,8 @@
 // Uso:
 //   npm run espia            avisos de actividad nueva (fichajes, ventas, cláusulas...)
 //   npm run espia resumen    resumen diario (una vez al día)
+//   npm run espia plan       tu plan del día (qué vender, proteger, pujar, clausular). Solo a ti:
+//                            se envía al chat privado ESPIA_PLAN_CHAT y se guarda para la web
 //   npm run espia preview    muestra en la terminal lo que publicaría, sin enviar nada
 // Config (.env o secretos de GitHub): TELEGRAM_BOT_TOKEN y
 //   ESPIA_LIGAS=liga:chat,liga:chat   (varias ligas, cada una con su grupo)
@@ -10,8 +12,9 @@
 import "dotenv/config";
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
-import { espiaClauses, espiaEvents, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
+import { espiaClauses, espiaEvents, espiaPlans, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
 import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
+import { dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
@@ -173,7 +176,7 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
       // El dinero estimado solo se publica con ESPIA_DINERO=1 (en preview siempre se ve)
-      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? await estimateLeagueMoney(db, liga, leagueId, standing) : undefined;
+      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? (await estimateLeagueMoney(db, liga, leagueId, standing))?.byTeam : undefined;
       const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,
@@ -191,6 +194,8 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
         console.log(`${leagueName}: resumen enviado`);
       }
     }
+
+    if (mode === "plan" || mode === "preview") await runPlan(db, liga, leagueId, leagueName, standing);
   }
 }
 
@@ -241,7 +246,7 @@ async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standin
         console.log(`  Tipo ${t} (no cuenta): ${JSON.stringify(ex)}`);
       }
     }
-    return byTeam;
+    return { byTeam, mine };
   } catch (e) {
     console.log(`Dinero: ${String(e instanceof Error ? e.message : e)}`);
     return undefined;
@@ -277,6 +282,46 @@ async function trackClauses(db: Db, leagueId: string, teams: Awaited<ReturnType<
 }
 
 const fmtM = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
+
+// Plan del día: solo para ti. Nunca va al grupo.
+async function runPlan(db: Db, liga: Liga, leagueId: string, leagueName: string, standing: Awaited<ReturnType<Liga["standing"]>>) {
+  const money = await estimateLeagueMoney(db, liga, leagueId, standing);
+  if (!money?.mine) {
+    console.log(`${leagueName}: sin tu dinero no hay plan`);
+    return;
+  }
+  const teams = [];
+  for (const st of standing) teams.push(await liga.team(String(st.team.id)));
+  const market = await liga.market();
+  const myTeam = teams.find((t) => String(t.id) === money.mine!.teamId);
+  if (!myTeam) throw new Error("No encuentro tu equipo");
+
+  const ids = [...new Set([...teams.flatMap((t) => t.players.map((p) => String(p.playerMaster.id))), ...market.map((m) => String(m.playerMaster.id))])];
+  const [{ d }] = await db.select({ d: max(playerScores.day) }).from(playerScores);
+  const rows = d && ids.length
+    ? await db.select().from(playerScores).where(and(eq(playerScores.day, d), inArray(playerScores.playerId, ids)))
+    : [];
+  const scores = new Map(rows.map((r) => [r.playerId, r]));
+  const mts = await db.select({ week: matches.week, date: matches.date }).from(matches);
+  const now = new Date();
+  const rivals = teams
+    .filter((t) => String(t.id) !== money.mine!.teamId)
+    .map((t) => ({ teamId: String(t.id), manager: t.manager?.managerName ?? "?", money: money.byTeam.get(String(t.id)), team: t }));
+
+  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: nextMatchday(mts, now)?.close });
+  const text = planMessage(leagueName, money.mine.money, acciones);
+  const chat = process.env.ESPIA_PLAN_CHAT;
+  if (mode === "preview" || !chat) {
+    console.log(`\n== Plan (privado) de ${leagueName}${chat ? "" : " · sin ESPIA_PLAN_CHAT no se envía"}`);
+    await send(undefined, pack(text.split("\n")));
+  } else {
+    await send(chat, pack(text.split("\n")));
+  }
+  if (mode !== "preview") {
+    await db.insert(espiaPlans).values({ leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null });
+    console.log(`${leagueName}: plan con ${acciones.length} acciones`);
+  }
+}
 
 if (process.argv[1]?.endsWith("espia.ts")) main().catch((e) => {
   console.error(String(e instanceof Error ? e.message : e));

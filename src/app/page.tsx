@@ -21,6 +21,7 @@ export default async function Home({ searchParams }: { searchParams: Search }) {
     <main>
       <h1>Asistente Fantasy</h1>
       <div className="nav">
+        <Link href="/plan">Tu plan del día</Link>
         <Link href="/plantilla">Mi plantilla</Link>
         <Link href="/plantilla?tipo=mercado">Mercado de mi liga</Link>
         <Link href="/chat">Pregúntale al asistente</Link>

@@ -133,6 +133,18 @@ La primera vez no publica el historial: solo un mensaje de "Espía activado". La
 - **Avisos del meta:** cierre del mercado (4 h antes) y parón.
 - `ESPIA_DINERO` y `ESPIA_SUBIDAS` son variables de GitHub (Settings → Secrets and variables → Actions → Variables). En `npm run espia preview` se ve todo siempre.
 
+## Tu plan del día
+
+`npm run espia plan` mira tu plantilla, el mercado de la liga y los equipos rivales y te dice qué hacer, por prioridad (`src/lib/plan/plan.ts`):
+
+1. **Saldo:** si estás en negativo, a quién vender antes del cierre (en negativo no se puntúa).
+2. **Proteger:** tus mejores jugadores con la cláusula abierta y al alcance del rival más rico. Si subirla cuesta poco (hasta el 25 % de tu dinero), cuánto subirla; si no, blindarlo.
+3. **Clausulazos:** jugadores de rivales con nota de fichar, cláusula abierta y sin blindaje, que puedes pagar y que no superan tu puja máxima.
+4. **Pujas:** jugadores del mercado de tu liga que compensan, con la puja sugerida (valor +5 %, o +12 % si ya hay pujas, sin pasar de tu tope).
+5. **Vender:** nota baja y bajando, o lesionado.
+
+Es **solo para ti**: se envía al chat privado `ESPIA_PLAN_CHAT` (abre el bot en privado, escríbele `/start` y saca el ID con `npm run telegram:chat`), nunca al grupo. Se genera a las 9:00 y a las 18:00, se guarda en `espia_plans` y se ve en `/plan` de la web. El chat también lo consulta (herramienta `plan_del_dia`). Umbrales en `PLAN`.
+
 ## El meta (cómo juegan los pros)
 
 `src/lib/meta/manual.ts`: reglas del juego y estrategia (dinero, puntuación, mercado, especular, cláusulas, parones, alineación), cada tema con sus fuentes. Lo marcado `verificar` sale de guías, no del reglamento oficial. El chat lo consulta con la herramienta `meta`; el Espía usa `src/lib/meta/calendario.ts` para los avisos de cierre y parón.

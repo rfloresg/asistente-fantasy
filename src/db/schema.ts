@@ -171,6 +171,17 @@ export const espiaRaises = pgTable("espia_raises", {
   at: timestamp("at", { withTimezone: true }).notNull(),
 });
 
+// Plan del día (solo para ti): acciones recomendadas por liga. La web enseña el último.
+export const espiaPlans = pgTable("espia_plans", {
+  id: serial("id").primaryKey(),
+  leagueId: text("league_id").notNull(),
+  leagueName: text("league_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  scoreDay: date("score_day"),
+  myMoney: bigint("my_money", { mode: "number" }).notNull(),
+  acciones: jsonb("acciones").$type<{ tipo: string; prioridad: number; jugador?: string; playerId?: string; texto: string }[]>().notNull(),
+});
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
