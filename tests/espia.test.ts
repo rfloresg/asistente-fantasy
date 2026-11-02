@@ -138,3 +138,38 @@ describe("cláusulas", () => {
     expect(u[0].key).toBe("unlock:5:2026-11-02T10:00:00+01:00");
   });
 });
+
+import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
+import { tema, TEMAS } from "../src/lib/meta/manual";
+
+describe("meta: calendario", () => {
+  const d = (s: string) => new Date(s);
+  const mts = [
+    { week: 11, date: d("2026-10-31T16:00:00+01:00") },
+    { week: 11, date: d("2026-11-02T21:00:00+01:00") },
+    { week: 12, date: d("2026-11-21T14:00:00+01:00") },
+    { week: 12, date: d("2026-11-23T21:00:00+01:00") },
+  ];
+  it("próxima jornada, cierre 24 h antes y parón", () => {
+    const n = nextMatchday(mts, d("2026-11-03T10:00:00+01:00"))!;
+    expect(n.week).toBe(12);
+    expect(n.close.toISOString()).toBe(d("2026-11-20T14:00:00+01:00").toISOString());
+    expect(n.paron).toBe(true);
+  });
+  it("avisa del parón y del cierre en las últimas 4 h", () => {
+    const n = nextMatchday(mts, d("2026-11-03T10:00:00+01:00"));
+    expect(metaAlerts(n, d("2026-11-03T10:00:00+01:00")).map((a) => a.key)).toEqual(["paron:12"]);
+    expect(metaAlerts(n, d("2026-11-20T11:00:00+01:00")).map((a) => a.key)).toEqual(["cierre:12", "paron:12"]);
+    expect(metaAlerts(n, d("2026-11-20T09:00:00+01:00")).map((a) => a.key)).toEqual(["paron:12"]);
+  });
+});
+
+describe("meta: manual", () => {
+  it("índice y temas con fuentes", () => {
+    expect(TEMAS).toContain("clausulas");
+    const t = tema("clausulas") as { reglas: string[]; fuentes: string[] };
+    expect(t.reglas.some((r) => r.includes("1:2"))).toBe(true);
+    expect(t.fuentes.length).toBeGreaterThan(0);
+    expect(tema("nada")).toHaveProperty("error");
+  });
+});

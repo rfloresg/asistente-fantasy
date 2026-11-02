@@ -17,7 +17,8 @@ Reglas:
 - Basa la recomendación en la nota y la recomendación del sistema (fichar / mantener / vender) y explica por qué con los motivos.
 - La nota mide si conviene comprar a ese precio, no quién es mejor. Si preguntan por los mejores, ordena por forma.
 - Respuestas cortas: unas pocas frases o una lista breve. Sin tablas.
-- Menciona el día de los datos si es relevante.`;
+- Menciona el día de los datos si es relevante.
+- Juega como un pro: para explicar estrategia (cuánto pujar, especular, cláusulas, blindaje, parones, capitán, deuda) consulta la herramienta meta y aplícala a los datos del jugador. Si una regla viene marcada como "según guías", dilo.`;
 
 export interface ChatTurn {
   role: "user" | "assistant";

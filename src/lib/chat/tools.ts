@@ -10,6 +10,7 @@ import { reasons } from "@/lib/nota/explain";
 import { norm } from "@/lib/onces/match";
 import { ACTION, money, n1, pct, POS, STATUS } from "@/lib/format";
 import { market, playerCard, scoresFor, teamNames } from "@/lib/queries";
+import { tema, TEMAS } from "@/lib/meta/manual";
 
 export const TOOLS: Anthropic.Tool[] = [
   {
@@ -53,6 +54,16 @@ export const TOOLS: Anthropic.Tool[] = [
         orden: { type: "string", enum: ["nota", "forma", "tendencia", "valor"] },
         limite: { type: "integer", minimum: 1, maximum: 15 },
       },
+    },
+  },
+  {
+    name: "meta",
+    description:
+      "Manual de cómo se juega a LaLiga Fantasy y cómo juegan los pros: reglas (dinero, puntuación, mercado, cláusulas, blindaje, capitán) y consejos de estrategia con fuentes. Úsala para explicar el porqué de una decisión o cuando pregunten cómo funciona algo. 'todo' devuelve el índice.",
+    input_schema: {
+      type: "object",
+      properties: { tema: { type: "string", enum: ["todo", ...TEMAS] } },
+      required: ["tema"],
     },
   },
 ];
@@ -179,6 +190,8 @@ async function variosJugadores({ ids }: Input) {
 
 export async function runTool(name: string, input: Input): Promise<unknown> {
   switch (name) {
+    case "meta":
+      return tema(String(input.tema ?? "todo"));
     case "buscar_jugador":
       return buscarJugador(input);
     case "ficha_jugador":

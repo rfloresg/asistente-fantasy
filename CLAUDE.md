@@ -33,3 +33,5 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 4. LLM como voz (hecho): `src/lib/chat/`. El control de cifras de `guard.ts` no se quita
 5. Lectura de capturas (hecho): `src/lib/captura/`. La visión solo lee nombres; las cifras, de la base de datos
 6. Validación de la nota con el histórico
+7. Espía (hecho): `src/lib/espia/`. Dinero estimado y subidas de cláusula tras variables `ESPIA_DINERO` / `ESPIA_SUBIDAS`
+8. Meta (hecho): `src/lib/meta/manual.ts`. Reglas con fuente; lo no oficial va con `verificar`

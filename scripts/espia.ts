@@ -10,7 +10,8 @@
 import "dotenv/config";
 import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
-import { espiaClauses, espiaEvents, espiaRaises, espiaState, players, playerScores, playerValues } from "../src/db/schema";
+import { espiaClauses, espiaEvents, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
+import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
@@ -119,6 +120,14 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
       // Subidas de cláusula: se publican con ESPIA_SUBIDAS=1 (en preview siempre se ven)
       const raiseLines = await trackClauses(db, leagueId, teams, ctx);
       if (mode === "preview" || process.env.ESPIA_SUBIDAS === "1") lines.push(...raiseLines);
+
+      // Avisos del meta: cierre de mercado y parón (una vez cada uno)
+      const mts = await db.select({ week: matches.week, date: matches.date }).from(matches);
+      const meta = metaAlerts(nextMatchday(mts, new Date()), new Date()).filter((m) => !seen.has(m.key));
+      lines.push(...meta.map((m) => m.text));
+      if (mode !== "preview" && meta.length) {
+        await db.insert(espiaEvents).values(meta.map((m) => ({ leagueId, activityId: m.key, createdAt: new Date(), sentAt: new Date() }))).onConflictDoNothing();
+      }
 
       if (mode === "preview") {
         console.log(`== ${leagueName}: últimas actividades (${lines.length})`);

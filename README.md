@@ -125,6 +125,18 @@ Varias ligas: `ESPIA_LIGAS=018477470:-5110647810,018218984:-100...` (id de liga:
 
 La primera vez no publica el historial: solo un mensaje de "Espía activado". Las actividades ya avisadas se guardan en `espia_events`.
 
+### Espía v2
+
+- **Cláusulas:** avisa cuando se libera la cláusula de un jugador (🔓) y, con la variable `ESPIA_SUBIDAS=1`, cuando alguien la sube (🔒). Las subidas se detectan comparando las cláusulas de cada pasada (tablas `espia_clauses` y `espia_raises`).
+- **Dinero estimado** en el resumen (con la variable `ESPIA_DINERO=1`): 100 M iniciales + toda la actividad - subidas de cláusula detectadas (cuestan la mitad de lo que suben). El tuyo es el real. Las subidas anteriores a activarlo no se ven: para los rivales es un máximo.
+- **Puntos desde el último resumen**, cobros de la jornada y cláusulas que se liberan en 24 h.
+- **Avisos del meta:** cierre del mercado (4 h antes) y parón.
+- `ESPIA_DINERO` y `ESPIA_SUBIDAS` son variables de GitHub (Settings → Secrets and variables → Actions → Variables). En `npm run espia preview` se ve todo siempre.
+
+## El meta (cómo juegan los pros)
+
+`src/lib/meta/manual.ts`: reglas del juego y estrategia (dinero, puntuación, mercado, especular, cláusulas, parones, alineación), cada tema con sus fuentes. Lo marcado `verificar` sale de guías, no del reglamento oficial. El chat lo consulta con la herramienta `meta`; el Espía usa `src/lib/meta/calendario.ts` para los avisos de cierre y parón.
+
 ## Onces probables
 
 `scripts/onces.ts` lee la página de cada equipo en futbolfantasy.com (su robots.txt lo permite), una vez al día y con pausa de 1,5 s entre páginas. De cada jugador saca si es titular y su probabilidad.
@@ -144,7 +156,8 @@ src/db/                  esquema (Drizzle) y conexión
 src/lib/queries.ts       consultas para la web
 src/lib/chat/            herramientas, control de cifras y bucle con Claude
 src/lib/captura/         lectura de capturas y emparejado de nombres
-src/lib/espia/           lectura de la liga, mensajes y Telegram
+src/lib/espia/           lectura de la liga, mensajes, dinero y Telegram
+src/lib/meta/            manual del meta y avisos de calendario
 scripts/espia.ts         avisos, resumen diario y vista previa
 src/app/                 web (Next.js)
 tests/                   tests con respuestas reales en tests/fixtures
