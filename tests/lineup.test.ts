@@ -56,3 +56,19 @@ describe("mejor once", () => {
     expect(text).toContain("No alinees: <b>A3</b>");
   });
 });
+
+describe("ventas y puestos", () => {
+  it("no propone vender al último defensa que puede jugar", () => {
+    const squad = [
+      pl("POR", 1, 5), pl("D1", 2, 6), pl("D2", 2, 5), pl("D3", 2, 1),
+      pl("M1", 3, 9), pl("M2", 3, 8), pl("M3", 3, 7), pl("M4", 3, 6), pl("A1", 4, 10), pl("A2", 4, 9), pl("A3", 4, 8),
+    ];
+    const l = bestLineup(squad)!;
+    const team = { id: "t", players: squad.map((p) => ({ playerMaster: { id: p.id, nickname: p.id, playerStatus: "ok", marketValue: 1 } })) };
+    const scores = new Map(squad.map((p) => [p.id, { nota: p.id === "D3" || p.id === "M4" ? 20 : 70, action: "mantener" as const, value: 1_000_000, maxBidPlay: 1_000_000, maxBidSpec: null, formAvg: p.formAvg, startProb: 80 }]));
+    const acc = dailyPlan({ now: new Date(), myTeam: team, myMoney: 1, rivals: [], market: [], scores, lineup: l });
+    const sells = acc.filter((a) => a.tipo === "vender").map((a) => a.jugador);
+    expect(sells).toContain("M4"); // le sobran centrocampistas
+    expect(sells).not.toContain("D3"); // sin él no llega a 3 defensas
+  });
+});

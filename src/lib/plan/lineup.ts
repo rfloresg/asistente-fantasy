@@ -24,6 +24,7 @@ export interface Lineup {
   expected: number; // puntos esperados del once (capitán doble)
   out: Pick[]; // fuera del once: los que no pueden jugar o no van a jugar
   holes: Pick[]; // en el once por obligación (no tienes otro en su puesto) pero no van a jugar
+  all: Pick[]; // toda la plantilla (sin entrenadores)
 }
 
 const STATUS_FACTOR: Record<string, number> = { injured: 0, suspended: 0, doubtful: 0.5, out_of_league: 0 };
@@ -49,7 +50,7 @@ export function bestLineup(players: LineupPlayer[]): Lineup | null {
     const starters = need.flatMap(([pos, n]) => byPos(pos).slice(0, n));
     const captain = [...starters].sort((x, y) => y.expected - x.expected)[0] ?? null;
     const expected = Math.round((starters.reduce((s, p) => s + p.expected, 0) + (captain?.expected ?? 0)) * 10) / 10;
-    if (!best || expected > best.expected) best = { formation: f, starters, captain, expected, out: [], holes: [] };
+    if (!best || expected > best.expected) best = { formation: f, starters, captain, expected, out: [], holes: [], all: picks };
   }
   if (!best) return null;
   const wontPlay = (p: Pick) => (STATUS_FACTOR[p.status] ?? 1) === 0 || (p.startProb !== null && p.startProb < 30);

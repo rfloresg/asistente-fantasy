@@ -154,8 +154,24 @@ export function dailyPlan(i: PlanInput): Accion[] {
 
   // Presupuesto: tu dinero + lo que sacarías vendiendo a los que se recomienda vender.
   // Clausulazos y pujas lo van gastando, por orden; lo que no cabe no se propone.
+  // No vendas si te quedas sin jugadores para alinear en su puesto (mínimo de las formaciones: 1-3-3-1)
+  // Se cuentan los que pueden jugar: titulares del once propuesto y suplentes que no estén en "no alinear"
+  const outIds = new Set(i.lineup?.out.map((p) => p.id) ?? []);
+  const posOf = new Map((i.lineup?.all ?? []).filter((p) => !outIds.has(p.id)).map((p) => [p.id, p.positionId]));
+  const lineupIds = new Set(posOf.keys());
+  const MIN_POS: Record<number, number> = { 1: 1, 2: 3, 3: 3, 4: 1 };
+  const left = new Map<number, number>();
+  for (const pos of posOf.values()) left.set(pos, (left.get(pos) ?? 0) + 1);
   const ventas = mine
     .filter(({ s }) => s && (s.action === "vender" || s.nota < PLAN.sellNota))
+    .filter(({ p }) => {
+      const pos = posOf.get(id(p));
+      if (!pos || !lineupIds.has(id(p)) || (left.get(pos) ?? 0) - 1 >= (MIN_POS[pos] ?? 0)) {
+        if (pos) left.set(pos, (left.get(pos) ?? 0) - 1);
+        return true;
+      }
+      return false; // es de los pocos que tienes en su puesto: primero ficha recambio
+    })
     .slice(0, PLAN.maxPerType);
   const fromSales = ventas.reduce((t, { s }) => t + (s?.value ?? 0), 0);
   let budget = Math.max(0, i.myMoney) + fromSales;
