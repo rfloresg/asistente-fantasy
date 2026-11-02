@@ -92,6 +92,9 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
   {
     const liga = leagueClient(token, leagueId);
     const standing = await liga.standing();
+    // El dinero necesita todo el historial: se calcula una vez por liga y pasada
+    let moneyMemo: ReturnType<typeof estimateLeagueMoney> | null = null;
+    const getMoney = () => (moneyMemo ??= estimateLeagueMoney(db, liga, leagueId, standing));
 
     // Actividad: hasta 3 páginas o hasta salir de las últimas 48 h
     const acts: Activity[] = [];
@@ -176,7 +179,7 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
       // El dinero estimado solo se publica con ESPIA_DINERO=1 (en preview siempre se ve)
-      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? (await estimateLeagueMoney(db, liga, leagueId, standing))?.byTeam : undefined;
+      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? (await getMoney())?.byTeam : undefined;
       const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,
@@ -195,7 +198,7 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
       }
     }
 
-    if (mode === "plan" || mode === "preview") await runPlan(db, liga, leagueId, leagueName, standing);
+    if (mode === "plan" || mode === "preview") await runPlan(db, liga, leagueId, leagueName, standing, await getMoney());
   }
 }
 
@@ -284,8 +287,10 @@ async function trackClauses(db: Db, leagueId: string, teams: Awaited<ReturnType<
 const fmtM = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
 
 // Plan del día: solo para ti. Nunca va al grupo.
-async function runPlan(db: Db, liga: Liga, leagueId: string, leagueName: string, standing: Awaited<ReturnType<Liga["standing"]>>) {
-  const money = await estimateLeagueMoney(db, liga, leagueId, standing);
+async function runPlan(
+  db: Db, liga: Liga, leagueId: string, leagueName: string,
+  standing: Awaited<ReturnType<Liga["standing"]>>, money: Awaited<ReturnType<typeof estimateLeagueMoney>>,
+) {
   if (!money?.mine) {
     console.log(`${leagueName}: sin tu dinero no hay plan`);
     return;

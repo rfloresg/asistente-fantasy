@@ -61,6 +61,14 @@ describe("plan del día", () => {
     expect(byTipo("pujar")).toEqual(["Chollo"]);
     expect(plan.find((a) => a.jugador === "Chollo")!.texto).toContain("Puja 5,6 M"); // +12 % porque ya hay puja
   });
+  it("no propone lo que no puedes pagar ni vendiendo, y reparte el presupuesto", () => {
+    const caro: MarketItem = { id: "m3", salePrice: 180_000_000, expirationDate: "", status: "on_sale", playerMaster: { id: "30", nickname: "Mbappé", marketValue: 1, positionId: 4, playerStatus: "ok" } };
+    const sc2 = new Map(scores).set("30", score(95, 180_000_000));
+    const p = dailyPlan({ now, myTeam, myMoney: 15_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market: [caro, ...market], scores: sc2 });
+    expect(p.map((a) => a.jugador)).not.toContain("Mbappé");
+    // tras clausular a Crack (12 M) te quedan 3 M: la puja de 5,6 M por Chollo pide vender antes
+    expect(p.find((a) => a.jugador === "Chollo")!.texto).toContain("tendrás que vender antes");
+  });
   it("vende al de nota baja", () => {
     expect(byTipo("vender")).toEqual(["Malo"]);
   });

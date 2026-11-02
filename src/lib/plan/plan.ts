@@ -131,22 +131,38 @@ export function dailyPlan(i: PlanInput): Accion[] {
     }
   }
 
-  // 3. Clausulazos: jugadores de rivales con nota de fichar y cláusula que compensa y puedes pagar
+  // Presupuesto: tu dinero + lo que sacarías vendiendo a los que se recomienda vender.
+  // Clausulazos y pujas lo van gastando, por orden; lo que no cabe no se propone.
+  const ventas = mine
+    .filter(({ s }) => s && (s.action === "vender" || s.nota < PLAN.sellNota))
+    .slice(0, PLAN.maxPerType);
+  const fromSales = ventas.reduce((t, { s }) => t + (s?.value ?? 0), 0);
+  let budget = Math.max(0, i.myMoney) + fromSales;
+  let cash = Math.max(0, i.myMoney); // lo que tienes ya, sin vender
+  const cashNote = (x: number) => (x > cash ? ` Para pagarlo tendrás que vender antes (tienes ${M(Math.max(0, cash))} libres).` : "");
+
+  // 3. Clausulazos: jugadores de rivales con nota de fichar y cláusula que compensa. Se pagan al momento.
   const clausulazos = i.rivals
     .flatMap((r) => r.team.players.map((p) => ({ r, p, s: sc(id(p)) })))
     .filter(({ p, s }) => s && clauseOpen(p, i.now) && s.nota >= PLAN.buyNota && s.action !== "vender"
-      && p.buyoutClause! <= i.myMoney && p.buyoutClause! <= Math.max(s.maxBidPlay, s.maxBidSpec ?? 0))
-    .sort((a, c) => c.s!.nota - a.s!.nota)
-    .slice(0, PLAN.maxPerType);
+      && p.buyoutClause! <= Math.max(s.maxBidPlay, s.maxBidSpec ?? 0))
+    .sort((a, c) => c.s!.nota - a.s!.nota);
+  let nClaus = 0;
   for (const { r, p, s } of clausulazos) {
+    if (nClaus >= PLAN.maxPerType) break;
+    const clause = p.buyoutClause!;
+    if (clause > cash) continue; // la cláusula se paga en el momento: hace falta tenerlo
+    nClaus++;
+    budget -= clause;
+    cash -= clause;
     const name = p.playerMaster.nickname;
-    const over = Math.round(((p.buyoutClause! - s!.value) / s!.value) * 100);
+    const over = Math.round(((clause - s!.value) / s!.value) * 100);
     out.push({
       tipo: "clausulazo",
       prioridad: 2,
       jugador: name,
       playerId: id(p),
-      texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(p.buyoutClause!)} (${over >= 0 ? "+" : ""}${over} % sobre su valor). Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`,
+      texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor). Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`,
     });
   }
 
@@ -156,31 +172,33 @@ export function dailyPlan(i: PlanInput): Accion[] {
     .filter((m) => m.status === "on_sale" && !myIds.has(String(m.playerMaster.id)))
     .map((m) => ({ m, s: sc(String(m.playerMaster.id)) }))
     .filter(({ m, s }) => s && ((s.action === "fichar" && m.salePrice <= s.maxBidPlay) || (s.maxBidSpec !== null && m.salePrice < s.maxBidSpec)))
-    .sort((a, c) => c.s!.nota - a.s!.nota)
-    .slice(0, PLAN.maxPerType);
+    .sort((a, c) => c.s!.nota - a.s!.nota);
+  let nPujas = 0;
   for (const { m, s } of pujas) {
-    const name = m.playerMaster.nickname;
+    if (nPujas >= PLAN.maxPerType) break;
     const forPlay = s!.action === "fichar";
     const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
     const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
     const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
     const bid = noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
+    if (bid > budget) continue; // ni vendiendo llegas
+    nPujas++;
+    const note = cashNote(bid);
+    budget -= bid;
+    cash -= bid;
+    const name = m.playerMaster.nickname;
     const why = forPlay ? `para jugar (nota ${s!.nota})` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
-    const cash = bid > i.myMoney ? ` Ojo: tienes ${M(i.myMoney)}, tendrás que vender antes.` : "";
     const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
     out.push({
       tipo: "pujar",
       prioridad: 3,
       jugador: name,
       playerId: String(m.playerMaster.id),
-      texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}. Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${cash}`,
+      texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}. Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
     });
   }
 
   // 5. Vender: nota baja y bajando, o lesionado y bajando (lo decide la nota)
-  const ventas = mine
-    .filter(({ s }) => s && (s.action === "vender" || s.nota < PLAN.sellNota))
-    .slice(0, PLAN.maxPerType);
   for (const { p, s } of ventas) {
     const name = p.playerMaster.nickname;
     const hurt = p.playerMaster.playerStatus === "injured" ? " Está lesionado: véndelo antes de que baje más." : "";
