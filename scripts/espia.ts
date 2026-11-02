@@ -16,6 +16,7 @@ import { espiaClauses, espiaEvents, espiaPlans, espiaRaises, espiaState, matches
 import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup } from "../src/lib/plan/lineup";
+import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
@@ -199,7 +200,7 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
       }
     }
 
-    if (mode === "plan" || mode === "preview") await runPlan(db, liga, leagueId, leagueName, standing, await getMoney());
+    if (mode === "plan" || mode === "preview") await runPlan(db, liga, leagueId, leagueName, standing, await getMoney(), acts, ctx);
   }
 }
 
@@ -291,6 +292,7 @@ const fmtM = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFracti
 async function runPlan(
   db: Db, liga: Liga, leagueId: string, leagueName: string,
   standing: Awaited<ReturnType<Liga["standing"]>>, money: Awaited<ReturnType<typeof estimateLeagueMoney>>,
+  acts: Activity[], ctx: Ctx,
 ) {
   if (!money?.mine) {
     console.log(`${leagueName}: sin tu dinero no hay plan`);
@@ -338,7 +340,42 @@ async function runPlan(
       startProb: s?.startProb ?? null,
     };
   }));
-  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: nextMatchday(mts, now)?.close, lineup, positions });
+  const closeAt = nextMatchday(mts, now)?.close ?? null;
+  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions });
+
+  // Lo que enseña la web (/ y /liga), guardado junto al plan
+  const lineupSnap: LineupSnapshot | null = lineup && {
+    formation: lineup.formation,
+    expected: lineup.expected,
+    captainId: lineup.captain?.id ?? null,
+    starters: lineup.starters.map((p) => ({
+      id: p.id, name: p.name, positionId: p.positionId, expected: p.expected, startProb: p.startProb, status: p.status,
+      nota: scores.get(p.id)?.nota ?? null, hole: lineup.holes.some((h) => h.id === p.id),
+    })),
+    out: lineup.out.map((p) => ({ id: p.id, name: p.name })),
+  };
+  const STATUS_ES: Record<string, string> = { injured: "Lesión", suspended: "Sanción", doubtful: "Duda" };
+  const ligaSnap: LigaSnapshot = {
+    myTeamId: money.mine.teamId,
+    standing: standing.map((st) => ({
+      teamId: String(st.team.id),
+      manager: st.team.manager?.managerName ?? "?",
+      position: st.position,
+      previous: st.previousPosition,
+      points: st.points,
+      teamValue: st.team.teamValue,
+      money: money.byTeam.get(String(st.team.id)),
+    })).sort((a, b) => a.position - b.position),
+    activity: [...acts]
+      .filter((a) => Date.now() - Date.parse(a.createdAt) < 7 * 24 * 3600e3)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .flatMap((a) => { const t = activityMessage(a, ctx); return t ? [{ at: a.createdAt, text: t }] : []; })
+      .slice(0, 15),
+    unlocks: clauseUnlocks(teams, now.getTime(), now.getTime() + 24 * 3600e3).map((u) => ({ player: u.player, manager: u.manager, at: u.at, clause: u.clause })),
+    injuries: teams.flatMap((t) => t.players
+      .filter((p) => STATUS_ES[p.playerMaster.playerStatus])
+      .map((p) => ({ player: p.playerMaster.nickname, manager: t.manager?.managerName ?? "?", status: STATUS_ES[p.playerMaster.playerStatus] }))),
+  };
   const text = planMessage(leagueName, money.mine.money, acciones);
   const chat = process.env.ESPIA_PLAN_CHAT;
   if (mode === "preview" || !chat) {
@@ -348,7 +385,7 @@ async function runPlan(
     await send(chat, pack(text.split("\n")));
   }
   if (mode !== "preview") {
-    await db.insert(espiaPlans).values({ leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null });
+    await db.insert(espiaPlans).values({ leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null, closeAt, lineup: lineupSnap, liga: ligaSnap });
     console.log(`${leagueName}: plan con ${acciones.length} acciones`);
   }
 }

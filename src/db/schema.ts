@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import type { LigaSnapshot, LineupSnapshot } from "../lib/plan/snapshot";
 
 export const teams = pgTable("teams", {
   id: text("id").primaryKey(),
@@ -179,7 +180,10 @@ export const espiaPlans = pgTable("espia_plans", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   scoreDay: date("score_day"),
   myMoney: bigint("my_money", { mode: "number" }).notNull(),
-  acciones: jsonb("acciones").$type<{ tipo: string; prioridad: number; jugador?: string; playerId?: string; texto: string }[]>().notNull(),
+  acciones: jsonb("acciones").$type<{ tipo: string; prioridad: number; jugador?: string; playerId?: string; texto: string; titulo?: string; detalle?: string }[]>().notNull(),
+  closeAt: timestamp("close_at", { withTimezone: true }), // cierre del mercado de la próxima jornada
+  lineup: jsonb("lineup").$type<LineupSnapshot>(),
+  liga: jsonb("liga").$type<LigaSnapshot>(),
 });
 
 export const ingestRuns = pgTable("ingest_runs", {

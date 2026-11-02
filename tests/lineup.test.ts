@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bestLineup, expectedPoints, type LineupPlayer } from "../src/lib/plan/lineup";
-import { dailyPlan, planMessage } from "../src/lib/plan/plan";
+import { dailyPlan, planMessage, type Score } from "../src/lib/plan/plan";
 
 const pl = (id: string, positionId: number, formAvg: number, extra: Partial<LineupPlayer> = {}): LineupPlayer => ({
   id, name: id, positionId, status: "ok", formAvg, startProb: 80, ...extra,
@@ -80,7 +80,7 @@ describe("huecos sin mercado", () => {
   const rival = { teamId: "r", manager: "Jonix", money: 50_000_000, team: { id: "r", players: [
     { buyoutClause: 3_000_000, buyoutClauseLockedEndTime: "2026-01-01T00:00:00Z", playerMaster: { id: "gk", nickname: "Meta", playerStatus: "ok", marketValue: 1 } },
   ] } };
-  const scores = new Map([["gk", { nota: 60, action: "mantener" as const, value: 2_500_000, maxBidPlay: 2_500_000, maxBidSpec: null, formAvg: 5, startProb: 95 }]]);
+  const scores = new Map<string, Score>([["gk", { nota: 60, action: "mantener", value: 2_500_000, maxBidPlay: 2_500_000, maxBidSpec: null, formAvg: 5, startProb: 95 }]]);
   const positions = new Map([["gk", 1]]);
   it("propone clausular un portero titular de un rival si llegas", () => {
     const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 5_000_000, rivals: [rival], market: [], scores, lineup: l, positions });

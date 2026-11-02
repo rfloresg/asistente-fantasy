@@ -47,6 +47,20 @@ Para usar esa misma base en local, pon la URL en `.env` como `DATABASE_URL=...`.
 
 Con `APP_PASSWORD` definida, toda la web y la API piden contraseña (cookie de 90 días). Las capturas se comprimen en el navegador antes de subirlas: Vercel no acepta más de 4,5 MB.
 
+## La web
+
+Una sola app, con selector de liga arriba (se recuerda en una cookie):
+
+| Página | Qué enseña |
+| --- | --- |
+| `/` Hoy | Tu plan por prioridad (proteger, clausular, pujar, vender) y tu once dibujado en el campo con capitán, huecos y dudas |
+| `/liga` | Clasificación con el dinero estimado, últimos movimientos, cláusulas que se liberan y bajas |
+| `/mercado` | Todos los jugadores con su nota, con filtros |
+| `/plantilla` | Analizar una captura de tu plantilla o del mercado de tu liga |
+| `/chat` | Preguntas al asistente (consulta el plan, la nota y el manual del meta) |
+
+Hoy y Liga salen de lo que guarda `npm run espia plan` en `espia_plans` (columnas `lineup` y `liga`), así la web nunca usa tu sesión de LaLiga. Estilo: campo de fútbol (césped, cal) y tarjetas de árbitro por tipo de acción; letra Archivo, estrecha en los títulos. En el móvil la navegación va abajo.
+
 ## Nota Fantasy
 
 Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de su posición.

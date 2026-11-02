@@ -108,7 +108,7 @@ export default function Upload({ tipo, hasIds }: { tipo: "plantilla" | "mercado"
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div>
       <label className="upload">
         {busy ? "Leyendo la captura…" : `Sube una captura de ${tipo === "plantilla" ? "tu plantilla" : "los jugadores en venta"}`}
         <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />

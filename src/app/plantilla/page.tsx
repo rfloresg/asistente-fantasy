@@ -101,11 +101,11 @@ export default async function Plantilla({ searchParams }: { searchParams: Search
 
   return (
     <main>
-      <Link className="back" href="/">← Mercado</Link>
-      <h1 style={{ marginTop: 12 }}>{tipo === "plantilla" ? "Mi plantilla" : "Mercado de mi liga"}</h1>
-      <div className="nav">
-        <Link href="/plantilla?tipo=plantilla">Mi plantilla</Link>
-        <Link href="/plantilla?tipo=mercado">Mercado de mi liga</Link>
+      <h1>{tipo === "plantilla" ? "Mi plantilla" : "Mercado de mi liga"}</h1>
+      <p className="lead">Sube una captura de la app y te digo qué hacer con cada jugador.</p>
+      <div className="seg" role="group" aria-label="Qué analizar">
+        <Link href="/plantilla" aria-current={tipo === "plantilla" ? "page" : undefined}>Mi plantilla</Link>
+        <Link href="/plantilla?tipo=mercado" aria-current={tipo === "mercado" ? "page" : undefined}>En venta en mi liga</Link>
       </div>
       <Upload tipo={tipo} hasIds={ids.length > 0} />
       {rows.length > 0 && (
@@ -113,7 +113,7 @@ export default async function Plantilla({ searchParams }: { searchParams: Search
           <p className="muted">Datos del {day}. Las cifras salen de la base de datos, no de la captura.</p>
           {tipo === "plantilla" ? <Squad rows={rows} /> : <Market rows={rows} />}
           <p style={{ marginTop: 16 }}>
-            <Link href={`/chat?q=${encodeURIComponent(question)}`}>Pídele al asistente que lo analice →</Link>
+            <Link href={`/chat?q=${encodeURIComponent(question)}`}>Pregúntale al asistente por esta lista</Link>
           </p>
         </>
       )}

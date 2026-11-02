@@ -57,6 +57,8 @@ export interface Accion {
   jugador?: string;
   playerId?: string;
   texto: string; // HTML para Telegram
+  titulo?: string; // para la web: la acción en pocas palabras
+  detalle?: string; // para la web: el porqué, sin HTML
 }
 
 const M = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
@@ -96,7 +98,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     out.push({
       tipo: "saldo",
       prioridad: 1,
-      texto: `💸 Estás en ${b(M(i.myMoney))}. Vende por al menos ${M(need)}${closeTxt} o no puntuarás. Los de menos nota: ${pick.map(b).join(", ")}.`,
+      titulo: `Sal de los números rojos`, detalle: `Estás en ${M(i.myMoney)}. Vende por al menos ${M(need)}${closeTxt} o no puntuarás. Los de menos nota: ${pick.join(", ")}.`, texto: `💸 Estás en ${b(M(i.myMoney))}. Vende por al menos ${M(need)}${closeTxt} o no puntuarás. Los de menos nota: ${pick.map(b).join(", ")}.`,
     });
   }
 
@@ -115,7 +117,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const lock = lockedUntil(p, i.now);
     if (lock) {
       if (lock - i.now.getTime() < 24 * 3600e3 && clause <= worth(s!)) {
-        out.push({ tipo: "aviso", prioridad: 3, jugador: name, playerId: id(p), texto: `⏳ La cláusula de ${b(name)} (${M(clause)}) se libera en menos de 24 h y está barata para lo que vale (nota ${s!.nota}). Prepárate para subirla o blindarlo.` });
+        out.push({ tipo: "aviso", prioridad: 3, jugador: name, playerId: id(p), titulo: `Vigila a ${name}`, detalle: `Su cláusula (${M(clause)}) se libera en menos de 24 h y está barata para lo que vale (nota ${s!.nota}). Prepárate para subirla o blindarlo.`, texto: `⏳ La cláusula de ${b(name)} (${M(clause)}) se libera en menos de 24 h y está barata para lo que vale (nota ${s!.nota}). Prepárate para subirla o blindarlo.` });
       }
       continue;
     }
@@ -132,7 +134,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 2,
         jugador: name,
         playerId: id(p),
-        texto: `🔒 Sube la cláusula de ${b(name)} de ${M(clause)} a ${M(target)}: te cuesta ${M(cost)}. Ahora a un rival le compensa clausularlo (vale ${M(s!.value)}, nota ${s!.nota}).${reach}`,
+        titulo: `Sube la cláusula de ${name}`, detalle: `De ${M(clause)} a ${M(target)}: te cuesta ${M(cost)}. Ahora a un rival le compensa clausularlo (vale ${M(s!.value)}, nota ${s!.nota}).${reach}`, texto: `🔒 Sube la cláusula de ${b(name)} de ${M(clause)} a ${M(target)}: te cuesta ${M(cost)}. Ahora a un rival le compensa clausularlo (vale ${M(s!.value)}, nota ${s!.nota}).${reach}`,
       });
     } else if (shields < 2) {
       shields++;
@@ -141,7 +143,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 2,
         jugador: name,
         playerId: id(p),
-        texto: `🛡️ Blinda a ${b(name)}${closeTxt}: su cláusula (${M(clause)}) está barata para lo que vale (${M(s!.value)}, nota ${s!.nota}) y subirla a ${M(target)} te costaría ${M(cost)}.${reach}${s!.nota < 50 ? " Si te da igual perderlo, déjalo: cobrarías la cláusula." : ""}`,
+        titulo: `Blinda a ${name}`, detalle: `Hazlo${closeTxt || " hoy"}. Su cláusula (${M(clause)}) está barata para lo que vale (${M(s!.value)}, nota ${s!.nota}) y subirla a ${M(target)} te costaría ${M(cost)}.${reach}${s!.nota < 50 ? " Si te da igual perderlo, déjalo: cobrarías la cláusula." : ""}`, texto: `🛡️ Blinda a ${b(name)}${closeTxt}: su cláusula (${M(clause)}) está barata para lo que vale (${M(s!.value)}, nota ${s!.nota}) y subirla a ${M(target)} te costaría ${M(cost)}.${reach}${s!.nota < 50 ? " Si te da igual perderlo, déjalo: cobrarías la cláusula." : ""}`,
       });
     } else {
       out.push({
@@ -149,7 +151,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 3,
         jugador: name,
         playerId: id(p),
-        texto: `⚠️ ${b(name)} tiene la cláusula barata (${M(clause)}, nota ${s!.nota}) y ya no te quedan blindajes: asume el riesgo o sube la cláusula (${M(cost)}).`,
+        titulo: `${name}, sin protección`, detalle: `Tiene la cláusula barata (${M(clause)}, nota ${s!.nota}) y ya no te quedan blindajes: asume el riesgo o sube la cláusula (${M(cost)}).`, texto: `⚠️ ${b(name)} tiene la cláusula barata (${M(clause)}, nota ${s!.nota}) y ya no te quedan blindajes: asume el riesgo o sube la cláusula (${M(cost)}).`,
       });
     }
   }
@@ -201,7 +203,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
       prioridad: 2,
       jugador: name,
       playerId: id(p),
-      texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor). Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`,
+      titulo: `Clausula a ${name}`, detalle: `Es de ${r.manager} y cuesta ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor). Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`, texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor). Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`,
     });
   }
 
@@ -244,7 +246,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 3,
         jugador: name,
         playerId: String(m.playerMaster.id),
-        texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
+        titulo: `Puja ${M(bid)} por ${name}`, detalle: `${why[0].toUpperCase()}${why.slice(1)}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`, texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
       });
     }
   };
@@ -272,13 +274,13 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 2,
         jugador: p.playerMaster.nickname,
         playerId: id(p),
-        texto: `💣 Te falta un ${POSNAME[pos]} titular y no hay en el mercado: clausula a ${b(p.playerMaster.nickname)} de ${b(r.manager)} por ${M(clause)} (vale ${M(s!.value)}, nota ${s!.nota}, ${s!.startProb} % de ser titular).${sell}`,
+        titulo: `Clausula a ${p.playerMaster.nickname}`, detalle: `Te falta un ${POSNAME[pos]} titular y no hay en el mercado. Es de ${r.manager}: ${M(clause)} (vale ${M(s!.value)}, nota ${s!.nota}, ${s!.startProb} % de ser titular).${sell}`, texto: `💣 Te falta un ${POSNAME[pos]} titular y no hay en el mercado: clausula a ${b(p.playerMaster.nickname)} de ${b(r.manager)} por ${M(clause)} (vale ${M(s!.value)}, nota ${s!.nota}, ${s!.startProb} % de ser titular).${sell}`,
       });
     } else {
       out.push({
         tipo: "aviso",
         prioridad: 3,
-        texto: `🔎 Te falta un ${POSNAME[pos]} titular y hoy no hay ninguno a tu alcance ni en el mercado ni por cláusula. Cada día salen 12 jugadores nuevos: revisa el mercado mañana.`,
+        titulo: `Busca ${POSNAME[pos]} mañana`, detalle: `Te falta un ${POSNAME[pos]} titular y hoy no hay ninguno a tu alcance ni en el mercado ni por cláusula. Cada día salen 12 jugadores nuevos.`, texto: `🔎 Te falta un ${POSNAME[pos]} titular y hoy no hay ninguno a tu alcance ni en el mercado ni por cláusula. Cada día salen 12 jugadores nuevos: revisa el mercado mañana.`,
       });
     }
   }
@@ -294,7 +296,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
       prioridad: 4,
       jugador: name,
       playerId: id(p),
-      texto: `💰 Pon a la venta a ${b(name)}: nota ${s!.nota}, vale ${M(s!.value)}.${hurt}`,
+      titulo: `Vende a ${name}`, detalle: `Nota ${s!.nota}, vale ${M(s!.value)}.${hurt}`, texto: `💰 Pon a la venta a ${b(name)}: nota ${s!.nota}, vale ${M(s!.value)}.${hurt}`,
     });
   }
 

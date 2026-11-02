@@ -1,6 +1,5 @@
 // Ficha de jugador: nota, desglose, motivos, pujas, valor y jornadas.
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
@@ -46,7 +45,6 @@ export default async function Player({ params }: { params: Promise<{ id: string 
 
   return (
     <main>
-      <Link className="back" href="/">← Mercado</Link>
       <div className="head" style={{ marginTop: 12 }}>
         {s && <span className={`${notaClass(s.nota)} big`}>{s.nota}</span>}
         <div>

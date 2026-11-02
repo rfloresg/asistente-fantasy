@@ -1,101 +1,146 @@
-// Mercado: todos los jugadores con su Nota Fantasy del día.
+// Hoy: tu plan en la liga elegida (movimientos por prioridad) y tu once en el campo.
+// Lo genera el Espía a las 9:00 y a las 18:00 (npm run espia plan).
 
 import Link from "next/link";
-import { ACTION, money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
-import { lastRun, market, type Order } from "@/lib/queries";
+import { money } from "@/lib/format";
+import { currentLeague, latestPlan } from "@/lib/ligas";
+import type { LineupSnapshot } from "@/lib/plan/snapshot";
 
 export const dynamic = "force-dynamic";
 
-type Search = Promise<Record<string, string | undefined>>;
+const TIPO: Record<string, string> = {
+  saldo: "Saldo",
+  proteger: "Proteger",
+  clausulazo: "Clausulazo",
+  pujar: "Pujar",
+  vender: "Vender",
+  aviso: "Atento",
+};
 
-export default async function Home({ searchParams }: { searchParams: Search }) {
-  const q = await searchParams;
-  const pos = Number(q.pos) || undefined;
-  const action = q.accion || undefined;
-  const order = (["nota", "forma", "tendencia", "valor"].includes(q.orden ?? "") ? q.orden : "nota") as Order;
-  const maxValue = Number(q.max) ? Number(q.max) * 1e6 : undefined;
+const madrid = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleString("es-ES", { timeZone: "Europe/Madrid", ...o });
+const plain = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/^\S+\s/, "");
 
-  const [run, { day, rows }] = await Promise.all([lastRun(), market({ pos, action, order, maxValue })]);
+function Pitch({ l }: { l: LineupSnapshot }) {
+  // De arriba abajo: delanteros, medios, defensas, portero
+  const rows: [number, string][] = [[4, "16%"], [3, "40%"], [2, "64%"], [1, "87%"]];
+  const hole = l.starters.filter((p) => p.hole);
+  const doubt = l.starters.filter((p) => !p.hole && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
+  const captain = l.starters.find((p) => p.id === l.captainId);
+  const label = `Once en ${l.formation}${captain ? `, con ${captain.name} de capitán` : ""}${hole.length ? ` y ${hole.length} hueco${hole.length > 1 ? "s" : ""}` : ""}`;
+  return (
+    <>
+      <div className="pitch" role="img" aria-label={label}>
+        <div className="lines" aria-hidden="true" />
+        <div className="area-n" aria-hidden="true" />
+        <div className="area-s" aria-hidden="true" />
+        {rows.map(([pos, top]) => (
+          <div key={pos} className="line-up" style={{ top }}>
+            {l.starters.filter((p) => p.positionId === pos).map((p) => {
+              const cls = p.hole ? "player hole" : doubt.includes(p) ? "player doubt" : "player";
+              const pct = p.startProb !== null && (p.hole || doubt.includes(p)) ? `${p.startProb} %` : null;
+              return (
+                <Link key={p.id} href={`/jugador/${p.id}`} className={cls}>
+                  <span className="disc">{p.nota ?? "–"}</span>
+                  {p.id === l.captainId && <span className="arm" aria-hidden="true">C</span>}
+                  <span className="name">{p.name}</span>
+                  {pct && <span className="pct">{pct}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <ul className="legend">
+        {captain && (
+          <li><span className="k c" aria-hidden="true">C</span><span>Capitán: {captain.name}, {captain.expected.toLocaleString("es-ES")} pts esperados{captain.startProb !== null ? ` y ${captain.startProb} % de ser titular` : ""}.</span></li>
+        )}
+        {hole.length > 0 && (
+          <li><span className="k h" aria-hidden="true" /><span>Huecos: {hole.map((p) => p.name).join(" y ")} {hole.length > 1 ? "entran" : "entra"} por obligación y no {hole.length > 1 ? "van" : "va"} a jugar.</span></li>
+        )}
+        {doubt.length > 0 && (
+          <li><span className="k d" aria-hidden="true" /><span>Dudas: {doubt.map((p) => p.name).join(", ")}.{l.out.length ? ` No alinees a ${l.out.map((p) => p.name).join(", ")}.` : ""}</span></li>
+        )}
+        {!doubt.length && l.out.length > 0 && <li><span className="k d" aria-hidden="true" /><span>No alinees a {l.out.map((p) => p.name).join(", ")}.</span></li>}
+      </ul>
+      <p className="small" style={{ marginTop: 10 }}>El número es la nota de hoy. Toca un jugador para ver su ficha.</p>
+    </>
+  );
+}
+
+export default async function Hoy() {
+  const { current } = await currentLeague();
+  const plan = current ? await latestPlan(current.id) : null;
+
+  if (!plan) {
+    return (
+      <main>
+        <h1>Tu plan de hoy</h1>
+        <p className="lead">Aquí verás qué hacer en cada liga: a quién proteger, por quién pujar, a quién vender y tu mejor once.</p>
+        <div className="empty">
+          <h2>Aún no hay plan</h2>
+          <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, ejecuta <code>npm run espia plan</code> o lánzalo desde GitHub (Actions, Espía de la liga, modo plan).</p>
+        </div>
+      </main>
+    );
+  }
+
+  const me = plan.liga?.standing.find((s) => s.teamId === plan.liga?.myTeamId);
+  const close = plan.closeAt && plan.closeAt > new Date() ? plan.closeAt : null;
+  const moves = plan.acciones.filter((a) => a.tipo !== "alinear").sort((a, b) => a.prioridad - b.prioridad);
 
   return (
     <main>
-      <h1>Asistente Fantasy</h1>
-      <div className="nav">
-        <Link href="/plan">Tu plan del día</Link>
-        <Link href="/plantilla">Mi plantilla</Link>
-        <Link href="/plantilla?tipo=mercado">Mercado de mi liga</Link>
-        <Link href="/chat">Pregúntale al asistente</Link>
+      <div className="hero">
+        <div>
+          <h1>{close ? `Antes del ${madrid(close, { weekday: "long" })} a las ${madrid(close, { hour: "2-digit", minute: "2-digit" })}` : "Tu plan de hoy"}</h1>
+          <p className="lead">
+            {close ? "Entonces cierra el mercado de la próxima jornada. " : ""}
+            Esto es lo que te toca hacer en {plan.leagueName}, de lo más urgente a lo que puede esperar.
+          </p>
+        </div>
+        <dl className="stats">
+          <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : undefined}>{money(plan.myMoney)}</dd></div>
+          {me && <div><dt>Puesto</dt><dd>{me.position}.º · {me.points} pts</dd></div>}
+        </dl>
       </div>
-      <p className="muted">
-        {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Sin datos. Ejecuta npm run ingest."}
-        {day ? ` · Nota del ${day}` : " · Sin notas. Ejecuta npm run score."}
-      </p>
 
-      <form className="filters">
-        <select name="pos" defaultValue={q.pos ?? ""}>
-          <option value="">Todas las posiciones</option>
-          {[1, 2, 3, 4, 5].map((p) => (
-            <option key={p} value={p}>{POS[p]}</option>
-          ))}
-        </select>
-        <select name="accion" defaultValue={q.accion ?? ""}>
-          <option value="">Todas las acciones</option>
-          <option value="fichar">Fichar</option>
-          <option value="mantener">Mantener</option>
-          <option value="vender">Vender</option>
-        </select>
-        <select name="max" defaultValue={q.max ?? ""}>
-          <option value="">Cualquier precio</option>
-          {[2, 5, 10, 20, 50].map((m) => (
-            <option key={m} value={m}>Hasta {m} M</option>
-          ))}
-        </select>
-        <select name="orden" defaultValue={order}>
-          <option value="nota">Ordenar por nota</option>
-          <option value="forma">Ordenar por forma</option>
-          <option value="tendencia">Ordenar por subida 7 días</option>
-          <option value="valor">Ordenar por valor</option>
-        </select>
-        <button type="submit">Filtrar</button>
-      </form>
+      <div className="cols">
+        <section className="col-main" aria-labelledby="mov">
+          <h2 id="mov">Tus movimientos</h2>
+          {moves.length ? (
+            <ol className="rule">
+              {moves.map((a, i) => (
+                <li key={i} className={`move ${a.tipo}`}>
+                  <span className="tarjeta" aria-hidden="true" />
+                  <div className="body">
+                    <div className="row">
+                      <h3>{a.playerId && a.titulo ? <Link href={`/jugador/${a.playerId}`} style={{ textDecoration: "none" }}>{a.titulo}</Link> : (a.titulo ?? TIPO[a.tipo])}</h3>
+                      <span className="tipo">{TIPO[a.tipo] ?? a.tipo}</span>
+                    </div>
+                    <p>{a.detalle ?? plain(a.texto)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="empty"><p>Nada urgente: tu plantilla está bien y no hay gangas claras.</p></div>
+          )}
+        </section>
 
-      <div className="wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nota</th>
-              <th>Jugador</th>
-              <th>Pos.</th>
-              <th>Acción</th>
-              <th className="n">Valor</th>
-              <th className="n">7 días</th>
-              <th className="n">Forma</th>
-              <th className="n">Titular</th>
-              <th className="n">Puja máx.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ id, nickname, team, position, status, s }) => (
-              <tr key={id}>
-                <td><span className={notaClass(s.nota)}>{s.nota}</span></td>
-                <td>
-                  <Link href={`/jugador/${id}`}>{nickname}</Link> <span className="muted">{team}</span>{" "}
-                  {STATUS[status] && <span className="bad">{STATUS[status]}</span>}
-                </td>
-                <td>{POS[position]}</td>
-                <td>{ACTION[s.action]}</td>
-                <td className="n">{money(s.value)}</td>
-                <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s.pct7)}</td>
-                <td className="n">{n1(s.formAvg)}</td>
-                <td className="n">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
-                <td className="n">{s.action === "fichar" ? money(s.maxBidPlay) : "–"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {plan.lineup && (
+          <section className="col-side" aria-labelledby="once">
+            <div className="pitch-head">
+              <h2 id="once">Tu once · {plan.lineup.formation}</h2>
+              <span className="small">unos {plan.lineup.expected.toLocaleString("es-ES")} pts</span>
+            </div>
+            <Pitch l={plan.lineup} />
+          </section>
+        )}
       </div>
-      <p className="muted">
-        Forma: puntos por partido en los últimos 5 de su equipo. Titular: probabilidad según el once probable de futbolfantasy. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
+
+      <p className="small" style={{ marginTop: 40 }}>
+        Plan de las {madrid(plan.createdAt, { hour: "2-digit", minute: "2-digit" })} del {madrid(plan.createdAt, { day: "numeric", month: "long" })}
+        {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza a las 9:00 y a las 18:00. El dinero de los rivales es un máximo.
       </p>
     </main>
   );
