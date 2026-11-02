@@ -54,10 +54,10 @@ Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de s
 | Factor | Qué mide | Peso |
 | --- | --- | --- |
 | Forma | Puntos por partido en los últimos 5 de su equipo | 30 % |
-| Tendencia | Ritmo diario de subida del valor (3 y 7 días) | 20 % |
-| Pts por millón | Puntos por partido en la temporada / valor en millones | 20 % |
-| Minutos | Mitad minutos en los últimos 5, mitad % de ser titular (once probable) | 15 % |
-| Calendario | Fuerza de los 3 próximos rivales (jugar fuera suma) | 15 % |
+| Tendencia | Ritmo diario de subida del valor (3 y 7 días) | 30 % |
+| Pts por millón | Puntos por partido en la temporada / valor en millones | 10 % |
+| Minutos | Mitad minutos en los últimos 5, mitad % de ser titular (once probable) | 25 % |
+| Calendario | Fuerza de los 3 próximos rivales (jugar fuera suma) | 5 % |
 | Riesgo | Lesión −25, sanción −20, duda −10 | resta |
 
 - **Fichar:** nota de 70 o más, al menos 4 pts por partido, 50 % o más de ser titular (si hay once) y sin lesión ni sanción.
@@ -65,6 +65,8 @@ Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de s
 - **Valor esperado:** valor actual proyectado 7 días con su ritmo diario (tope ±8 % al día).
 - **Puja máx. para especular:** valor esperado menos un 5 % de margen. Si no supera el valor actual, no compensa.
 - **Puja máx. para jugar:** hasta un 30 % sobre el valor, según la nota (desde 60).
+
+Pesos ajustados con `npm run validar` sobre 60 días: la nota acierta (correlación 0,41 con el valor a 7 días y 0,49 con los puntos de las 2 jornadas siguientes; los de "fichar" subieron un 13 % de media y los de "vender" bajaron casi un 10 %). El calendario apenas acertaba y pesa poco.
 
 Todo se ajusta en `CONFIG`, en `src/lib/nota/engine.ts`. La nota mide si conviene comprar a ese precio, no quién es el mejor: para eso, ordena por forma.
 

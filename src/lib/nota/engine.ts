@@ -2,7 +2,8 @@
 // Sin base de datos ni LLM aquí. Se puede calcular "a fecha X" para validar.
 
 export const CONFIG = {
-  weights: { form: 0.3, trend: 0.2, ppm: 0.2, minutes: 0.15, calendar: 0.15 },
+  // Ajustados con npm run validar (60 días, nov 2026): tendencia y minutos aciertan más; calendario casi nada
+  weights: { form: 0.3, trend: 0.3, ppm: 0.1, minutes: 0.25, calendar: 0.05 },
   risk: { injured: 25, suspended: 20, doubtful: 10 } as Record<string, number>,
   formWeeks: 5, // últimos partidos del equipo para forma y minutos
   nextMatches: 3, // rivales que mira el calendario
