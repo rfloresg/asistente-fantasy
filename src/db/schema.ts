@@ -147,6 +147,30 @@ export const espiaState = pgTable("espia_state", {
   points: jsonb("points").$type<Record<string, number>>(),
 });
 
+// Espía: última cláusula vista de cada jugador de la liga (para detectar subidas)
+export const espiaClauses = pgTable(
+  "espia_clauses",
+  {
+    leagueId: text("league_id").notNull(),
+    playerId: text("player_id").notNull(),
+    teamId: text("team_id").notNull(),
+    clause: bigint("clause", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.leagueId, t.playerId] })],
+);
+
+// Espía: subidas de cláusula detectadas. cost = lo que pagó el dueño (la mitad de la subida)
+export const espiaRaises = pgTable("espia_raises", {
+  id: serial("id").primaryKey(),
+  leagueId: text("league_id").notNull(),
+  teamId: text("team_id").notNull(),
+  playerId: text("player_id").notNull(),
+  increase: bigint("increase", { mode: "number" }).notNull(),
+  cost: bigint("cost", { mode: "number" }).notNull(),
+  at: timestamp("at", { withTimezone: true }).notNull(),
+});
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

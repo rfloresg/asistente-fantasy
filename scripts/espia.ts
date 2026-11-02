@@ -8,13 +8,13 @@
 //   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
-import { and, eq, inArray, max } from "drizzle-orm";
+import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
-import { espiaEvents, espiaState, players, playerScores, playerValues } from "../src/db/schema";
+import { espiaClauses, espiaEvents, espiaRaises, espiaState, players, playerScores, playerValues } from "../src/db/schema";
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
-import { estimateMoney, flows, parseMoney } from "../src/lib/espia/money";
+import { clauseRaises, estimateTeamMoney, netByManager, parseMoney, START_MONEY } from "../src/lib/espia/money";
 import { pack, sendMessage } from "../src/lib/espia/telegram";
 
 const mode = process.argv[2] ?? "eventos";
@@ -116,6 +116,9 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
       const firstUnlocks = ![...seen].some((id) => id.startsWith("unlock:"));
       const newUnlocks = unlocks.filter((u) => !seen.has(u.key));
       if (mode === "preview" || (!firstRun && !firstUnlocks)) lines.push(...newUnlocks.map(unlockMessage));
+      // Subidas de cláusula: se publican con ESPIA_SUBIDAS=1 (en preview siempre se ven)
+      const raiseLines = await trackClauses(db, leagueId, teams, ctx);
+      if (mode === "preview" || process.env.ESPIA_SUBIDAS === "1") lines.push(...raiseLines);
 
       if (mode === "preview") {
         console.log(`== ${leagueName}: últimas actividades (${lines.length})`);
@@ -161,7 +164,7 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
       // El dinero estimado solo se publica con ESPIA_DINERO=1 (en preview siempre se ve)
-      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? await estimateLeagueMoney(liga, standing) : undefined;
+      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? await estimateLeagueMoney(db, liga, leagueId, standing) : undefined;
       const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,
@@ -184,22 +187,10 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
 
 type Liga = ReturnType<typeof leagueClient>;
 
-// Dinero estimado por equipo. Necesita toda la actividad de la temporada y tu dinero real
-// (la API solo te deja ver el tuyo). Si algo falla, el resumen sale sin esta parte.
-async function estimateLeagueMoney(liga: Liga, standing: Awaited<ReturnType<Liga["standing"]>>) {
+// Dinero estimado por equipo: 100 M iniciales + actividad de la temporada - subidas de cláusula
+// detectadas. El tuyo es el real (la API solo te deja ver el tuyo). Si algo falla, el resumen sale sin esto.
+async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standing: Awaited<ReturnType<Liga["standing"]>>) {
   try {
-    let mine: { teamId: string; money: number } | null = null;
-    for (const st of standing) {
-      const m = parseMoney(await liga.money(String(st.team.id)));
-      if (m !== null) {
-        mine = { teamId: String(st.team.id), money: m };
-        break;
-      }
-    }
-    if (!mine) {
-      console.log("Dinero: no pude leer el tuyo, el resumen sale sin dinero estimado");
-      return undefined;
-    }
     const all: Activity[] = [];
     for (let page = 0; page < 200; page++) {
       const batch = await liga.activity(page);
@@ -208,31 +199,32 @@ async function estimateLeagueMoney(liga: Liga, standing: Awaited<ReturnType<Liga
       all.push(...batch);
       await sleep(300);
     }
+    const net = netByManager(all);
+    const raises = await db
+      .select({ teamId: espiaRaises.teamId, cost: sql<number>`sum(${espiaRaises.cost})`.mapWith(Number) })
+      .from(espiaRaises).where(eq(espiaRaises.leagueId, leagueId)).groupBy(espiaRaises.teamId);
+    const spent = new Map(raises.map((r) => [r.teamId, r.cost]));
     const idsOf = (st: (typeof standing)[number]) =>
       [...new Set([st.team.manager?.id, st.team.managerId].filter((x) => x != null).map(String))];
-    const me = standing.find((st) => String(st.team.id) === mine!.teamId)!;
-    const { start, money } = estimateMoney(all, { ids: idsOf(me), money: mine.money });
+
     const byTeam = new Map<string, number>();
-    for (const st of standing) byTeam.set(String(st.team.id), start + idsOf(st).reduce((s, id) => s + ((money.get(id) ?? start) - start), 0));
-    console.log(`Dinero: ${all.length} actividades, saldo inicial calculado ${(start / 1e6).toFixed(2)} M`);
+    let mine: { teamId: string; money: number; estimate: number } | null = null;
+    for (const st of standing) {
+      const teamId = String(st.team.id);
+      const estimate = estimateTeamMoney(net, idsOf(st), spent.get(teamId) ?? 0);
+      const real: number | null = mine ? null : parseMoney(await liga.money(teamId));
+      if (real !== null) mine = { teamId, money: real, estimate };
+      byTeam.set(teamId, real ?? estimate);
+    }
+    console.log(`Dinero: ${all.length} actividades, saldo inicial ${(START_MONEY / 1e6).toFixed(0)} M`);
+    if (mine) {
+      const diff = mine.money - mine.estimate;
+      console.log(`  Tu dinero real ${(mine.money / 1e6).toFixed(2)} M, estimado ${(mine.estimate / 1e6).toFixed(2)} M (diferencia ${(diff / 1e6).toFixed(2)} M: subidas de cláusula anteriores u otros gastos)`);
+    }
     if (mode === "preview") {
-      // Desglose de tus movimientos por tipo, para comprobar el cálculo
-      const myIds = new Set(idsOf(me));
-      const byType = new Map<number, { n: number; total: number }>();
-      for (const a of all) {
-        for (const [id, x] of flows(a)) {
-          if (!myIds.has(id)) continue;
-          const t = byType.get(a.activityTypeId) ?? { n: 0, total: 0 };
-          byType.set(a.activityTypeId, { n: t.n + 1, total: t.total + x });
-        }
-      }
       const types = new Map<number, number>();
       for (const a of all) types.set(a.activityTypeId, (types.get(a.activityTypeId) ?? 0) + 1);
-      console.log(`  Tu dinero real: ${(mine.money / 1e6).toFixed(2)} M`);
-      for (const [t, v] of byType) console.log(`  Tipo ${t}: ${v.n} movimientos, ${(v.total / 1e6).toFixed(2)} M`);
-      console.log(`  Tipos en la liga: ${[...types].map(([t, n]) => `${t}×${n}`).join(" ")}`);
-      const oldest = all.at(-1)?.createdAt;
-      console.log(`  Actividad más antigua: ${oldest ?? "?"}`);
+      console.log(`  Tipos en la liga: ${[...types].map(([t, n]) => `${t}×${n}`).join(" ")} · más antigua ${all.at(-1)?.createdAt ?? "?"}`);
     }
     return byTeam;
   } catch (e) {
@@ -240,6 +232,36 @@ async function estimateLeagueMoney(liga: Liga, standing: Awaited<ReturnType<Liga
     return undefined;
   }
 }
+
+// Guarda las cláusulas de hoy y apunta las subidas (mismo jugador, mismo equipo, cláusula más alta)
+async function trackClauses(db: Db, leagueId: string, teams: Awaited<ReturnType<Liga["team"]>>[], ctx: Ctx) {
+  const now = teams.flatMap((t) =>
+    t.players.flatMap((p) => (p.buyoutClause ? [{ playerId: String(p.playerMaster.id), teamId: String(t.id), clause: p.buyoutClause, manager: t.manager?.managerName ?? "?" }] : [])),
+  );
+  const prev = await db.select().from(espiaClauses).where(eq(espiaClauses.leagueId, leagueId));
+  const raised = clauseRaises(prev, now);
+  const lines: string[] = [];
+  if (mode !== "preview") {
+    if (raised.length) {
+      await db.insert(espiaRaises).values(raised.map((r) => ({ leagueId, teamId: r.teamId, playerId: r.playerId, increase: r.increase, cost: r.cost, at: new Date() })));
+    }
+    const stamp = new Date();
+    for (let k = 0; k < now.length; k += 200) {
+      await db.insert(espiaClauses)
+        .values(now.slice(k, k + 200).map((c) => ({ leagueId, playerId: c.playerId, teamId: c.teamId, clause: c.clause, updatedAt: stamp })))
+        .onConflictDoUpdate({ target: [espiaClauses.leagueId, espiaClauses.playerId], set: { teamId: sql.raw("excluded.team_id"), clause: sql.raw("excluded.clause"), updatedAt: stamp } });
+    }
+  }
+  for (const r of raised) {
+    const who = now.find((c) => c.playerId === r.playerId)?.manager ?? "?";
+    const name = ctx.players.get(r.playerId)?.nickname ?? r.playerId;
+    lines.push(`🔒 <b>${esc(who)}</b> sube la cláusula de <b>${esc(name)}</b> a ${fmtM(r.clause)} (le cuesta ${fmtM(r.cost)})`);
+  }
+  if (raised.length) console.log(`Cláusulas: ${raised.length} subidas detectadas`);
+  return lines;
+}
+
+const fmtM = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
 
 if (process.argv[1]?.endsWith("espia.ts")) main().catch((e) => {
   console.error(String(e instanceof Error ? e.message : e));

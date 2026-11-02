@@ -91,7 +91,7 @@ describe("parseLeagues", () => {
   });
 });
 
-import { estimateMoney, flows, parseMoney } from "../src/lib/espia/money";
+import { clauseRaises, estimateTeamMoney, flows, netByManager, parseMoney } from "../src/lib/espia/money";
 import { clauseUnlocks } from "../src/lib/espia/messages";
 
 describe("dinero estimado", () => {
@@ -106,11 +106,16 @@ describe("dinero estimado", () => {
     expect(flows(acts[2])).toEqual([["2", -20_000_000], ["1", 20_000_000]]);
     expect(flows(act({ activityTypeId: 9, user1Id: 1 }))).toEqual([]);
   });
-  it("calibra el saldo inicial con tu dinero real", () => {
-    // 1 = yo: neto -10 + 20 + 1,5 = +11,5 M. Si tengo 111,5 M, el inicial es 100 M
-    const { start, money } = estimateMoney(acts, { ids: ["1"], money: 111_500_000 });
-    expect(start).toBe(100_000_000);
-    expect(money.get("2")).toBe(100_000_000 + 4_000_000 - 20_000_000);
+  it("100 M + actividad - subidas de cláusula", () => {
+    const net = netByManager(acts); // 1: -10 + 20 + 1,5 (la repetida no cuenta) · 2: +4 - 20
+    expect(estimateTeamMoney(net, ["1"])).toBe(111_500_000);
+    expect(estimateTeamMoney(net, ["2"], 1_000_000)).toBe(83_000_000);
+    expect(estimateTeamMoney(net, ["99"])).toBe(100_000_000);
+  });
+  it("detecta subidas de cláusula: mismo equipo y más alta; cuesta la mitad", () => {
+    const prev = [{ playerId: "5", teamId: "t1", clause: 10_000_000 }, { playerId: "6", teamId: "t1", clause: 5_000_000 }];
+    const now = [{ playerId: "5", teamId: "t1", clause: 14_000_000 }, { playerId: "6", teamId: "t2", clause: 9_000_000 }];
+    expect(clauseRaises(prev, now)).toEqual([{ playerId: "5", teamId: "t1", clause: 14_000_000, increase: 4_000_000, cost: 2_000_000 }]);
   });
   it("lee la respuesta de dinero", () => {
     expect(parseMoney({ teamMoney: 5 })).toBe(5);
