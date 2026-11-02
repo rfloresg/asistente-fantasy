@@ -14,7 +14,7 @@ import { espiaEvents, espiaState, players, playerScores, playerValues } from "..
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
-import { estimateMoney, parseMoney } from "../src/lib/espia/money";
+import { estimateMoney, flows, parseMoney } from "../src/lib/espia/money";
 import { pack, sendMessage } from "../src/lib/espia/telegram";
 
 const mode = process.argv[2] ?? "eventos";
@@ -160,7 +160,8 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
             .where(and(eq(playerScores.day, d), inArray(playerScores.playerId, ids)))
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
-      const money = await estimateLeagueMoney(liga, standing);
+      // El dinero estimado solo se publica con ESPIA_DINERO=1 (en preview siempre se ve)
+      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? await estimateLeagueMoney(liga, standing) : undefined;
       const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,
@@ -214,6 +215,25 @@ async function estimateLeagueMoney(liga: Liga, standing: Awaited<ReturnType<Liga
     const byTeam = new Map<string, number>();
     for (const st of standing) byTeam.set(String(st.team.id), start + idsOf(st).reduce((s, id) => s + ((money.get(id) ?? start) - start), 0));
     console.log(`Dinero: ${all.length} actividades, saldo inicial calculado ${(start / 1e6).toFixed(2)} M`);
+    if (mode === "preview") {
+      // Desglose de tus movimientos por tipo, para comprobar el cálculo
+      const myIds = new Set(idsOf(me));
+      const byType = new Map<number, { n: number; total: number }>();
+      for (const a of all) {
+        for (const [id, x] of flows(a)) {
+          if (!myIds.has(id)) continue;
+          const t = byType.get(a.activityTypeId) ?? { n: 0, total: 0 };
+          byType.set(a.activityTypeId, { n: t.n + 1, total: t.total + x });
+        }
+      }
+      const types = new Map<number, number>();
+      for (const a of all) types.set(a.activityTypeId, (types.get(a.activityTypeId) ?? 0) + 1);
+      console.log(`  Tu dinero real: ${(mine.money / 1e6).toFixed(2)} M`);
+      for (const [t, v] of byType) console.log(`  Tipo ${t}: ${v.n} movimientos, ${(v.total / 1e6).toFixed(2)} M`);
+      console.log(`  Tipos en la liga: ${[...types].map(([t, n]) => `${t}×${n}`).join(" ")}`);
+      const oldest = all.at(-1)?.createdAt;
+      console.log(`  Actividad más antigua: ${oldest ?? "?"}`);
+    }
     return byTeam;
   } catch (e) {
     console.log(`Dinero: ${String(e instanceof Error ? e.message : e)}`);
