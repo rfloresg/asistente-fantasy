@@ -74,6 +74,43 @@ export interface SummaryInput {
   market: MarketItem[];
   notas: Map<string, { nota: number; action: string }>; // nota del día por jugador
   ctx: Ctx;
+  prevPoints?: Record<string, number>; // puntos por equipo en el resumen anterior
+  money?: Map<string, number>; // dinero estimado por equipo
+  unlocksSoon?: Unlock[]; // cláusulas que se liberan en las próximas 24 h
+}
+
+export interface Unlock {
+  key: string; // para no avisar dos veces
+  manager: string;
+  player: string;
+  clause?: number;
+  at: string;
+}
+
+// Jugadores cuya cláusula se libera entre from y to (ms)
+export function clauseUnlocks(teams: Team[], from: number, to: number): Unlock[] {
+  const out: Unlock[] = [];
+  for (const t of teams) {
+    for (const p of t.players) {
+      const at = p.buyoutClauseLockedEndTime;
+      const ms = at ? Date.parse(at) : NaN;
+      if (!(ms > from && ms <= to)) continue;
+      out.push({
+        key: `unlock:${p.playerMaster.id}:${at}`,
+        manager: t.manager?.managerName ?? "?",
+        player: p.playerMaster.nickname,
+        clause: p.buyoutClause,
+        at: at!,
+      });
+    }
+  }
+  return out.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+const hour = (iso: string) => new Date(iso).toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" });
+
+export function unlockMessage(u: Unlock): string {
+  return `🔓 Cláusula libre: <b>${esc(u.player)}</b> de <b>${esc(u.manager)}</b>${u.clause ? ` · ${money(u.clause)}` : ""}`;
 }
 
 // Resumen diario: clasificación, gasto en 24 h, lesionados, mercado.
@@ -102,6 +139,40 @@ export function dailySummary(i: SummaryInput): string {
     for (const n of names) {
       const parts = [spent.get(n) ? `gasta ${money(spent.get(n)!)}` : "", earned.get(n) ? `ingresa ${money(earned.get(n)!)}` : ""].filter(Boolean);
       lines.push(`• ${esc(n)}: ${parts.join(", ")}`);
+    }
+  }
+
+  if (i.prevPoints) {
+    const diffs = i.standing
+      .map((st) => ({ name: st.team.manager?.managerName ?? "?", d: st.points - (i.prevPoints![st.team.id] ?? st.points) }))
+      .filter((x) => x.d !== 0)
+      .sort((a, b) => b.d - a.d);
+    if (diffs.length) {
+      lines.push("", "<b>Puntos desde el último resumen</b>");
+      for (const x of diffs) lines.push(`• ${esc(x.name)}: ${x.d > 0 ? "+" : ""}${x.d} pts`);
+    }
+  }
+
+  const cobros = i.last24h.filter((a) => a.activityTypeId === 6 && a.amount && who(i.ctx, a.user1Id));
+  if (cobros.length) {
+    lines.push("", "<b>Cobros de la jornada</b>");
+    for (const a of [...cobros].sort((x, y) => (y.amount ?? 0) - (x.amount ?? 0))) {
+      lines.push(`• ${esc(who(i.ctx, a.user1Id)!)}: ${money(a.amount!)}`);
+    }
+  }
+
+  if (i.money?.size) {
+    lines.push("", "<b>Dinero estimado</b>");
+    const rows = i.standing
+      .flatMap((st) => (i.money!.has(st.team.id) ? [{ name: st.team.manager?.managerName ?? "?", m: i.money!.get(st.team.id)! }] : []))
+      .sort((a, b) => b.m - a.m);
+    for (const r of rows) lines.push(`• ${esc(r.name)}: ${money(r.m)}`);
+  }
+
+  if (i.unlocksSoon?.length) {
+    lines.push("", "<b>Cláusulas que se liberan en 24 h</b>");
+    for (const u of i.unlocksSoon) {
+      lines.push(`• ${esc(u.player)} (${esc(u.manager)}) a las ${hour(u.at)}${u.clause ? ` · ${money(u.clause)}` : ""}`);
     }
   }
 

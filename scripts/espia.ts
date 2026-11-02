@@ -13,11 +13,13 @@ import { getConn, type Db } from "../src/db";
 import { espiaEvents, espiaState, players, playerScores, playerValues } from "../src/db/schema";
 import { getAccessToken } from "../src/lib/laliga/auth";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
-import { activityMessage, dailySummary, esc, type Ctx } from "../src/lib/espia/messages";
+import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
+import { estimateMoney, parseMoney } from "../src/lib/espia/money";
 import { pack, sendMessage } from "../src/lib/espia/telegram";
 
 const mode = process.argv[2] ?? "eventos";
 const MAX_AGE_H = 48; // actividad más vieja no se avisa
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 
 async function buildCtx(db: Db, standing: Awaited<ReturnType<ReturnType<typeof leagueClient>["standing"]>>, acts: Activity[]): Promise<Ctx> {
@@ -107,6 +109,14 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
         .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
       const lines = fresh.flatMap((a) => activityMessage(a, ctx) ?? []);
 
+      // Cláusulas que se han liberado en las últimas 48 h y no hemos avisado
+      const teams = [];
+      for (const st of standing) teams.push(await liga.team(String(st.team.id)));
+      const unlocks = clauseUnlocks(teams, Date.now() - MAX_AGE_H * 3600e3, Date.now());
+      const firstUnlocks = ![...seen].some((id) => id.startsWith("unlock:"));
+      const newUnlocks = unlocks.filter((u) => !seen.has(u.key));
+      if (mode === "preview" || (!firstRun && !firstUnlocks)) lines.push(...newUnlocks.map(unlockMessage));
+
       if (mode === "preview") {
         console.log(`== ${leagueName}: últimas actividades (${lines.length})`);
         await send(undefined, pack(lines));
@@ -122,6 +132,13 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
           .insert(espiaEvents)
           .values(acts.map((a) => ({ leagueId, activityId: String(a.id), createdAt: new Date(a.createdAt), sentAt: firstRun ? null : now })))
           .onConflictDoNothing();
+      }
+      if (mode !== "preview" && (newUnlocks.length || firstUnlocks)) {
+        // La primera vez solo se marcan como vistas; "unlock:init" recuerda que ya se hizo
+        const silent = firstRun || firstUnlocks;
+        const rows = newUnlocks.map((u) => ({ leagueId, activityId: u.key, createdAt: new Date(u.at), sentAt: silent ? null : new Date() }));
+        if (firstUnlocks) rows.push({ leagueId, activityId: "unlock:init", createdAt: new Date(), sentAt: null });
+        await db.insert(espiaEvents).values(rows).onConflictDoNothing();
       }
       console.log(`${leagueName}: ${fresh.length} actividades nuevas, ${lines.length} avisos${firstRun && mode !== "preview" ? " (primera vez: solo mensaje de activación)" : ""}`);
     }
@@ -143,18 +160,64 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
             .where(and(eq(playerScores.day, d), inArray(playerScores.playerId, ids)))
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
+      const money = await estimateLeagueMoney(liga, standing);
+      const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,
         notas: new Map(notas.map((n) => [n.id, { nota: n.nota, action: n.action }])),
         ctx,
+        prevPoints: state?.points ?? undefined,
+        money,
+        unlocksSoon,
       });
       await send(mode === "preview" ? undefined : chatId, pack(text.split("\n")));
       if (mode === "resumen") {
-        await db.insert(espiaState).values({ leagueId, lastSummaryDay: day })
-          .onConflictDoUpdate({ target: espiaState.leagueId, set: { lastSummaryDay: day } });
+        const points = Object.fromEntries(standing.map((st) => [String(st.team.id), st.points]));
+        await db.insert(espiaState).values({ leagueId, lastSummaryDay: day, points })
+          .onConflictDoUpdate({ target: espiaState.leagueId, set: { lastSummaryDay: day, points } });
         console.log(`${leagueName}: resumen enviado`);
       }
     }
+  }
+}
+
+type Liga = ReturnType<typeof leagueClient>;
+
+// Dinero estimado por equipo. Necesita toda la actividad de la temporada y tu dinero real
+// (la API solo te deja ver el tuyo). Si algo falla, el resumen sale sin esta parte.
+async function estimateLeagueMoney(liga: Liga, standing: Awaited<ReturnType<Liga["standing"]>>) {
+  try {
+    let mine: { teamId: string; money: number } | null = null;
+    for (const st of standing) {
+      const m = parseMoney(await liga.money(String(st.team.id)));
+      if (m !== null) {
+        mine = { teamId: String(st.team.id), money: m };
+        break;
+      }
+    }
+    if (!mine) {
+      console.log("Dinero: no pude leer el tuyo, el resumen sale sin dinero estimado");
+      return undefined;
+    }
+    const all: Activity[] = [];
+    for (let page = 0; page < 200; page++) {
+      const batch = await liga.activity(page);
+      const ids = new Set(all.map((a) => String(a.id)));
+      if (!batch.length || batch.every((a) => ids.has(String(a.id)))) break; // fin del historial
+      all.push(...batch);
+      await sleep(300);
+    }
+    const idsOf = (st: (typeof standing)[number]) =>
+      [...new Set([st.team.manager?.id, st.team.managerId].filter((x) => x != null).map(String))];
+    const me = standing.find((st) => String(st.team.id) === mine!.teamId)!;
+    const { start, money } = estimateMoney(all, { ids: idsOf(me), money: mine.money });
+    const byTeam = new Map<string, number>();
+    for (const st of standing) byTeam.set(String(st.team.id), start + idsOf(st).reduce((s, id) => s + ((money.get(id) ?? start) - start), 0));
+    console.log(`Dinero: ${all.length} actividades, saldo inicial calculado ${(start / 1e6).toFixed(2)} M`);
+    return byTeam;
+  } catch (e) {
+    console.log(`Dinero: ${String(e instanceof Error ? e.message : e)}`);
+    return undefined;
   }
 }
 

@@ -48,6 +48,8 @@ describe("dailySummary", () => {
       { id: "m2", salePrice: 500_000, expirationDate: "", status: "on_sale", numberOfBids: 0, playerMaster: { id: "9999", nickname: "Malo", marketValue: 1, positionId: 2, playerStatus: "ok" } }],
     notas: new Map([["2703", { nota: 85, action: "fichar" }], ["9999", { nota: 49, action: "mantener" }]]),
     ctx,
+    prevPoints: { t1: 300, t2: 300 },
+    money: new Map([["t1", 12_500_000], ["t2", -3_000_000]]),
   });
   it("ordena la clasificación y marca subidas", () => {
     expect(text).toContain("🥇 Jonix · 343 pts · plantilla 255,32 M ⬆️");
@@ -58,6 +60,11 @@ describe("dailySummary", () => {
     expect(text).toContain("Vini Jr. (sanción)");
     expect(text).toContain("• Aitor Fdez · nota 85 · 1,05 M · 2 pujas");
     expect(text).not.toContain("Malo"); // nota < 60 no sale
+  });
+  it("puntos desde el último resumen y dinero estimado", () => {
+    expect(text).toContain("• Jonix: +43 pts");
+    expect(text).not.toContain("• Pepe: +0");
+    expect(text.indexOf("• Jonix: 12,5 M")).toBeLessThan(text.indexOf("• Pepe: -3 M"));
   });
 });
 
@@ -81,5 +88,48 @@ describe("parseLeagues", () => {
   it("una sola liga con las variables de antes", () => {
     expect(parseLeagues({ LIGA_ID: "1", TELEGRAM_CHAT_ID: "-2" } as unknown as NodeJS.ProcessEnv)).toEqual([{ leagueId: "1", chatId: "-2" }]);
     expect(parseLeagues({} as unknown as NodeJS.ProcessEnv)).toEqual([]);
+  });
+});
+
+import { estimateMoney, flows, parseMoney } from "../src/lib/espia/money";
+import { clauseUnlocks } from "../src/lib/espia/messages";
+
+describe("dinero estimado", () => {
+  const acts: Activity[] = [
+    act({ id: "a", activityTypeId: 31, user1Id: 1, amount: 10_000_000 }), // 1 ficha del mercado
+    act({ id: "b", activityTypeId: 33, user1Id: 2, amount: 4_000_000 }), // 2 vende al mercado
+    act({ id: "c", activityTypeId: 32, user1Id: 2, user2Id: 1, amount: 20_000_000 }), // 2 le clausula a 1
+    act({ id: "d", activityTypeId: 6, user1Id: 1, amount: 1_500_000 }), // 1 cobra jornada
+    act({ id: "d", activityTypeId: 6, user1Id: 1, amount: 1_500_000 }), // repetida: no cuenta
+  ];
+  it("movimientos por tipo", () => {
+    expect(flows(acts[2])).toEqual([["2", -20_000_000], ["1", 20_000_000]]);
+    expect(flows(act({ activityTypeId: 9, user1Id: 1 }))).toEqual([]);
+  });
+  it("calibra el saldo inicial con tu dinero real", () => {
+    // 1 = yo: neto -10 + 20 + 1,5 = +11,5 M. Si tengo 111,5 M, el inicial es 100 M
+    const { start, money } = estimateMoney(acts, { ids: ["1"], money: 111_500_000 });
+    expect(start).toBe(100_000_000);
+    expect(money.get("2")).toBe(100_000_000 + 4_000_000 - 20_000_000);
+  });
+  it("lee la respuesta de dinero", () => {
+    expect(parseMoney({ teamMoney: 5 })).toBe(5);
+    expect(parseMoney(7)).toBe(7);
+    expect(parseMoney({ x: 1 })).toBeNull();
+  });
+});
+
+describe("cláusulas", () => {
+  const teams: Team[] = [{
+    id: "t1", manager: { id: "1", managerName: "Jonix" }, players: [
+      { buyoutClause: 30_000_000, buyoutClauseLockedEndTime: "2026-11-02T10:00:00+01:00", playerMaster: { id: "5", nickname: "Pedri", playerStatus: "ok", marketValue: 1 } },
+      { buyoutClauseLockedEndTime: "2026-11-10T10:00:00+01:00", playerMaster: { id: "6", nickname: "Lejos", playerStatus: "ok", marketValue: 1 } },
+    ],
+  }];
+  it("solo las que se liberan en la ventana", () => {
+    const now = Date.parse("2026-11-02T12:00:00+01:00");
+    const u = clauseUnlocks(teams, now - 48 * 3600e3, now);
+    expect(u.map((x) => x.player)).toEqual(["Pedri"]);
+    expect(u[0].key).toBe("unlock:5:2026-11-02T10:00:00+01:00");
   });
 });

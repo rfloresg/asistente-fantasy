@@ -67,6 +67,14 @@ export function leagueClient(token: string, leagueId: string) {
     activity: async (page = 0) => list<Activity>(await get(`${CMP}/leagues/${leagueId}/activity/${page}`)),
     market: async () => list<MarketItem>(await get(`${CMP}/league/${leagueId}/market`)),
     team: (teamId: string) => get<Team>(`${CMP}/leagues/${leagueId}/teams/${teamId}`),
+    // Solo funciona con tu equipo: los rivales dan 403 (devuelve null)
+    money: async (teamId: string): Promise<unknown | null> => {
+      try {
+        return await get<unknown>(`${CMP}/teams/${teamId}/money`);
+      } catch {
+        return null;
+      }
+    },
   };
 }
 

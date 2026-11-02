@@ -1,0 +1,1 @@
+ALTER TABLE "espia_state" ADD COLUMN "points" jsonb;

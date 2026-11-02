@@ -143,6 +143,8 @@ export const espiaEvents = pgTable(
 export const espiaState = pgTable("espia_state", {
   leagueId: text("league_id").primaryKey(),
   lastSummaryDay: date("last_summary_day"),
+  // Puntos por equipo en el último resumen, para sacar los de la jornada
+  points: jsonb("points").$type<Record<string, number>>(),
 });
 
 export const ingestRuns = pgTable("ingest_runs", {
