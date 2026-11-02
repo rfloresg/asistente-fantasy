@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 const TITLES: Record<string, string> = {
   saldo: "Saldo",
   proteger: "Protege a los tuyos",
+  alinear: "Alineación",
   aviso: "Atento",
   clausulazo: "Clausulazos",
   pujar: "Pujas en el mercado",
@@ -52,7 +53,7 @@ export default async function PlanPage() {
                   {xs.map((a, i) => (
                     <li key={i}>
                       {/* Texto generado por el plan (nombres ya escapados, solo <b>) */}
-                      <span dangerouslySetInnerHTML={{ __html: a.texto }} />
+                      <span style={{ whiteSpace: "pre-line" }} dangerouslySetInnerHTML={{ __html: a.texto }} />
                       {a.playerId && <> · <Link href={`/jugador/${a.playerId}`}>ficha</Link></>}
                     </li>
                   ))}

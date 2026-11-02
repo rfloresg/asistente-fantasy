@@ -4,6 +4,7 @@
 
 import type { MarketItem, Team, TeamPlayer } from "@/lib/espia/league";
 import { RAISE_RATIO } from "@/lib/espia/money";
+import type { Lineup } from "./lineup";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -42,9 +43,10 @@ export interface PlanInput {
   market: MarketItem[];
   scores: Map<string, Score>;
   close?: Date | null; // cierre del mercado antes de la próxima jornada
+  lineup?: Lineup | null; // mejor once para la próxima jornada
 }
 
-export type Tipo = "saldo" | "proteger" | "clausulazo" | "pujar" | "vender" | "aviso";
+export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
 
 export interface Accion {
   tipo: Tipo;
@@ -229,12 +231,29 @@ export function dailyPlan(i: PlanInput): Accion[] {
     });
   }
 
+  // 6. Alineación y capitán
+  if (i.lineup) {
+    const l = i.lineup;
+    const POS = ["", "POR", "DEF", "MED", "DEL"];
+    const row = (pos: number) => l.starters.filter((p) => p.positionId === pos).map((p) => esc(p.name)).join(", ");
+    const doubts = l.starters.filter((p) => p.status === "doubtful" || (p.startProb !== null && p.startProb < 60));
+    const lines = [
+      `📋 Alinea un ${b(l.formation)} (unos ${l.expected.toLocaleString("es-ES")} pts esperados con el capitán):`,
+      ...[1, 2, 3, 4].map((pos) => `${POS[pos]}: ${row(pos)}`),
+    ];
+    if (l.captain) lines.push(`©️ Capitán: ${b(l.captain.name)} (${l.captain.expected.toLocaleString("es-ES")} pts esperados${l.captain.startProb !== null ? `, ${l.captain.startProb} % de ser titular` : ""}).`);
+    if (doubts.length) lines.push(`Dudas: ${doubts.map((p) => `${b(p.name)}${p.startProb !== null ? ` (${p.startProb} %)` : " (en duda)"}`).join(", ")}. Revisa el once antes de la jornada.`);
+    if (l.out.length) lines.push(`No alinees: ${l.out.map((p) => b(p.name)).join(", ")}.`);
+    out.push({ tipo: "alinear", prioridad: 3, texto: lines.join("\n") });
+  }
+
   return out.sort((a, c) => a.prioridad - c.prioridad);
 }
 
 const TITLES: Record<Tipo, string> = {
   saldo: "Saldo",
   proteger: "Protege a los tuyos",
+  alinear: "Alineación",
   aviso: "Atento",
   clausulazo: "Clausulazos",
   pujar: "Pujas en el mercado",
@@ -244,7 +263,7 @@ const TITLES: Record<Tipo, string> = {
 export function planMessage(leagueName: string, myMoney: number, acciones: Accion[]): string {
   const lines = [`🧠 <b>Tu plan en ${esc(leagueName)}</b> · tienes ${M(myMoney)}`];
   if (!acciones.length) return [...lines, "", "Nada urgente: tu plantilla está bien y no hay gangas claras."].join("\n");
-  const order: Tipo[] = ["saldo", "proteger", "aviso", "clausulazo", "pujar", "vender"];
+  const order: Tipo[] = ["saldo", "proteger", "aviso", "clausulazo", "pujar", "vender", "alinear"];
   for (const t of order) {
     const xs = acciones.filter((a) => a.tipo === t);
     if (!xs.length) continue;

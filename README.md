@@ -145,6 +145,7 @@ La primera vez no publica el historial: solo un mensaje de "Espía activado". La
 3. **Clausulazos:** jugadores de rivales con nota de fichar, cláusula abierta y sin blindaje, que puedes pagar y que no superan tu puja máxima.
 4. **Pujas:** jugadores del mercado de tu liga que compensan, con la puja sugerida (valor +5 %, o +12 % si ya hay pujas, sin pasar de tu tope).
 5. **Vender:** nota baja y bajando, o lesionado.
+6. **Alineación y capitán** (`src/lib/plan/lineup.ts`): el once que más puntos espera entre las formaciones sin Premium. Puntos esperados = forma × probabilidad de ser titular (once probable) × estado (lesionado o sancionado 0, en duda la mitad). Capitán: el de más puntos esperados. Avisa de dudas y de a quién no alinear.
 
 Es **solo para ti**: se envía al chat privado `ESPIA_PLAN_CHAT` (abre el bot en privado, escríbele `/start` y saca el ID con `npm run telegram:chat`), nunca al grupo. Se genera a las 9:00 y a las 18:00, se guarda en `espia_plans` y se ve en `/plan` de la web. El chat también lo consulta (herramienta `plan_del_dia`). Umbrales en `PLAN`.
 
