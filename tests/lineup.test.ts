@@ -72,3 +72,22 @@ describe("ventas y puestos", () => {
     expect(sells).not.toContain("D3"); // sin él no llega a 3 defensas
   });
 });
+
+describe("huecos sin mercado", () => {
+  const squad = [pl("POR1", 1, 5, { startProb: 5 }), pl("D1", 2, 6), pl("D2", 2, 5), pl("D3", 2, 4), pl("M1", 3, 9), pl("M2", 3, 8), pl("M3", 3, 7), pl("M4", 3, 6), pl("A1", 4, 10), pl("A2", 4, 9), pl("A3", 4, 8)];
+  const l = bestLineup(squad)!;
+  const myTeam = { id: "t", players: [] };
+  const rival = { teamId: "r", manager: "Jonix", money: 50_000_000, team: { id: "r", players: [
+    { buyoutClause: 3_000_000, buyoutClauseLockedEndTime: "2026-01-01T00:00:00Z", playerMaster: { id: "gk", nickname: "Meta", playerStatus: "ok", marketValue: 1 } },
+  ] } };
+  const scores = new Map([["gk", { nota: 60, action: "mantener" as const, value: 2_500_000, maxBidPlay: 2_500_000, maxBidSpec: null, formAvg: 5, startProb: 95 }]]);
+  const positions = new Map([["gk", 1]]);
+  it("propone clausular un portero titular de un rival si llegas", () => {
+    const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 5_000_000, rivals: [rival], market: [], scores, lineup: l, positions });
+    expect(acc.find((a) => a.jugador === "Meta")!.texto).toContain("Te falta un portero titular y no hay en el mercado: clausula a <b>Meta</b>");
+  });
+  it("si no llegas, avisa", () => {
+    const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 1_000_000, rivals: [rival], market: [], scores, lineup: l, positions });
+    expect(acc.some((a) => a.texto.includes("hoy no hay ninguno a tu alcance"))).toBe(true);
+  });
+});

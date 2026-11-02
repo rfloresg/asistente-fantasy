@@ -14,6 +14,7 @@ export const PLAN = {
   cheapClause: 1.1, // cláusula hasta un 10 % sobre el valor = barata: a cualquiera le compensa
   raiseOver: 1.05, // subir la cláusula un 5 % por encima de lo que le compensa pagar a un rival (o de su dinero)
   raiseMaxShare: 0.25, // y solo si cuesta como mucho el 25 % de tu dinero; si no, blindar
+  needClauseOver: 1.3, // para cubrir un hueco se acepta una cláusula de hasta un 30 % sobre el valor
   needNota: 55, // si te falta un titular en un puesto, vale con esta nota (y 60 % de ser titular)
   bidExtra: 0.05, // puja: valor + 5 %...
   bidExtraWithBids: 0.12, // ... o + 12 % si ya hay pujas
@@ -45,6 +46,7 @@ export interface PlanInput {
   scores: Map<string, Score>;
   close?: Date | null; // cierre del mercado antes de la próxima jornada
   lineup?: Lineup | null; // mejor once para la próxima jornada
+  positions?: Map<string, number>; // posición de cada jugador (para cubrir huecos con cláusulas de rivales)
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -239,6 +241,39 @@ export function dailyPlan(i: PlanInput): Accion[] {
       playerId: String(m.playerMaster.id),
       texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
     });
+  }
+
+  // 4b. Huecos sin cubrir: si en el mercado no hay nadie de ese puesto, busca cláusulas de rivales
+  const POSNAME: Record<number, string> = { 1: "portero", 2: "defensa", 3: "centrocampista", 4: "delantero" };
+  const covered = new Set(out.filter((a) => a.tipo === "pujar" || a.tipo === "clausulazo").map((a) => i.positions?.get(a.playerId ?? "") ?? i.market.find((m) => String(m.playerMaster.id) === a.playerId)?.playerMaster.positionId));
+  for (const pos of needPos) {
+    if (covered.has(pos)) continue;
+    const opt = i.rivals
+      .flatMap((r) => r.team.players.map((p) => ({ r, p, s: sc(id(p)) })))
+      .filter(({ p, s }) => s && i.positions?.get(id(p)) === pos && clauseOpen(p, i.now)
+        && s.nota >= PLAN.needNota && (s.startProb ?? 0) >= 60
+        && p.buyoutClause! <= budget && p.buyoutClause! <= Math.max(s.maxBidPlay, s.value * PLAN.needClauseOver))
+      .sort((a, c) => a.p.buyoutClause! - c.p.buyoutClause!)[0];
+    if (opt) {
+      const { r, p, s } = opt;
+      const clause = p.buyoutClause!;
+      const sell = clause > cash ? ` Antes vende para tener ${M(clause)} libres: la cláusula se paga al momento.` : "";
+      budget -= clause;
+      cash -= clause;
+      out.push({
+        tipo: "clausulazo",
+        prioridad: 2,
+        jugador: p.playerMaster.nickname,
+        playerId: id(p),
+        texto: `💣 Te falta un ${POSNAME[pos]} titular y no hay en el mercado: clausula a ${b(p.playerMaster.nickname)} de ${b(r.manager)} por ${M(clause)} (vale ${M(s!.value)}, nota ${s!.nota}, ${s!.startProb} % de ser titular).${sell}`,
+      });
+    } else {
+      out.push({
+        tipo: "aviso",
+        prioridad: 3,
+        texto: `🔎 Te falta un ${POSNAME[pos]} titular y hoy no hay ninguno a tu alcance ni en el mercado ni por cláusula. Cada día salen 12 jugadores nuevos: revisa el mercado mañana.`,
+      });
+    }
   }
 
   // 5. Vender: nota baja y bajando, o lesionado y bajando (lo decide la nota)

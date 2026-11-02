@@ -324,9 +324,8 @@ async function runPlan(
       console.log(`  - ${p.playerMaster.nickname}: nota ${s?.nota ?? "?"}, valor ${s ? (s.value / 1e6).toFixed(2) : "?"} M, cláusula ${((p.buyoutClause ?? 0) / 1e6).toFixed(2)} M (${lock}${p.isShielded ? ", blindado" : ""}), compensa hasta ${w ? (w / 1e6).toFixed(2) : "?"} M`);
     }
   }
-  const myIds = myTeam.players.map((p) => String(p.playerMaster.id));
   const positions = new Map(
-    (myIds.length ? await db.select({ id: players.id, pos: players.positionId }).from(players).where(inArray(players.id, myIds)) : []).map((r) => [r.id, r.pos]),
+    (ids.length ? await db.select({ id: players.id, pos: players.positionId }).from(players).where(inArray(players.id, ids)) : []).map((r) => [r.id, r.pos]),
   );
   const lineup = bestLineup(myTeam.players.map((p) => {
     const s = scores.get(String(p.playerMaster.id));
@@ -339,7 +338,7 @@ async function runPlan(
       startProb: s?.startProb ?? null,
     };
   }));
-  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: nextMatchday(mts, now)?.close, lineup });
+  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: nextMatchday(mts, now)?.close, lineup, positions });
   const text = planMessage(leagueName, money.mine.money, acciones);
   const chat = process.env.ESPIA_PLAN_CHAT;
   if (mode === "preview" || !chat) {
