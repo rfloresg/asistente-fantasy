@@ -7,6 +7,8 @@ export interface LigaSnapshot {
   activity: { at: string; text: string }[]; // últimos movimientos (HTML con <b>, nombres escapados)
   unlocks: { player: string; manager: string; at: string; clause?: number }[]; // cláusulas que se liberan en 24 h
   injuries: { player: string; manager: string; status: string }[];
+  squad?: { id: string; clause?: number; lockedUntil?: string; shielded?: boolean }[]; // tu plantilla
+  market?: { id: string; price: number; bids?: number; seller?: string }[]; // en venta en la liga
 }
 
 export interface LineupSnapshot {

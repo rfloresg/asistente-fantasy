@@ -375,6 +375,12 @@ async function runPlan(
     injuries: teams.flatMap((t) => t.players
       .filter((p) => STATUS_ES[p.playerMaster.playerStatus])
       .map((p) => ({ player: p.playerMaster.nickname, manager: t.manager?.managerName ?? "?", status: STATUS_ES[p.playerMaster.playerStatus] }))),
+    squad: myTeam.players.map((p) => ({
+      id: String(p.playerMaster.id), clause: p.buyoutClause, lockedUntil: p.buyoutClauseLockedEndTime, shielded: p.isShielded,
+    })),
+    market: market.filter((m) => m.status === "on_sale").map((m) => ({
+      id: String(m.playerMaster.id), price: m.salePrice, bids: m.numberOfBids, seller: m.sellerTeam?.manager?.managerName,
+    })),
   };
   const text = planMessage(leagueName, money.mine.money, acciones);
   const chat = process.env.ESPIA_PLAN_CHAT;

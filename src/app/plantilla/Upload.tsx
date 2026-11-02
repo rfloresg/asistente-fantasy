@@ -66,7 +66,7 @@ async function compress(file: File): Promise<File> {
   }
 }
 
-export default function Upload({ tipo, hasIds }: { tipo: "plantilla" | "mercado"; hasIds: boolean }) {
+export default function Upload({ tipo, hasIds, restore = true }: { tipo: "plantilla" | "mercado"; hasIds: boolean; restore?: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,10 +74,10 @@ export default function Upload({ tipo, hasIds }: { tipo: "plantilla" | "mercado"
 
   // Al entrar sin lista, recupera la guardada en este navegador
   useEffect(() => {
-    if (hasIds) return;
+    if (hasIds || !restore) return;
     const ids = load(tipo);
     if (ids.length) router.replace(`/plantilla?tipo=${tipo}&ids=${ids.join(",")}`);
-  }, [tipo, hasIds, router]);
+  }, [tipo, hasIds, restore, router]);
 
   async function upload(file: File) {
     setBusy(true);
