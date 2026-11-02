@@ -217,31 +217,38 @@ export function dailyPlan(i: PlanInput): Accion[] {
       || (needPos.has(m.playerMaster.positionId) && s.nota >= PLAN.needNota && (s.startProb ?? 100) >= 60 && m.salePrice <= s.maxBidPlay)))
     // primero los de los puestos donde te faltan titulares, luego por nota
     .sort((a, c) => Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId)) || c.s!.nota - a.s!.nota);
+  // Primero las pujas que cubren un hueco, luego las cláusulas para huecos y al final el resto
   let nPujas = 0;
-  for (const { m, s } of pujas) {
-    if (nPujas >= PLAN.maxPerType) break;
-    const forPlay = s!.action === "fichar";
-    const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
-    const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
-    const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
-    const bid = noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
-    if (bid > budget) continue; // ni vendiendo llegas
-    nPujas++;
-    const note = cashNote(bid);
-    budget -= bid;
-    cash -= bid;
-    const name = m.playerMaster.nickname;
-    const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
-    const why = forPlay || need ? `para jugar (nota ${s!.nota})` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
-    const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
-    out.push({
-      tipo: "pujar",
-      prioridad: 3,
-      jugador: name,
-      playerId: String(m.playerMaster.id),
-      texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
-    });
-  }
+  const done = new Set<string>();
+  const doPujas = (onlyNeed: boolean) => {
+    for (const { m, s } of pujas) {
+      if (nPujas >= PLAN.maxPerType) break;
+      if (done.has(m.id) || (onlyNeed && !needPos.has(m.playerMaster.positionId))) continue;
+      const forPlay = s!.action === "fichar";
+      const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
+      const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
+      const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
+      const bid = noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
+      if (bid > budget) continue; // ni vendiendo llegas
+      nPujas++;
+      done.add(m.id);
+      const note = cashNote(bid);
+      budget -= bid;
+      cash -= bid;
+      const name = m.playerMaster.nickname;
+      const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
+      const why = forPlay || need ? `para jugar (nota ${s!.nota})` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
+      const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
+      out.push({
+        tipo: "pujar",
+        prioridad: 3,
+        jugador: name,
+        playerId: String(m.playerMaster.id),
+        texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
+      });
+    }
+  };
+  doPujas(true);
 
   // 4b. Huecos sin cubrir: si en el mercado no hay nadie de ese puesto, busca cláusulas de rivales
   const POSNAME: Record<number, string> = { 1: "portero", 2: "defensa", 3: "centrocampista", 4: "delantero" };
@@ -275,6 +282,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
       });
     }
   }
+
+  doPujas(false);
 
   // 5. Vender: nota baja y bajando, o lesionado y bajando (lo decide la nota)
   for (const { p, s } of ventas) {

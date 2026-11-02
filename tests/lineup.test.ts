@@ -86,6 +86,13 @@ describe("huecos sin mercado", () => {
     const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 5_000_000, rivals: [rival], market: [], scores, lineup: l, positions });
     expect(acc.find((a) => a.jugador === "Meta")!.texto).toContain("Te falta un portero titular y no hay en el mercado: clausula a <b>Meta</b>");
   });
+  it("cubrir el hueco va antes que otras pujas", () => {
+    const med = { id: "mm", salePrice: 3_000_000, expirationDate: "", status: "on_sale", playerMaster: { id: "med", nickname: "Medio", marketValue: 1, positionId: 3, playerStatus: "ok" } };
+    const sc2 = new Map(scores).set("med", { nota: 90, action: "fichar" as const, value: 3_000_000, maxBidPlay: 3_600_000, maxBidSpec: null, formAvg: 8, startProb: 90 });
+    const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 5_000_000, rivals: [rival], market: [med], scores: sc2, lineup: l, positions });
+    expect(acc.some((a) => a.jugador === "Meta")).toBe(true);
+    expect(acc.some((a) => a.jugador === "Medio")).toBe(false); // ya no llega
+  });
   it("si no llegas, avisa", () => {
     const acc = dailyPlan({ now: new Date(), myTeam, myMoney: 1_000_000, rivals: [rival], market: [], scores, lineup: l, positions });
     expect(acc.some((a) => a.texto.includes("hoy no hay ninguno a tu alcance"))).toBe(true);
