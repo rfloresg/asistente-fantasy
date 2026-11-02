@@ -9,9 +9,8 @@ export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
   sellNota: 40, // nota por debajo de la cual se propone vender (además de action "vender")
   buyNota: 70, // nota mínima para pujar o clausular "para jugar"
-  protectTop: 4, // cuántos de tus jugadores más valiosos se vigilan
-  protectMinNota: 60, // y solo si tienen al menos esta nota
-  raiseOver: 1.05, // subir la cláusula un 5 % por encima del dinero del rival más rico
+  protectMinNota: 50, // se vigilan tus jugadores con al menos esta nota
+  raiseOver: 1.05, // subir la cláusula un 5 % por encima de lo que le compensa pagar a un rival (o de su dinero)
   raiseMaxShare: 0.25, // y solo si cuesta como mucho el 25 % de tu dinero; si no, blindar
   bidExtra: 0.05, // puja: valor + 5 %...
   bidExtraWithBids: 0.12, // ... o + 12 % si ya hay pujas
@@ -95,29 +94,39 @@ export function dailyPlan(i: PlanInput): Accion[] {
     });
   }
 
-  // 2. Proteger a tus mejores jugadores con la cláusula abierta
-  const valuable = mine
-    .filter(({ s }) => (s?.nota ?? 0) >= PLAN.protectMinNota)
-    .sort((a, c) => (c.s?.value ?? 0) - (a.s?.value ?? 0))
-    .slice(0, PLAN.protectTop);
+  // 2. Proteger: tus jugadores con la cláusula abierta que a un rival le compensaría pagar
+  //    (cláusula por debajo de lo que valen según la nota) y que algún rival puede pagar.
+  //    Subirla justo por encima de lo que compensa, o blindar si sale caro.
+  const worth = (x: Score) => Math.max(x.maxBidPlay, x.maxBidSpec ?? 0);
   let shields = 0;
-  for (const { p, s } of valuable) {
+  let nProtect = 0;
+  const candidates = mine
+    .filter(({ s }) => (s?.nota ?? 0) >= PLAN.protectMinNota)
+    .sort((a, c) => (c.s?.nota ?? 0) - (a.s?.nota ?? 0));
+  for (const { p, s } of candidates) {
     const name = p.playerMaster.nickname;
+    const clause = p.buyoutClause ?? 0;
     const lock = lockedUntil(p, i.now);
-    if (lock && lock - i.now.getTime() < 24 * 3600e3) {
-      out.push({ tipo: "aviso", prioridad: 3, jugador: name, playerId: id(p), texto: `⏳ La cláusula de ${b(name)} (${M(p.buyoutClause ?? 0)}) se libera en menos de 24 h. Prepárate para protegerlo.` });
+    if (lock) {
+      if (lock - i.now.getTime() < 24 * 3600e3 && clause <= worth(s!)) {
+        out.push({ tipo: "aviso", prioridad: 3, jugador: name, playerId: id(p), texto: `⏳ La cláusula de ${b(name)} (${M(clause)}) se libera en menos de 24 h y está barata para lo que vale (nota ${s!.nota}). Prepárate para subirla o blindarlo.` });
+      }
       continue;
     }
-    if (!clauseOpen(p, i.now) || !known || richest < (p.buyoutClause ?? 0)) continue;
-    const target = round(richest * PLAN.raiseOver);
-    const cost = round((target - p.buyoutClause!) / RAISE_RATIO);
+    if (!clauseOpen(p, i.now) || clause > worth(s!)) continue; // cerrada, blindado o ya cara
+    if (known && richest < clause) continue; // ningún rival llega
+    if (nProtect >= PLAN.maxPerType) break;
+    nProtect++;
+    const target = round(Math.min(worth(s!), known ? richest : Infinity) * PLAN.raiseOver);
+    const cost = round((target - clause) / RAISE_RATIO);
+    const reach = known ? ` Algún rival tiene hasta ${M(richest)}.` : "";
     if (i.myMoney > 0 && cost <= i.myMoney * PLAN.raiseMaxShare) {
       out.push({
         tipo: "proteger",
         prioridad: 2,
         jugador: name,
         playerId: id(p),
-        texto: `🔒 Sube la cláusula de ${b(name)} de ${M(p.buyoutClause!)} a ${M(target)}: te cuesta ${M(cost)}. Algún rival tiene hasta ${M(richest)} y podría clausulártelo (nota ${s?.nota}).`,
+        texto: `🔒 Sube la cláusula de ${b(name)} de ${M(clause)} a ${M(target)}: te cuesta ${M(cost)}. Ahora a un rival le compensa clausularlo (nota ${s!.nota}, vale ${M(s!.value)}).${reach}`,
       });
     } else if (shields < 2) {
       shields++;
@@ -126,7 +135,15 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 2,
         jugador: name,
         playerId: id(p),
-        texto: `🛡️ Blinda a ${b(name)}${closeTxt}: su cláusula (${M(p.buyoutClause!)}) está al alcance de un rival con hasta ${M(richest)}, y subirla te costaría ${M(cost)}.`,
+        texto: `🛡️ Blinda a ${b(name)}${closeTxt}: su cláusula (${M(clause)}) está barata para lo que vale (nota ${s!.nota}) y subirla a ${M(target)} te costaría ${M(cost)}.${reach}`,
+      });
+    } else {
+      out.push({
+        tipo: "aviso",
+        prioridad: 3,
+        jugador: name,
+        playerId: id(p),
+        texto: `⚠️ ${b(name)} tiene la cláusula barata (${M(clause)}, nota ${s!.nota}) y ya no te quedan blindajes: asume el riesgo o sube la cláusula (${M(cost)}).`,
       });
     }
   }

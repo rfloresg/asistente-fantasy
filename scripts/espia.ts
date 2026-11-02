@@ -313,6 +313,16 @@ async function runPlan(
     .filter((t) => String(t.id) !== money.mine!.teamId)
     .map((t) => ({ teamId: String(t.id), manager: t.manager?.managerName ?? "?", money: money.byTeam.get(String(t.id)), team: t }));
 
+  if (mode === "preview") {
+    // Tus cláusulas, para comprobar el plan
+    console.log(`\n  Tus cláusulas en ${leagueName}:`);
+    for (const p of myTeam.players) {
+      const s = scores.get(String(p.playerMaster.id));
+      const lock = p.buyoutClauseLockedEndTime && Date.parse(p.buyoutClauseLockedEndTime) > now.getTime() ? `bloqueada hasta ${p.buyoutClauseLockedEndTime.slice(0, 16)}` : "abierta";
+      const w = s ? Math.max(s.maxBidPlay, s.maxBidSpec ?? 0) : null;
+      console.log(`  - ${p.playerMaster.nickname}: nota ${s?.nota ?? "?"}, valor ${s ? (s.value / 1e6).toFixed(2) : "?"} M, cláusula ${((p.buyoutClause ?? 0) / 1e6).toFixed(2)} M (${lock}${p.isShielded ? ", blindado" : ""}), compensa hasta ${w ? (w / 1e6).toFixed(2) : "?"} M`);
+    }
+  }
   const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: nextMatchday(mts, now)?.close });
   const text = planMessage(leagueName, money.mine.money, acciones);
   const chat = process.env.ESPIA_PLAN_CHAT;

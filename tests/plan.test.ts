@@ -46,10 +46,18 @@ describe("plan del día", () => {
   const plan = dailyPlan({ now, myTeam, myMoney: 15_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market, scores });
   const byTipo = (t: string) => plan.filter((a) => a.tipo === t).map((a) => a.jugador);
 
-  it("protege a la estrella: la cláusula está al alcance del rival y subirla cuesta demasiado → blindar", () => {
-    // subir a 31,5 M cuesta 5,75 M > 25 % de 15 M → blindaje
+  it("protege a la estrella: su cláusula está por debajo de lo que vale → subirla justo por encima", () => {
+    // le compensa a un rival hasta 21,6 M (18 M + 20 %): subirla a 22,68 M cuesta 1,34 M
     expect(byTipo("proteger")).toEqual(["Estrella"]);
-    expect(plan.find((a) => a.jugador === "Estrella")!.texto).toContain("Blinda");
+    expect(plan.find((a) => a.jugador === "Estrella")!.texto).toContain("de 20 M a 22,68 M: te cuesta 1,34 M");
+  });
+  it("si subirla cuesta más del 25 % de tu dinero, blindar", () => {
+    const p = dailyPlan({ now, myTeam, myMoney: 4_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market: [], scores });
+    expect(p.find((a) => a.jugador === "Estrella")!.texto).toContain("Blinda");
+  });
+  it("no protege si la cláusula ya es cara o ningún rival llega", () => {
+    const p = dailyPlan({ now, myTeam, myMoney: 40_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 10_000_000, team: rivalTeam }], market: [], scores });
+    expect(p.filter((a) => a.tipo === "proteger")).toEqual([]);
   });
   it("avisa de la cláusula que se libera en menos de 24 h", () => {
     expect(byTipo("aviso")).toEqual(["Recién"]);
