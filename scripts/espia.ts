@@ -319,7 +319,7 @@ async function runPlan(
     for (const p of myTeam.players) {
       const s = scores.get(String(p.playerMaster.id));
       const lock = p.buyoutClauseLockedEndTime && Date.parse(p.buyoutClauseLockedEndTime) > now.getTime() ? `bloqueada hasta ${p.buyoutClauseLockedEndTime.slice(0, 16)}` : "abierta";
-      const w = s ? Math.max(s.maxBidPlay, s.maxBidSpec ?? 0) : null;
+      const w = s ? Math.max(s.maxBidPlay, s.maxBidSpec ?? 0, s.value * 1.1) : null;
       console.log(`  - ${p.playerMaster.nickname}: nota ${s?.nota ?? "?"}, valor ${s ? (s.value / 1e6).toFixed(2) : "?"} M, cláusula ${((p.buyoutClause ?? 0) / 1e6).toFixed(2)} M (${lock}${p.isShielded ? ", blindado" : ""}), compensa hasta ${w ? (w / 1e6).toFixed(2) : "?"} M`);
     }
   }
