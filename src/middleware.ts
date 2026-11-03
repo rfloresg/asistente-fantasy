@@ -28,7 +28,7 @@ async function validUser(raw: string | undefined) {
 }
 
 // Páginas y llamadas que no piden entrar: la entrada, el login con Telegram y el bot
-const PUBLIC = ["/login", "/api/login", "/api/auth/telegram", "/api/telegram"];
+const PUBLIC = ["/login", "/api/login", "/api/auth/telegram", "/api/auth/bot", "/api/telegram"];
 
 export async function middleware(req: NextRequest) {
   if (!process.env.APP_PASSWORD && !process.env.SESSION_KEY) return NextResponse.next(); // local, sin nada configurado

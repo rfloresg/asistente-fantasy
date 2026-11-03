@@ -2,11 +2,11 @@
 // - /start en privado: bienvenida y enlace a la web
 // - /espia en un grupo: botón para elegir qué liga es ese grupo
 import { NextResponse } from "next/server";
-import { activateUrl, APP_URL } from "@/lib/grupo";
+import { activateUrl, botLoginUrl } from "@/lib/grupo";
 
 type Chat = { id: number; type: string; title?: string };
 type Update = {
-  message?: { chat: Chat; text?: string };
+  message?: { chat: Chat; text?: string; from?: { id: number; first_name?: string; last_name?: string; username?: string } };
   my_chat_member?: { chat: Chat; new_chat_member?: { status?: string } };
 };
 
@@ -29,10 +29,11 @@ export async function POST(req: Request) {
   try {
     const m = u.message;
     const cmd = m?.text?.trim().split(/\s|@/)[0].toLowerCase();
-    if (m && m.chat.type === "private" && cmd === "/start") {
+    if (m && m.chat.type === "private" && (cmd === "/start" || cmd === "/web")) {
+      const name = [m.from?.first_name, m.from?.last_name].filter(Boolean).join(" ") || m.from?.username || "Mánager";
       await reply(m.chat.id,
-        "🕵️ <b>Asistente Fantasy</b>\nCada día te digo qué hacer en tus ligas de LaLiga Fantasy: a quién proteger, por quién pujar, a quién vender y tu mejor once.\n\nEntra en la web con tu Telegram y conecta tu cuenta de LaLiga.",
-        { text: "Abrir la web", url: `${APP_URL}/login` });
+        "🕵️ <b>Asistente Fantasy</b>\nCada día te digo qué hacer en tus ligas de LaLiga Fantasy: a quién proteger, por quién pujar, a quién vender y tu mejor once.\n\nPulsa el botón para entrar en la web y conectar tu cuenta de LaLiga. El enlace es solo tuyo y caduca en 15 minutos; si caduca, escribe /web.",
+        { text: "Entrar en la web", url: botLoginUrl(String(m.chat.id), name) });
     } else if (m && m.chat.type !== "private" && cmd === "/espia") {
       await reply(m.chat.id,
         "🕵️ Para activar el Espía en este grupo, el que conectó la liga en la web pulsa aquí y elige cuál es.",

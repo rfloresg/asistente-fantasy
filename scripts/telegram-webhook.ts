@@ -16,7 +16,7 @@ async function call(method: string, body: object) {
 (async () => {
   if (!token || !secret) throw new Error("Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_WEBHOOK_SECRET en .env");
   await call("setWebhook", { url: `${app}/api/telegram`, secret_token: secret, allowed_updates: ["message", "my_chat_member"] });
-  await call("setMyCommands", { commands: [{ command: "start", description: "Qué es y cómo empezar" }, { command: "espia", description: "Activar el Espía en este grupo" }] });
+  await call("setMyCommands", { commands: [{ command: "start", description: "Qué es y cómo empezar" }, { command: "web", description: "Enlace para entrar en la web" }, { command: "espia", description: "Activar el Espía en este grupo" }] });
   console.log(`Bot apuntado a ${app}/api/telegram`);
 })().catch((e) => {
   console.error(String(e instanceof Error ? e.message : e));

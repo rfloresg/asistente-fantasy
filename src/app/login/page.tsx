@@ -17,6 +17,8 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
         <p className="muted" style={{ marginTop: 0 }}>Sin contraseñas. Te llegará tu plan por Telegram, solo a ti.</p>
         {bot ? <TelegramButton bot={bot} next={next} /> : <p className="bad">Falta TELEGRAM_BOT_USERNAME en Vercel.</p>}
         {q.error === "telegram" && <p className="bad">Telegram no ha confirmado la entrada. Vuelve a probar.</p>}
+        {q.error === "enlace" && <p className="bad">Ese enlace ha caducado. Escribe /web al bot y te mando otro.</p>}
+        {bot && <p className="small" style={{ marginBottom: 0 }}>Desde el móvil es más fácil: abre <a href={`https://t.me/${bot}?start=web`}>el bot en Telegram</a> y pulsa Entrar en la web.</p>}
       </section>
 
       {process.env.APP_PASSWORD && (
