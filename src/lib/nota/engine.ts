@@ -6,8 +6,9 @@ export const CONFIG = {
   weights: { form: 0.3, trend: 0.3, ppm: 0.1, minutes: 0.25, calendar: 0.05 },
   risk: { injured: 25, suspended: 20, doubtful: 10 } as Record<string, number>,
   formWeeks: 5, // últimos partidos del equipo para forma y minutos
-  nextMatches: 3, // rivales que mira el calendario
-  awayPenalty: 0.2, // jugar fuera suma dificultad
+  nextMatches: 2, // rivales que mira el calendario (las 2 jornadas siguientes)
+  calendarWeeks: 8, // partidos recientes para medir ataque y defensa de cada equipo
+  homeFactor: 1.1, // en casa se marca un 10 % más (y fuera un 10 % menos)
   holdDays: 7, // días que piensas tener al jugador para especular
   specMargin: 0.05, // beneficio mínimo al especular (5 % del valor)
   maxDailyRate: 0.08, // tope de subida/bajada diaria al proyectar
@@ -111,13 +112,15 @@ export function percentiles(values: (number | null)[]): number[] {
 interface TeamInfo {
   playedWeeks: number[]; // jornadas terminadas, de más reciente a más antigua
   strength: number; // puntos por partido + 0,1 x diferencia de goles por partido
+  attack: number; // goles a favor por partido (últimos partidos, suavizado hacia la media)
+  defense: number; // goles en contra por partido (igual)
   next: { teamId: string; home: boolean }[];
 }
 
 export function teamInfo(matches: EngineMatch[], asOf: string): Map<string, TeamInfo> {
   const cutoff = new Date(`${addDays(asOf, 1)}T00:00:00+01:00`); // fin del día asOf en Madrid
   const start = new Date(`${asOf}T00:00:00+01:00`);
-  const acc = new Map<string, { weeks: { w: number; d: number }[]; pts: number; gd: number; n: number; next: { d: number; teamId: string; home: boolean }[] }>();
+  const acc = new Map<string, { weeks: { w: number; d: number; gf: number; ga: number }[]; pts: number; gd: number; n: number; next: { d: number; teamId: string; home: boolean }[] }>();
   const get = (id: string) => {
     if (!acc.has(id)) acc.set(id, { weeks: [], pts: 0, gd: 0, n: 0, next: [] });
     return acc.get(id)!;
@@ -128,8 +131,8 @@ export function teamInfo(matches: EngineMatch[], asOf: string): Map<string, Team
     const done = m.state === FINISHED && m.date < cutoff && m.localScore !== null && m.visitorScore !== null;
     if (done) {
       const diff = m.localScore! - m.visitorScore!;
-      L.weeks.push({ w: m.week, d: +m.date });
-      V.weeks.push({ w: m.week, d: +m.date });
+      L.weeks.push({ w: m.week, d: +m.date, gf: m.localScore!, ga: m.visitorScore! });
+      V.weeks.push({ w: m.week, d: +m.date, gf: m.visitorScore!, ga: m.localScore! });
       L.pts += diff > 0 ? 3 : diff === 0 ? 1 : 0;
       V.pts += diff < 0 ? 3 : diff === 0 ? 1 : 0;
       L.gd += diff;
@@ -141,15 +144,36 @@ export function teamInfo(matches: EngineMatch[], asOf: string): Map<string, Team
       V.next.push({ d: +m.date, teamId: m.localId, home: false });
     }
   }
+  // Media de goles por partido de la liga, para suavizar equipos con pocos partidos
+  const all = [...acc.values()].flatMap((a) => a.weeks);
+  const leagueAvg = all.length ? all.reduce((s, w) => s + w.gf, 0) / all.length : 1.3;
+  const PRIOR = 2; // partidos "de media" que se suman a cada equipo
   const out = new Map<string, TeamInfo>();
   for (const [id, a] of acc) {
+    const recent = [...a.weeks].sort((x, y) => y.d - x.d).slice(0, CONFIG.calendarWeeks);
+    const smooth = (sum: number) => (sum + PRIOR * leagueAvg) / (recent.length + PRIOR);
     out.set(id, {
       playedWeeks: a.weeks.sort((x, y) => y.d - x.d).map((x) => x.w),
       strength: a.n ? a.pts / a.n + (0.1 * a.gd) / a.n : 1.3,
+      attack: smooth(recent.reduce((s, w) => s + w.gf, 0)),
+      defense: smooth(recent.reduce((s, w) => s + w.ga, 0)),
       next: a.next.sort((x, y) => x.d - y.d).slice(0, CONFIG.nextMatches).map(({ teamId, home }) => ({ teamId, home })),
     });
   }
   return out;
+}
+
+// Dificultad de un partido para un jugador (más alto = más difícil), según su puesto:
+// porteros y defensas sufren con los goles que se esperan en contra; delanteros, con los que no se esperan a favor.
+export function matchDifficulty(own: { attack: number; defense: number }, opp: { attack: number; defense: number } | undefined, home: boolean, positionId: number): number {
+  const avg = 1.3;
+  const o = opp ?? { attack: avg, defense: avg };
+  const h = home ? CONFIG.homeFactor : 1 / CONFIG.homeFactor;
+  const goalsFor = (own.attack * o.defense) / avg * h;
+  const goalsAgainst = (o.attack * own.defense) / avg / h;
+  if (positionId <= 2) return goalsAgainst; // POR, DEF: portería a cero
+  if (positionId === 3) return goalsAgainst * 0.5 - goalsFor; // MED: un poco de cada
+  return -goalsFor; // DEL (y entrenador): goles del equipo
 }
 
 // ---------- motor ----------
@@ -186,7 +210,7 @@ export function computeScores(input: EngineInput): PlayerScore[] {
     const dailyRate = rates.length ? clamp(mean(rates)!, -CONFIG.maxDailyRate, CONFIG.maxDailyRate) : null;
 
     const next = team?.next ?? [];
-    const difficulty = mean(next.map((n) => (teams.get(n.teamId)?.strength ?? 1.3) + (n.home ? 0 : CONFIG.awayPenalty)));
+    const difficulty = team ? mean(next.map((n) => matchDifficulty(team, teams.get(n.teamId), n.home, pl.positionId))) : null;
 
     const expected = round10k(v0 * (1 + (dailyRate ?? 0)) ** CONFIG.holdDays);
     const spec = expected - v0 * CONFIG.specMargin;

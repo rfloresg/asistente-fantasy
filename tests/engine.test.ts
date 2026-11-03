@@ -115,3 +115,17 @@ describe("computeScores", () => {
     expect(reasons(by("hurt"), "injured", String)[0]).toEqual({ good: false, text: "Lesionado: resta 25 puntos" });
   });
 });
+
+import { matchDifficulty } from "../src/lib/nota/engine";
+
+describe("calendario por puesto", () => {
+  const strong = { attack: 2.4, defense: 0.6 };
+  const weak = { attack: 0.8, defense: 2.0 };
+  it("un delantero lo tiene más fácil contra una defensa floja y en casa", () => {
+    expect(matchDifficulty(strong, weak, true, 4)).toBeLessThan(matchDifficulty(strong, strong, true, 4));
+    expect(matchDifficulty(strong, weak, true, 4)).toBeLessThan(matchDifficulty(strong, weak, false, 4));
+  });
+  it("un defensa lo tiene más difícil contra un ataque fuerte", () => {
+    expect(matchDifficulty(weak, strong, true, 2)).toBeGreaterThan(matchDifficulty(weak, weak, true, 2));
+  });
+});

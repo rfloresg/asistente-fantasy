@@ -71,7 +71,7 @@ Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de s
 | Tendencia | Ritmo diario de subida del valor (3 y 7 días) | 30 % |
 | Pts por millón | Puntos por partido en la temporada / valor en millones | 10 % |
 | Minutos | Mitad minutos en los últimos 5, mitad % de ser titular (once probable) | 25 % |
-| Calendario | Fuerza de los 3 próximos rivales (jugar fuera suma) | 5 % |
+| Calendario | Goles que se esperan en los 2 próximos partidos según el puesto: en contra para porteros y defensas, a favor para delanteros, mitad y mitad en medios (casa o fuera cuenta) | 5 % |
 | Riesgo | Lesión −25, sanción −20, duda −10 | resta |
 
 - **Fichar:** nota de 70 o más, al menos 4 pts por partido, 50 % o más de ser titular (si hay once) y sin lesión ni sanción.
