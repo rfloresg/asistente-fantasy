@@ -16,6 +16,7 @@ export const PLAN = {
   raiseMaxShare: 0.25, // y solo si cuesta como mucho el 25 % de tu dinero; si no, blindar
   needClauseOver: 1.3, // para cubrir un hueco se acepta una cláusula de hasta un 30 % sobre el valor
   needNota: 55, // si te falta un titular en un puesto, vale con esta nota (y 60 % de ser titular)
+  specMinGain: 100_000, // especular solo si se espera ganar al menos esto (y un 3 %)
   bidExtra: 0.05, // puja: valor + 5 %...
   bidExtraWithBids: 0.12, // ... o + 12 % si ya hay pujas
 };
@@ -108,6 +109,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
   const worth = (x: Score) => Math.max(x.maxBidPlay, x.maxBidSpec ?? 0, x.value * PLAN.cheapClause);
   let shields = 0;
   let nProtect = 0;
+  let reserved = 0; // lo que cuestan las subidas de cláusula propuestas: se resta antes de fichar
   const candidates = mine
     .filter(({ s }) => s && s.value >= PLAN.protectMinValue && s.action !== "vender" && s.nota >= PLAN.sellNota) // a los que vendes, no
     .sort((a, c) => c.s!.value - a.s!.value);
@@ -128,7 +130,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const target = round(Math.min(worth(s!), known ? richest : Infinity) * PLAN.raiseOver);
     const cost = round((target - clause) / RAISE_RATIO);
     const reach = known ? ` Algún rival tiene hasta ${M(richest)}.` : "";
-    if (i.myMoney > 0 && cost <= i.myMoney * PLAN.raiseMaxShare) {
+    if (i.myMoney - reserved > 0 && cost <= (i.myMoney - reserved) * PLAN.raiseMaxShare) {
+      reserved += cost;
       out.push({
         tipo: "proteger",
         prioridad: 2,
@@ -178,8 +181,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
     })
     .slice(0, PLAN.maxPerType);
   const fromSales = ventas.reduce((t, { s }) => t + (s?.value ?? 0), 0);
-  let budget = Math.max(0, i.myMoney) + fromSales;
-  let cash = Math.max(0, i.myMoney); // lo que tienes ya, sin vender
+  let budget = Math.max(0, i.myMoney - reserved) + fromSales;
+  let cash = Math.max(0, i.myMoney - reserved); // lo que tienes ya, sin vender y tras subir cláusulas
   const cashNote = (x: number) => (x > cash ? ` Para pagarlo tendrás que vender antes (tienes ${M(Math.max(0, cash))} libres).` : "");
 
   // 3. Clausulazos: jugadores de rivales con nota de fichar y cláusula que compensa. Se pagan al momento.
@@ -215,7 +218,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     .map((m) => ({ m, s: sc(String(m.playerMaster.id)) }))
     .filter(({ m, s }) => s && (
       (s.action === "fichar" && m.salePrice <= s.maxBidPlay)
-      || (s.maxBidSpec !== null && m.salePrice < s.maxBidSpec)
+      || (s.maxBidSpec !== null && s.maxBidSpec - m.salePrice >= Math.max(PLAN.specMinGain, m.salePrice * 0.03))
       || (needPos.has(m.playerMaster.positionId) && s.nota >= PLAN.needNota && (s.startProb ?? 100) >= 60 && m.salePrice <= s.maxBidPlay)))
     // primero los de los puestos donde te faltan titulares, luego por nota
     .sort((a, c) => Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId)) || c.s!.nota - a.s!.nota);

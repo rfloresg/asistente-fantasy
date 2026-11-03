@@ -5,6 +5,7 @@ import Link from "next/link";
 import { money } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import type { LineupSnapshot } from "@/lib/plan/snapshot";
+import Refresh from "./_ui/Refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,8 @@ export default async function Hoy() {
         <p className="lead">Aquí verás qué hacer en cada liga: a quién proteger, por quién pujar, a quién vender y tu mejor once.</p>
         <div className="empty">
           <h2>Aún no hay plan</h2>
-          <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, ejecuta <code>npm run espia plan</code> o lánzalo desde GitHub (Actions, Espía de la liga, modo plan).</p>
+          <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, pulsa el botón.</p>
+          <div style={{ marginTop: 16 }}><Refresh since={null} /></div>
         </div>
       </main>
     );
@@ -98,10 +100,13 @@ export default async function Hoy() {
             Esto es lo que te toca hacer en {plan.leagueName}, de lo más urgente a lo que puede esperar.
           </p>
         </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "flex-start" }}>
         <dl className="stats">
           <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : undefined}>{money(plan.myMoney)}</dd></div>
           {me && <div><dt>Puesto</dt><dd>{me.position}.º · {me.points} pts</dd></div>}
         </dl>
+        <Refresh since={plan.createdAt.toISOString()} />
+        </div>
       </div>
 
       <div className="cols">
@@ -140,7 +145,7 @@ export default async function Hoy() {
 
       <p className="small" style={{ marginTop: 40 }}>
         Plan de las {madrid(plan.createdAt, { hour: "2-digit", minute: "2-digit" })} del {madrid(plan.createdAt, { day: "numeric", month: "long" })}
-        {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza a las 9:00 y a las 18:00. El dinero de los rivales es un máximo.
+        {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza a las 9:00, a las 18:00 y 4 horas antes del cierre; si mueves algo en LaLiga, pulsa Actualizar plan. El dinero de los rivales es un máximo.
       </p>
     </main>
   );

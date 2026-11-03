@@ -161,6 +161,8 @@ La primera vez no publica el historial: solo un mensaje de "Espía activado". La
 5. **Vender:** nota baja y bajando, o lesionado.
 6. **Alineación y capitán** (`src/lib/plan/lineup.ts`): el once que más puntos espera entre las formaciones sin Premium. Puntos esperados = forma × probabilidad de ser titular (once probable) × estado (lesionado o sancionado 0, en duda la mitad). Capitán: el de más puntos esperados. Avisa de dudas y de a quién no alinear.
 
+**Actualizar plan:** el botón de la portada lanza el workflow en modo plan y recarga la página cuando llega (1-2 minutos). Necesita en Vercel la variable `GITHUB_DISPATCH_TOKEN`: un token de GitHub (fine-grained, solo este repo) con permiso **Actions: Read and write**.
+
 **Recordatorio:** 4 horas antes del cierre del mercado te llega en privado el plan recién calculado, con lo que te queda por hacer (una vez por jornada).
 
 Es **solo para ti**: se envía al chat privado `ESPIA_PLAN_CHAT` (abre el bot en privado, escríbele `/start` y saca el ID con `npm run telegram:chat`), nunca al grupo. Se genera a las 9:00 y a las 18:00, se guarda en `espia_plans` y se ve en `/plan` de la web. El chat también lo consulta (herramienta `plan_del_dia`). Umbrales en `PLAN`.

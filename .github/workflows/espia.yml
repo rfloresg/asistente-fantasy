@@ -16,6 +16,11 @@ on:
         description: "eventos, resumen o plan"
         default: "eventos"
 
+# Una pasada cada vez: la sesión de LaLiga se renueva en cada uso y dos a la vez la romperían
+concurrency:
+  group: laliga-session
+  cancel-in-progress: false
+
 jobs:
   espia:
     runs-on: ubuntu-latest

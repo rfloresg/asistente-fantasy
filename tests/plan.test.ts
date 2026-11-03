@@ -43,7 +43,7 @@ const scores = new Map<string, Score>([
 ]);
 
 describe("plan del día", () => {
-  const plan = dailyPlan({ now, myTeam, myMoney: 15_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market, scores });
+  const plan = dailyPlan({ now, myTeam, myMoney: 16_500_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market, scores });
   const byTipo = (t: string) => plan.filter((a) => a.tipo === t).map((a) => a.jugador);
 
   it("protege a la estrella: su cláusula está por debajo de lo que vale → subirla justo por encima", () => {
@@ -72,9 +72,9 @@ describe("plan del día", () => {
   it("no propone lo que no puedes pagar ni vendiendo, y reparte el presupuesto", () => {
     const caro: MarketItem = { id: "m3", salePrice: 180_000_000, expirationDate: "", status: "on_sale", playerMaster: { id: "30", nickname: "Mbappé", marketValue: 1, positionId: 4, playerStatus: "ok" } };
     const sc2 = new Map(scores).set("30", score(95, 180_000_000));
-    const p = dailyPlan({ now, myTeam, myMoney: 15_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market: [caro, ...market], scores: sc2 });
+    const p = dailyPlan({ now, myTeam, myMoney: 16_500_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: rivalTeam }], market: [caro, ...market], scores: sc2 });
     expect(p.map((a) => a.jugador)).not.toContain("Mbappé");
-    // tras clausular a Crack (12 M) te quedan 3 M: la puja de 5,6 M por Chollo pide vender antes
+    // 16,5 - 1,34 (subir cláusula) - 12 (Crack) = 3,16 M: la puja de 5,6 M por Chollo pide vender antes
     expect(p.find((a) => a.jugador === "Chollo")!.texto).toContain("tendrás que vender antes");
   });
   it("vende al de nota baja", () => {
@@ -93,5 +93,22 @@ describe("plan del día", () => {
     const text = planMessage("KFC Fantasy", 15_000_000, plan);
     expect(text.indexOf("Protege")).toBeLessThan(text.indexOf("Clausulazos"));
     expect(planMessage("X", 1, [])).toContain("Nada urgente");
+  });
+});
+
+describe("presupuesto tras subir cláusulas", () => {
+  it("la subida de cláusula propuesta se descuenta antes de clausular", () => {
+    // 10 M: subir la de Estrella cuesta 1,34 M (cabe en el 25 %); Crack cuesta 12 M → ya no llegas, aunque sin subida tampoco
+    const crack = { ...rivalTeam, players: [tp("10", "Crack", 9_500_000)] };
+    const sc = new Map(scores).set("10", score(88, 9_000_000));
+    const p = dailyPlan({ now, myTeam, myMoney: 10_000_000, rivals: [{ teamId: "r1", manager: "Jonix", money: 30_000_000, team: crack }], market: [], scores: sc });
+    expect(p.some((a) => a.tipo === "proteger" && a.texto.includes("Sube la cláusula"))).toBe(true);
+    expect(p.some((a) => a.jugador === "Crack")).toBe(false); // 10 - 1,34 = 8,66 < 9,5
+  });
+  it("no propone especular si no se gana casi nada", () => {
+    const m: MarketItem = { id: "x", salePrice: 570_000, expirationDate: "", status: "on_sale", playerMaster: { id: "40", nickname: "Andrés", marketValue: 1, positionId: 2, playerStatus: "ok" } };
+    const sc = new Map(scores).set("40", score(50, 570_000, { maxBidSpec: 575_000 }));
+    const p = dailyPlan({ now, myTeam, myMoney: 10_000_000, rivals: [], market: [m], scores: sc });
+    expect(p.some((a) => a.jugador === "Andrés")).toBe(false);
   });
 });
