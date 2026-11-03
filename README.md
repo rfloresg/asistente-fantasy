@@ -49,6 +49,8 @@ Con `APP_PASSWORD` definida, toda la web y la API piden contraseña (cookie de 9
 
 ## La web
 
+En producción: **https://asistente-fantasy.vercel.app** (siempre la última versión; las direcciones con un código en medio son despliegues antiguos).
+
 Una sola app, con selector de liga arriba (se recuerda en una cookie):
 
 | Página | Qué enseña |
