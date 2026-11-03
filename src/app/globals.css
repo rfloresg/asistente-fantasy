@@ -39,7 +39,7 @@ a:hover { color: var(--pitch); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* Cabecera y navegación */
-.top { background: var(--ink); color: var(--bg); }
+.top { background: var(--ink); color: var(--bg); padding-top: env(safe-area-inset-top); }
 .top-in { max-width: 1180px; margin: 0 auto; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
 .brand { color: var(--bg); text-decoration: none; font-weight: 800; font-stretch: 70%; font-variation-settings: "wdth" 70; font-size: 24px; letter-spacing: .01em; }
 .brand:hover { color: var(--yellow); }

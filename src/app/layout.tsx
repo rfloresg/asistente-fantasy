@@ -3,6 +3,7 @@ import { Archivo } from "next/font/google";
 import Link from "next/link";
 import { currentLeague } from "@/lib/ligas";
 import { LeagueSwitch, Nav } from "./_ui/Nav";
+import InstallSW from "./_ui/InstallSW";
 import "./globals.css";
 
 const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], display: "swap", variable: "--font" });
@@ -10,6 +11,8 @@ const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], display: "swap", v
 export const metadata: Metadata = {
   title: "Asistente Fantasy",
   description: "Qué hacer hoy en tus ligas de LaLiga Fantasy",
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Fantasy", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = { themeColor: "#102A1E", width: "device-width", initialScale: 1 };
@@ -35,6 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         {children}
+        <InstallSW />
       </body>
     </html>
   );
