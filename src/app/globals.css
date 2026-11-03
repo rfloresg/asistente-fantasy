@@ -262,3 +262,6 @@ ul.reasons li.bad::marker { color: var(--down); }
 .notice { font-weight: 600; padding: 12px 14px; border-radius: 10px; }
 .notice.ok { background: #D3EBDB; color: #155A33; }
 .notice.ko { background: #F6DCD9; color: #8F2720; }
+.group-settings { border: 1px solid var(--line); border-radius: 10px; margin: 12px 0 0; padding: 8px 12px 10px; }
+.group-settings label { display: flex; gap: 10px; align-items: center; font-size: 14px; padding: 6px 0; cursor: pointer; }
+.group-settings input { width: 18px; height: 18px; accent-color: var(--pitch); }

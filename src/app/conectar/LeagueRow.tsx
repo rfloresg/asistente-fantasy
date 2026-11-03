@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "../_ui/Refresh";
 
-export default function LeagueRow({ id, name, plan, group }: { id: string; name: string; plan: boolean; group: boolean }) {
+export default function LeagueRow({ id, name, plan, group, owner, money, raises }: {
+  id: string; name: string; plan: boolean; group: boolean; owner: boolean; money: boolean; raises: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   async function act(action: string) {
@@ -26,6 +28,13 @@ export default function LeagueRow({ id, name, plan, group }: { id: string; name:
           {busy === "dejar" && <Spinner />}Dejar de seguir
         </button>
       </div>
+      {group && owner && (
+        <fieldset className="group-settings">
+          <legend className="small">En el grupo de Telegram</legend>
+          <label><input type="checkbox" checked={money} disabled={!!busy} onChange={() => act(money ? "money-off" : "money-on")} /> Enseñar el dinero estimado de cada uno</label>
+          <label><input type="checkbox" checked={raises} disabled={!!busy} onChange={() => act(raises ? "raises-off" : "raises-on")} /> Avisar cuando alguien sube una cláusula</label>
+        </fieldset>
+      )}
     </li>
   );
 }

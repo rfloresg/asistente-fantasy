@@ -232,6 +232,9 @@ export const leagues = pgTable("leagues", {
   groupChatId: text("group_chat_id"),
   groupOwnerId: integer("group_owner_id"),
   active: boolean("active").notNull().default(true),
+  // Ajustes del grupo (los cambia quien lo activó): enseñar el dinero estimado y avisar de subidas de cláusula
+  showMoney: boolean("show_money").notNull().default(false),
+  showRaises: boolean("show_raises").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 

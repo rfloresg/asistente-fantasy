@@ -85,6 +85,13 @@
       "when": 1793716437639,
       "tag": "0011_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793716524683,
+      "tag": "0012_ajustes_grupo",
+      "breakpoints": true
     }
   ]
 }

@@ -79,11 +79,15 @@ async function loadTargets(db: Db) {
       .from(memberships).innerJoin(users, eq(users.id, memberships.userId)).where(eq(memberships.plan, true));
     return rows.map((l) => {
       const planUsers: PlanUser[] = ms.filter((m) => m.leagueId === l.leagueId).map((m) => ({ userId: m.userId, chat: m.chat ?? (m.isAdmin ? process.env.ESPIA_PLAN_CHAT : undefined) }));
-      return { leagueId: l.leagueId, name: l.name, chatId: l.groupChatId ?? undefined, reader: l.groupOwnerId ?? planUsers[0]?.userId ?? null, planUsers };
+      return {
+        leagueId: l.leagueId, name: l.name, chatId: l.groupChatId ?? undefined, reader: l.groupOwnerId ?? planUsers[0]?.userId ?? null, planUsers,
+        settings: { money: l.showMoney, raises: l.showRaises },
+      };
     }).filter((t) => t.reader !== null && (t.chatId || t.planUsers.length));
   }
   return parseLeagues(process.env).map(({ leagueId, chatId }) => ({
     leagueId, name: "", chatId, reader: null as number | null, planUsers: [{ userId: null, chat: process.env.ESPIA_PLAN_CHAT }] as PlanUser[],
+    settings: { money: process.env.ESPIA_DINERO === "1", raises: process.env.ESPIA_SUBIDAS === "1" },
   }));
 }
 
@@ -115,7 +119,7 @@ async function main() {
         const token = await tokenFor(t.reader);
         const name = t.name && t.name !== t.leagueId ? t.name
           : (await myLeagues(token)).find((l) => String(l.id) === t.leagueId)?.name?.trim() ?? "Tu liga";
-        await runLeague(db, token, t.leagueId, t.chatId, name, t.reader, t.planUsers, tokenFor);
+        await runLeague(db, token, t.leagueId, t.chatId, name, t.reader, t.planUsers, tokenFor, t.settings);
       } catch (e) {
         failed++;
         await warnExpired(e);
@@ -136,6 +140,7 @@ async function main() {
 async function runLeague(
   db: Db, token: string, leagueId: string, chatId: string | undefined, leagueName: string,
   reader: number | null, planUsers: PlanUser[], tokenFor: TokenFor,
+  settings: { money: boolean; raises: boolean },
 ) {
   {
     const liga = leagueClient(token, leagueId);
@@ -192,9 +197,9 @@ async function runLeague(
       const firstUnlocks = ![...seen].some((id) => id.startsWith("unlock:"));
       const newUnlocks = unlocks.filter((u) => !seen.has(u.key));
       if (mode === "preview" || (!firstRun && !firstUnlocks)) lines.push(...newUnlocks.map(unlockMessage));
-      // Subidas de cláusula: se publican con ESPIA_SUBIDAS=1 (en preview siempre se ven)
+      // Subidas de cláusula: se publican si el dueño del grupo lo activa (en preview siempre se ven)
       const raiseLines = await trackClauses(db, leagueId, teams, ctx);
-      if (mode === "preview" || process.env.ESPIA_SUBIDAS === "1") lines.push(...raiseLines);
+      if (mode === "preview" || settings.raises) lines.push(...raiseLines);
 
       // Avisos del meta: cierre de mercado y parón (una vez cada uno)
       const mts = await db.select({ week: matches.week, date: matches.date }).from(matches);
@@ -264,8 +269,8 @@ async function runLeague(
             .where(and(eq(playerScores.day, d), inArray(playerScores.playerId, ids)))
         : [];
       const last24h = acts.filter((a) => Date.now() - Date.parse(a.createdAt) < 24 * 3600e3);
-      // El dinero estimado solo se publica con ESPIA_DINERO=1 (en preview siempre se ve)
-      const money = mode === "preview" || process.env.ESPIA_DINERO === "1" ? (await getMoney())?.byTeam : undefined;
+      // El dinero estimado solo se publica si el dueño del grupo lo activa (en preview siempre se ve)
+      const money = mode === "preview" || settings.money ? (await getMoney())?.byTeam : undefined;
       const unlocksSoon = clauseUnlocks(teams, Date.now(), Date.now() + 24 * 3600e3);
       const text = dailySummary({
         leagueName, day, standing, teams, last24h, market,

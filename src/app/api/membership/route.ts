@@ -9,8 +9,17 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Entra primero en la web" }, { status: 401 });
   const { leagueId, action } = (await req.json().catch(() => ({}))) as { leagueId?: string; action?: string };
-  if (!leagueId || !["plan-on", "plan-off", "dejar"].includes(action ?? "")) return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
+  const ACTIONS = ["plan-on", "plan-off", "dejar", "money-on", "money-off", "raises-on", "raises-off"];
+  if (!leagueId || !ACTIONS.includes(action ?? "")) return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
   const db = await getDb();
+  if (action!.startsWith("money") || action!.startsWith("raises")) {
+    // Ajustes del grupo: solo quien lo activó
+    const [l] = await db.select().from(leagues).where(eq(leagues.leagueId, leagueId));
+    if (l?.groupOwnerId !== user.id) return NextResponse.json({ error: "Solo quien activó el Espía en el grupo puede cambiarlo" }, { status: 403 });
+    const on = action!.endsWith("-on");
+    await db.update(leagues).set(action!.startsWith("money") ? { showMoney: on } : { showRaises: on }).where(eq(leagues.leagueId, leagueId));
+    return NextResponse.json({ ok: true });
+  }
   const mine = and(eq(memberships.userId, user.id), eq(memberships.leagueId, leagueId));
   if (action === "dejar") {
     await db.delete(memberships).where(mine);

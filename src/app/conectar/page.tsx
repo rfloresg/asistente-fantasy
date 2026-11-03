@@ -23,7 +23,7 @@ export default async function Conectar() {
   }
   const db = await getDb();
   const [session] = await db.select().from(laligaSessions).where(eq(laligaSessions.userId, user.id));
-  const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, group: leagues.groupChatId })
+  const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, group: leagues.groupChatId, owner: leagues.groupOwnerId, money: leagues.showMoney, raises: leagues.showRaises })
     .from(memberships).innerJoin(leagues, eq(leagues.leagueId, memberships.leagueId)).where(eq(memberships.userId, user.id));
 
   return (
@@ -50,7 +50,7 @@ export default async function Conectar() {
           <p className="small" style={{ marginTop: -4 }}>Para que el Espía publique en el grupo de una liga: mete el bot en el grupo y escribe <code>/espia</code>.</p>
           {mine.length ? (
             <ul className="rule">
-              {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} group={!!l.group} />)}
+              {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} group={!!l.group} owner={l.owner === user.id} money={l.money} raises={l.raises} />)}
             </ul>
           ) : (
             <p className="muted">Aparecerán cuando conectes.</p>
