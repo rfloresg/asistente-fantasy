@@ -242,3 +242,23 @@ ul.reasons li.bad::marker { color: var(--down); }
 .steps > li.now, .steps > li.done { opacity: 1; }
 .steps h3 { margin-bottom: 4px; }
 .steps p { margin: 0 0 12px; color: var(--ink-2); max-width: 60ch; }
+
+/* Guía de conectar */
+.tip { background: #E1EBE3; border-radius: var(--radius); padding: 16px 18px; margin-bottom: 24px; line-height: 1.5; }
+.tip .primary { margin-top: 12px; }
+.guide { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.guide > li { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.guide .num { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; font-weight: 800; font-stretch: 75%; font-variation-settings: "wdth" 75; font-size: 18px; }
+.guide h3 { margin: 4px 0 4px; }
+.guide p { margin: 0 0 12px; color: var(--ink-2); max-width: 58ch; }
+.guide .primary { margin-top: 0; }
+.mock { width: 230px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.mock-bar { background: #2B2F36; padding: 7px 8px; }
+.mock-url { display: block; background: #3B4049; color: #DDE3EA; font-size: 11px; border-radius: 6px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-page { height: 70px; padding: 8px; font-size: 12px; color: #fff; background: linear-gradient(#2A7FE3 0 26px, #fff 26px); }
+.paste-row { display: flex; gap: 8px; margin: 4px 0 12px; }
+.paste-row input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); min-height: 44px; }
+.paste-row .chip { min-height: 44px; padding: 0 16px; font-weight: 600; }
+.notice { font-weight: 600; padding: 12px 14px; border-radius: 10px; }
+.notice.ok { background: #D3EBDB; color: #155A33; }
+.notice.ko { background: #F6DCD9; color: #8F2720; }

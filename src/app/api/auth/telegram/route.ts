@@ -1,11 +1,10 @@
 // Vuelta del botón "Iniciar sesión con Telegram": crea o encuentra tu usuario y te deja dentro.
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
 import { COOKIE, expectedCookie } from "@/middleware";
 import { USER_COOKIE, userCookieValue } from "@/lib/session";
 import { verifyTelegramLogin } from "@/lib/telegram-auth";
+import { userForTelegram } from "@/lib/users";
 
 const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: 60 * 60 * 24 * 90 };
 
@@ -19,17 +18,8 @@ export async function GET(req: Request) {
 
   const db = await getDb();
   const name = [tg.first_name, tg.last_name].filter(Boolean).join(" ") || tg.username || "Mánager";
-  let [user] = await db.select().from(users).where(eq(users.telegramId, tg.id));
-  if (!user) {
-    // Si ya habías entrado como administrador (contraseña), se te asocia tu Telegram en vez de crear otro usuario
-    const isAdminNow = !!process.env.APP_PASSWORD && (req.headers.get("cookie") ?? "").includes(`${COOKIE}=${await expectedCookie()}`);
-    const [admin] = isAdminNow ? await db.select().from(users).where(eq(users.isAdmin, true)).limit(1) : [];
-    if (admin && !admin.telegramId) {
-      [user] = await db.update(users).set({ telegramId: tg.id }).where(eq(users.id, admin.id)).returning();
-    } else {
-      [user] = await db.insert(users).values({ name, telegramId: tg.id, isAdmin: false, createdAt: new Date() }).returning();
-    }
-  }
+  const isAdminNow = !!process.env.APP_PASSWORD && (req.headers.get("cookie") ?? "").includes(`${COOKIE}=${await expectedCookie()}`);
+  const user = await userForTelegram(db, tg.id, name, isAdminNow);
   const res = NextResponse.redirect(new URL(user.isAdmin ? next : next === "/" ? "/conectar" : next, url), 303);
   res.cookies.set(USER_COOKIE, userCookieValue(user.id), COOKIE_OPTS);
   return res;

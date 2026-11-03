@@ -33,7 +33,7 @@ export default async function Conectar() {
 
       <div className="cols">
         <section className="col-main">
-          <Connect connected={!!session && !session.lastError} />
+          <Connect connected={!!session && !session.lastError} bot={process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "")} />
         </section>
         <aside className="col-side">
           <h2>Tu conexión</h2>
