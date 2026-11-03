@@ -1,31 +1,34 @@
 "use client";
 
-// Lanza un plan nuevo y recarga la página cuando llega (tarda 1-2 minutos).
+// Botones que piden un plan nuevo y recargan la página cuando llega (tarda 1-2 minutos):
+// "Actualizar plan" y "Hecho" en cada movimiento.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function Refresh({ since }: { since: string | null }) {
+type State = "idle" | "busy" | "error";
+
+function useReplan(since: string | null, leagueId?: string) {
   const router = useRouter();
-  const [state, setState] = useState<"idle" | "busy" | "error">("idle");
+  const [state, setState] = useState<State>("idle");
   const [msg, setMsg] = useState("");
 
-  async function run() {
+  async function run(url: string, body?: object) {
     setState("busy");
-    setMsg("Calculando tu plan con los datos de ahora. Tarda uno o dos minutos.");
-    const res = await fetch("/api/actualizar", { method: "POST" });
+    setMsg("");
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
+      const b = await res.json().catch(() => ({}));
       setState("error");
-      setMsg(body.error ?? "No se pudo lanzar");
+      setMsg(b.error ?? "No se pudo lanzar");
       return;
     }
     const start = Date.now();
     const poll = async () => {
-      const { last } = await fetch("/api/actualizar").then((r) => r.json()).catch(() => ({ last: null }));
+      // Espera al plan de ESTA liga (el Espía calcula las dos, una detrás de otra)
+      const { last } = await fetch(`/api/actualizar${leagueId ? `?liga=${leagueId}` : ""}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ last: null }));
       if (last && (!since || Date.parse(last) > Date.parse(since))) {
         setState("idle");
-        setMsg("");
         router.refresh();
         return;
       }
@@ -38,13 +41,30 @@ export default function Refresh({ since }: { since: string | null }) {
     };
     setTimeout(poll, 30_000);
   }
+  return { state, msg, run };
+}
 
+export default function Refresh({ since, leagueId }: { since: string | null; leagueId?: string }) {
+  const { state, msg, run } = useReplan(since, leagueId);
   return (
     <div className="refresh">
-      <button type="button" className="primary" onClick={run} disabled={state === "busy"} style={{ marginTop: 0 }}>
+      <button type="button" className="primary" onClick={() => run("/api/actualizar")} disabled={state === "busy"} style={{ marginTop: 0 }}>
         {state === "busy" ? "Actualizando…" : "Actualizar plan"}
       </button>
-      {msg && <p className={state === "error" ? "bad" : "small"} role="status" style={{ margin: "8px 0 0" }}>{msg}</p>}
+      {state === "busy" && <p className="small" role="status" style={{ margin: "8px 0 0" }}>Calculando tu plan con los datos de ahora. Tarda uno o dos minutos.</p>}
+      {msg && <p className="bad" role="status" style={{ margin: "8px 0 0" }}>{msg}</p>}
     </div>
+  );
+}
+
+export function DoneButton({ since, leagueId, k }: { since: string; leagueId: string; k: string }) {
+  const { state, msg, run } = useReplan(since, leagueId);
+  return (
+    <span className="done-btn">
+      <button type="button" className="chip" disabled={state === "busy"} onClick={() => run("/api/hecho", { leagueId, key: k })}>
+        {state === "busy" ? "Comprobando…" : "Hecho"}
+      </button>
+      {msg && <span className="bad" role="status" style={{ fontSize: 13 }}>{msg}</span>}
+    </span>
   );
 }

@@ -1,27 +1,19 @@
-// Botón "Actualizar plan": lanza el workflow del Espía en modo plan (GitHub Actions).
-// Necesita en Vercel GITHUB_DISPATCH_TOKEN: un token de GitHub con permiso "Actions: read and write" sobre el repo.
+// Botón "Actualizar plan": lanza un plan nuevo. GET: hora del último plan, para saber cuándo ha llegado.
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { espiaPlans } from "@/db/schema";
+import { dispatchPlan } from "@/lib/github";
 
-const REPO = process.env.GITHUB_REPO ?? "rfloresg/asistente-fantasy";
-
-// Hora del último plan guardado, para saber cuándo ha llegado el nuevo
-export async function GET() {
+export async function GET(req: Request) {
+  const liga = new URL(req.url).searchParams.get("liga");
   const db = await getDb();
-  const [last] = await db.select({ at: espiaPlans.createdAt }).from(espiaPlans).orderBy(desc(espiaPlans.createdAt)).limit(1);
+  const q = db.select({ at: espiaPlans.createdAt }).from(espiaPlans);
+  const [last] = await (liga ? q.where(eq(espiaPlans.leagueId, liga)) : q).orderBy(desc(espiaPlans.createdAt)).limit(1);
   return NextResponse.json({ last: last?.at ?? null });
 }
 
 export async function POST() {
-  const token = process.env.GITHUB_DISPATCH_TOKEN;
-  if (!token) return NextResponse.json({ error: "Falta GITHUB_DISPATCH_TOKEN en Vercel" }, { status: 500 });
-  const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/espia.yml/dispatches`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
-    body: JSON.stringify({ ref: "main", inputs: { modo: "plan" } }),
-  });
-  if (!res.ok) return NextResponse.json({ error: `GitHub respondió ${res.status}` }, { status: 502 });
-  return NextResponse.json({ ok: true });
+  const error = await dispatchPlan();
+  return error ? NextResponse.json({ error }, { status: 502 }) : NextResponse.json({ ok: true });
 }

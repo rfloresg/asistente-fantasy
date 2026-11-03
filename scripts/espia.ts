@@ -10,11 +10,11 @@
 //   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
-import { and, desc, eq, inArray, max, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
-import { espiaClauses, espiaEvents, espiaPlans, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
+import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
 import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
-import { dailyPlan, planMessage } from "../src/lib/plan/plan";
+import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup } from "../src/lib/plan/lineup";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken } from "../src/lib/laliga/auth";
@@ -405,7 +405,21 @@ async function runPlan(
     };
   }));
   const closeAt = nextMatchday(mts, now)?.close ?? null;
-  const acciones = dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions });
+  // Lo que marcaste como hecho en la web en las últimas 48 h, y lo que ya tienes a la venta
+  const done = new Set((await db.select({ key: espiaDone.key }).from(espiaDone)
+    .where(and(eq(espiaDone.leagueId, leagueId), gte(espiaDone.createdAt, new Date(now.getTime() - 48 * 3600e3))))).map((r) => r.key));
+  const myName = myTeam.manager?.managerName;
+  const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
+  const acciones = applyDone(
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions }),
+    done, onSaleByMe,
+  );
+  // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida
+  const stillThere = new Set(acciones.map((a) => a.key));
+  const verified = [...done].filter((k) => !stillThere.has(k));
+  if (mode !== "preview" && verified.length) {
+    await db.delete(espiaDone).where(and(eq(espiaDone.leagueId, leagueId), inArray(espiaDone.key, verified)));
+  }
 
   // Lo que enseña la web (/ y /liga), guardado junto al plan
   const lineupSnap: LineupSnapshot | null = lineup && {

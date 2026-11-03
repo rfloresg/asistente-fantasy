@@ -112,3 +112,27 @@ describe("presupuesto tras subir cláusulas", () => {
     expect(p.some((a) => a.jugador === "Andrés")).toBe(false);
   });
 });
+
+import { actionKey, applyDone, type Accion } from "../src/lib/plan/plan";
+
+describe("botón Hecho", () => {
+  const a = (tipo: Accion["tipo"], playerId?: string): Accion => ({ tipo, prioridad: 2, playerId, texto: "x", titulo: "t" });
+  const acc = [a("proteger", "1"), a("pujar", "2"), a("vender", "3"), a("vender", "4"), a("alinear")];
+  const done = new Set([actionKey(acc[0]), actionKey(acc[1])]);
+  const out = applyDone(acc, done, new Set(["4"]));
+  it("si se podía comprobar y sigue saliendo, vuelve con aviso", () => {
+    expect(out[0].pendiente).toContain("sigue igual");
+    expect(out[0].hecho).toBeFalsy();
+  });
+  it("las pujas no se pueden comprobar: quedan como hechas", () => {
+    expect(out[1].hecho).toBe(true);
+  });
+  it("vender: si ya está a la venta, hecho aunque no lo marcaras", () => {
+    expect(out[2].hecho).toBeFalsy();
+    expect(out[3]).toMatchObject({ hecho: true, detalle: "Ya está a la venta." });
+  });
+  it("cada acción lleva su clave y el mensaje de Telegram no repite lo hecho", () => {
+    expect(out[2].key).toBe("vender:3");
+    expect(planMessage("L", 1, out.map((x) => ({ ...x, titulo: undefined })))).not.toContain("Ya está a la venta");
+  });
+});

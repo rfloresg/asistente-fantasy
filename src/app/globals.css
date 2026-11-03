@@ -223,3 +223,8 @@ ul.reasons li.bad::marker { color: var(--down); }
   td, th { padding-left: 6px; padding-right: 6px; }
   .when { flex-basis: 64px; }
 }
+.done-btn { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.done-btn .chip { min-height: 40px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+.done-btn .chip:disabled { opacity: .6; cursor: default; }
+.move p.pending { color: var(--ambar-t); font-weight: 600; font-size: 14px; }
+.done-list li { padding: 10px 0; color: var(--muted); }

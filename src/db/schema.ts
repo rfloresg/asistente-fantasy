@@ -180,11 +180,22 @@ export const espiaPlans = pgTable("espia_plans", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   scoreDay: date("score_day"),
   myMoney: bigint("my_money", { mode: "number" }).notNull(),
-  acciones: jsonb("acciones").$type<{ tipo: string; prioridad: number; jugador?: string; playerId?: string; texto: string; titulo?: string; detalle?: string }[]>().notNull(),
+  acciones: jsonb("acciones").$type<{ tipo: string; prioridad: number; jugador?: string; playerId?: string; texto: string; titulo?: string; detalle?: string; key?: string; hecho?: boolean; pendiente?: string }[]>().notNull(),
   closeAt: timestamp("close_at", { withTimezone: true }), // cierre del mercado de la próxima jornada
   lineup: jsonb("lineup").$type<LineupSnapshot>(),
   liga: jsonb("liga").$type<LigaSnapshot>(),
 });
+
+// Movimientos del plan que marcaste como hechos en la web (botón "Hecho"). Valen 48 h.
+export const espiaDone = pgTable(
+  "espia_done",
+  {
+    leagueId: text("league_id").notNull(),
+    key: text("key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.leagueId, t.key] })],
+);
 
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),

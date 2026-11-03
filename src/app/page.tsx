@@ -5,7 +5,7 @@ import Link from "next/link";
 import { money } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import type { LineupSnapshot } from "@/lib/plan/snapshot";
-import Refresh from "./_ui/Refresh";
+import Refresh, { DoneButton } from "./_ui/Refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +88,10 @@ export default async function Hoy() {
 
   const me = plan.liga?.standing.find((s) => s.teamId === plan.liga?.myTeamId);
   const close = plan.closeAt && plan.closeAt > new Date() ? plan.closeAt : null;
-  const moves = plan.acciones.filter((a) => a.tipo !== "alinear").sort((a, b) => a.prioridad - b.prioridad);
+  const all = plan.acciones.filter((a) => a.tipo !== "alinear").sort((a, b) => a.prioridad - b.prioridad);
+  const moves = all.filter((a) => !a.hecho);
+  const done = all.filter((a) => a.hecho);
+  const since = plan.createdAt.toISOString();
 
   return (
     <main>
@@ -105,7 +108,7 @@ export default async function Hoy() {
           <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : undefined}>{money(plan.myMoney)}</dd></div>
           {me && <div><dt>Puesto</dt><dd>{me.position}.º · {me.points} pts</dd></div>}
         </dl>
-        <Refresh since={plan.createdAt.toISOString()} />
+        <Refresh since={since} leagueId={plan.leagueId} />
         </div>
       </div>
 
@@ -123,12 +126,24 @@ export default async function Hoy() {
                       <span className="tipo">{TIPO[a.tipo] ?? a.tipo}</span>
                     </div>
                     <p>{a.detalle ?? plain(a.texto)}</p>
+                    {a.pendiente && <p className="pending">{a.pendiente}</p>}
                   </div>
+                  {a.key && current && <DoneButton since={since} leagueId={plan.leagueId} k={a.key} />}
                 </li>
               ))}
             </ol>
           ) : (
-            <div className="empty"><p>Nada urgente: tu plantilla está bien y no hay gangas claras.</p></div>
+            <div className="empty"><p>{done.length ? "Lo tienes todo hecho." : "Nada urgente: tu plantilla está bien y no hay gangas claras."}</p></div>
+          )}
+          {done.length > 0 && (
+            <>
+              <h3 style={{ margin: "28px 0 6px", fontSize: 18 }}>Hecho</h3>
+              <ul className="rule done-list">
+                {done.map((a, i) => (
+                  <li key={i}><s>{a.titulo ?? TIPO[a.tipo]}</s>{a.detalle === "Ya está a la venta." && <span className="small"> · ya está a la venta</span>}</li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
 

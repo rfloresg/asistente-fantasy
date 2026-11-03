@@ -60,6 +60,9 @@ export interface Accion {
   texto: string; // HTML para Telegram
   titulo?: string; // para la web: la acción en pocas palabras
   detalle?: string; // para la web: el porqué, sin HTML
+  key?: string; // estable entre planes, para el botón "Hecho"
+  hecho?: boolean; // marcado como hecho y no se puede comprobar (o ya comprobado)
+  pendiente?: string; // marcado como hecho, pero LaLiga sigue igual
 }
 
 const M = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
@@ -326,6 +329,26 @@ export function dailyPlan(i: PlanInput): Accion[] {
   return out.sort((a, c) => a.prioridad - c.prioridad);
 }
 
+export const actionKey = (a: Pick<Accion, "tipo" | "playerId" | "titulo">) => `${a.tipo}:${a.playerId ?? a.titulo ?? ""}`;
+
+// Lo que no se puede comprobar en LaLiga (tus pujas no se ven; los avisos son solo avisos)
+const UNVERIFIABLE = new Set<Tipo>(["pujar", "aviso"]);
+
+// Cruza el plan nuevo con lo que marcaste como hecho:
+// - si ya no sale, estaba hecho de verdad (desaparece solo)
+// - si sale y no se puede comprobar, se queda como hecho
+// - si sale y se podía comprobar, vuelve con un aviso
+export function applyDone(acciones: Accion[], done: Set<string>, onSaleByMe: Set<string> = new Set()): Accion[] {
+  return acciones.map((a) => {
+    if (a.tipo === "alinear") return a;
+    const key = actionKey(a);
+    if (a.tipo === "vender" && a.playerId && onSaleByMe.has(a.playerId)) return { ...a, key, hecho: true, detalle: "Ya está a la venta." };
+    if (!done.has(key)) return { ...a, key };
+    if (UNVERIFIABLE.has(a.tipo)) return { ...a, key, hecho: true };
+    return { ...a, key, pendiente: "Lo marcaste como hecho, pero en LaLiga sigue igual." };
+  });
+}
+
 const NEED: Record<number, [string, string]> = { 1: ["un portero", "porteros"], 2: ["un defensa", "defensas"], 3: ["un centrocampista", "centrocampistas"], 4: ["un delantero", "delanteros"] };
 function needText(holes: { positionId: number }[]): string {
   const count = new Map<number, number>();
@@ -343,7 +366,8 @@ const TITLES: Record<Tipo, string> = {
   vender: "Vender",
 };
 
-export function planMessage(leagueName: string, myMoney: number, acciones: Accion[]): string {
+export function planMessage(leagueName: string, myMoney: number, all: Accion[]): string {
+  const acciones = all.filter((a) => !a.hecho);
   const lines = [`🧠 <b>Tu plan en ${esc(leagueName)}</b> · tienes ${M(myMoney)}`];
   if (!acciones.length) return [...lines, "", "Nada urgente: tu plantilla está bien y no hay gangas claras."].join("\n");
   const order: Tipo[] = ["saldo", "proteger", "aviso", "clausulazo", "pujar", "vender", "alinear"];
