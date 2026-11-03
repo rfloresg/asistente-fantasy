@@ -13,6 +13,8 @@ export async function userForTelegram(db: Db, tg: string, name: string, linkAdmi
     const [u] = await db.update(users).set({ telegramId: tg }).where(eq(users.id, admin.id)).returning();
     return u;
   }
-  const [u] = await db.insert(users).values({ name: name || "Mánager", telegramId: tg, isAdmin: false, createdAt: new Date() }).returning();
+  // Si no queda administrador (por ejemplo, tras empezar de cero), lo vuelve a ser quien tenga ADMIN_TELEGRAM_ID
+  const isAdmin = !!process.env.ADMIN_TELEGRAM_ID && process.env.ADMIN_TELEGRAM_ID === tg;
+  const [u] = await db.insert(users).values({ name: name || "Mánager", telegramId: tg, isAdmin, createdAt: new Date() }).returning();
   return u;
 }

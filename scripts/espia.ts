@@ -73,8 +73,10 @@ type TokenFor = (userId: number | null) => Promise<string>;
 
 // Ligas a recorrer: las de la tabla leagues (servicio con usuarios) o, si está vacía, ESPIA_LIGAS (modo antiguo)
 async function loadTargets(db: Db) {
-  const rows = await db.select().from(leagues).where(eq(leagues.active, true));
-  if (rows.length) {
+  // Modo antiguo (ESPIA_LIGAS) solo si nunca ha habido ligas en la tabla: si las hay aunque estén apagadas, no se usa
+  const all = await db.select().from(leagues);
+  const rows = all.filter((l) => l.active);
+  if (all.length) {
     const ms = await db.select({ userId: memberships.userId, leagueId: memberships.leagueId, chat: users.telegramId, isAdmin: users.isAdmin })
       .from(memberships).innerJoin(users, eq(users.id, memberships.userId)).where(eq(memberships.plan, true));
     return rows.map((l) => {
