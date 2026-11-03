@@ -25,6 +25,7 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
           </>
         ) : <p className="bad">Falta TELEGRAM_BOT_USERNAME en Vercel.</p>}
         {q.error === "telegram" && <p className="bad">Telegram no ha confirmado la entrada. Vuelve a probar.</p>}
+        {q.borrada && <p>Tu cuenta está borrada. Si vuelves, empiezas de cero.</p>}
         {q.error === "enlace" && <p className="bad">Ese enlace ha caducado. Escribe /web al bot y te mando otro.</p>}
       </section>
 
@@ -40,6 +41,7 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
           </form>
         </details>
       )}
+      <p className="small" style={{ marginTop: 24 }}><a href="/privacidad">Privacidad: qué datos guardamos</a></p>
     </main>
   );
 }

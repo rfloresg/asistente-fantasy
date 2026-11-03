@@ -4,7 +4,9 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { laligaSessions, leagues, memberships } from "@/db/schema";
 import { currentUser } from "@/lib/session";
+import Link from "next/link";
 import Connect from "./Connect";
+import DeleteAccount from "./DeleteAccount";
 import LeagueRow from "./LeagueRow";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +61,8 @@ export default async function Conectar() {
             <p className="small" style={{ margin: "0 0 8px" }}>Has entrado como <b>{user.name}</b>.</p>
             <button type="submit" className="chip">Salir</button>
           </form>
+          <p className="small" style={{ marginTop: 20 }}><Link href="/privacidad">Qué datos guardamos</Link></p>
+          <DeleteAccount admin={user.isAdmin} />
         </aside>
       </div>
     </main>

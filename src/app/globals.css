@@ -265,3 +265,10 @@ ul.reasons li.bad::marker { color: var(--down); }
 .group-settings { border: 1px solid var(--line); border-radius: 10px; margin: 12px 0 0; padding: 8px 12px 10px; }
 .group-settings label { display: flex; gap: 10px; align-items: center; font-size: 14px; padding: 6px 0; cursor: pointer; }
 .group-settings input { width: 18px; height: 18px; accent-color: var(--pitch); }
+.danger-zone { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.danger-zone summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+.chip.danger { border-color: var(--roja-t); color: var(--roja-t); }
+.prose h2 { margin-top: 32px; }
+.prose ul { padding-left: 20px; }
+.prose li { margin: 8px 0; line-height: 1.5; }
+.prose p { line-height: 1.6; }
