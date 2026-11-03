@@ -28,8 +28,8 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       ESPIA_LIGAS: ${{ secrets.ESPIA_LIGAS }}
-      ESPIA_DINERO: ${{ vars.ESPIA_DINERO }}
-      ESPIA_SUBIDAS: ${{ vars.ESPIA_SUBIDAS }}
+      ESPIA_DINERO: ${{ vars.ESPIA_DINERO || secrets.ESPIA_DINERO }}
+      ESPIA_SUBIDAS: ${{ vars.ESPIA_SUBIDAS || secrets.ESPIA_SUBIDAS }}
       ESPIA_PLAN_CHAT: ${{ secrets.ESPIA_PLAN_CHAT }}
       LIGA_ID: ${{ secrets.LIGA_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
