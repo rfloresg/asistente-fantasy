@@ -19,7 +19,7 @@ export const viewport: Viewport = { themeColor: "#102A1E", width: "device-width"
 
 async function safeLeagues() {
   try {
-    return await currentLeague();
+    return await currentLeague(false);
   } catch {
     return { all: [], current: null };
   }

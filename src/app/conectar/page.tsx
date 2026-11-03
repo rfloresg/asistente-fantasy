@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { laligaSessions, leagues, memberships } from "@/db/schema";
-import { currentUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import Link from "next/link";
 import Connect from "./Connect";
 import DeleteAccount from "./DeleteAccount";
@@ -14,15 +14,7 @@ export const dynamic = "force-dynamic";
 const madrid = (d: Date) => d.toLocaleString("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
 export default async function Conectar() {
-  const user = await currentUser();
-  if (!user) {
-    return (
-      <main>
-        <h1>Conecta tu LaLiga</h1>
-        <div className="empty"><p>Aún no hay ningún usuario. Ejecuta <code>npm run usuarios:migrar</code> una vez.</p></div>
-      </main>
-    );
-  }
+  const user = await requireUser("/conectar");
   const db = await getDb();
   const [session] = await db.select().from(laligaSessions).where(eq(laligaSessions.userId, user.id));
   const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, group: leagues.groupChatId, owner: leagues.groupOwnerId, money: leagues.showMoney, raises: leagues.showRaises })

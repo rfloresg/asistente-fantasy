@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { leagues, memberships } from "@/db/schema";
 import { groupSig } from "@/lib/grupo";
-import { currentUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import Pick from "./Pick";
 
 export const dynamic = "force-dynamic";
@@ -13,12 +13,10 @@ type Search = Promise<Record<string, string | undefined>>;
 export default async function Activar({ searchParams }: { searchParams: Search }) {
   const q = await searchParams;
   const ok = q.chat && q.sig === groupSig(q.chat);
-  const user = await currentUser();
+  const user = await requireUser(`/activar?${new URLSearchParams(q as Record<string, string>)}`);
   const db = await getDb();
-  const mine = user
-    ? await db.select({ id: leagues.leagueId, name: leagues.name }).from(memberships)
-        .innerJoin(leagues, eq(leagues.leagueId, memberships.leagueId)).where(and(eq(memberships.userId, user.id)))
-    : [];
+  const mine = await db.select({ id: leagues.leagueId, name: leagues.name }).from(memberships)
+        .innerJoin(leagues, eq(leagues.leagueId, memberships.leagueId)).where(and(eq(memberships.userId, user.id)));
   return (
     <main style={{ maxWidth: 640 }}>
       <h1>Activar el Espía</h1>

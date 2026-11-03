@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { espiaPlans, leagues as leaguesT, memberships } from "@/db/schema";
-import { currentUser } from "@/lib/session";
+import { currentUser, requireUser } from "@/lib/session";
 
 export const LIGA_COOKIE = "liga";
 
@@ -22,8 +22,9 @@ export async function leagues(userId: number | null): Promise<{ id: string; name
   return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function currentLeague() {
-  const user = await currentUser().catch(() => null);
+// strict: sin usuario, a la pantalla de entrar (las páginas). El layout usa strict=false (también pinta /login).
+export async function currentLeague(strict = true) {
+  const user = strict ? await requireUser() : await currentUser().catch(() => null);
   const all = await leagues(user?.id ?? null);
   const wanted = (await cookies()).get(LIGA_COOKIE)?.value;
   return { user, all, current: all.find((l) => l.id === wanted) ?? all[0] ?? null };

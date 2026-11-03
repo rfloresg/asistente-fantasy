@@ -4,6 +4,7 @@
 import crypto from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 
@@ -25,4 +26,11 @@ export async function currentUser() {
   // El middleware ya ha comprobado APP_PASSWORD: quien llega aquí sin fa_user es el administrador
   const [admin] = await db.select().from(users).where(eq(users.isAdmin, true)).orderBy(asc(users.id)).limit(1);
   return admin ?? null;
+}
+
+// Para las páginas: sin usuario de verdad, a la pantalla de entrar (nunca un mensaje de administrador)
+export async function requireUser(next = "/") {
+  const u = await currentUser();
+  if (!u) redirect(`/api/salir?next=${encodeURIComponent(next)}`);
+  return u;
 }
