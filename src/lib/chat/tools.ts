@@ -2,7 +2,7 @@
 // Las cifras salen ya formateadas para que el modelo no tenga que calcular nada.
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, desc, eq, max, ne } from "drizzle-orm";
+import { and, desc, eq, isNull, max, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { espiaPlans, players, playerScores, teams } from "@/db/schema";
 import { CONFIG } from "@/lib/nota/engine";
@@ -76,9 +76,12 @@ export const TOOLS: Anthropic.Tool[] = [
 
 type Input = Record<string, unknown>;
 
-async function planDelDia() {
+// Solo los planes de quien pregunta (cada uno ve lo suyo)
+async function planDelDia(userId: number | null) {
   const db = await getDb();
-  const rows = await db.select().from(espiaPlans).orderBy(desc(espiaPlans.createdAt)).limit(20);
+  const rows = await db.select().from(espiaPlans)
+    .where(userId === null ? isNull(espiaPlans.userId) : eq(espiaPlans.userId, userId))
+    .orderBy(desc(espiaPlans.createdAt)).limit(20);
   const seen = new Set<string>();
   const out = [];
   for (const r of rows) {
@@ -212,10 +215,10 @@ async function variosJugadores({ ids }: Input) {
   };
 }
 
-export async function runTool(name: string, input: Input): Promise<unknown> {
+export async function runTool(name: string, input: Input, userId: number | null = null): Promise<unknown> {
   switch (name) {
     case "plan_del_dia":
-      return planDelDia();
+      return planDelDia(userId);
     case "meta":
       return tema(String(input.tema ?? "todo"));
     case "buscar_jugador":

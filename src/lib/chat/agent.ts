@@ -39,7 +39,7 @@ export interface LlmClient {
 
 export async function ask(
   history: ChatTurn[],
-  deps: { client?: LlmClient; runTool?: typeof realRunTool } = {},
+  deps: { client?: LlmClient; runTool?: typeof realRunTool; userId?: number | null } = {},
 ): Promise<ChatResult> {
   if (!deps.client && !process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY en .env");
   const client: LlmClient = deps.client ?? new Anthropic();
@@ -77,7 +77,7 @@ export async function ask(
         if (block.type !== "tool_use") continue;
         let out: unknown;
         try {
-          out = await runTool(block.name, block.input as Record<string, unknown>);
+          out = await runTool(block.name, block.input as Record<string, unknown>, deps.userId ?? null);
         } catch (e) {
           out = { error: String(e) };
         }

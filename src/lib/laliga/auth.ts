@@ -95,6 +95,13 @@ export async function saveRefreshToken(db: Db, token: string) {
     .onConflictDoUpdate({ target: appSecrets.key, set: { value: token, updatedAt: new Date() } });
 }
 
+// La sesión de un usuario ya no vale: tiene que volver a conectar. firstTime = es la primera vez que falla (para avisarle una sola vez)
+export class SessionExpired extends Error {
+  constructor(public userId: number, public firstTime: boolean, detail: string) {
+    super(`La sesión de LaLiga del usuario ${userId} ha caducado: tiene que volver a conectar (${detail})`);
+  }
+}
+
 // Sesión de un usuario: renueva su refresh token (cifrado en laliga_sessions) y devuelve el de acceso
 export async function getUserAccessToken(db: Db, userId: number): Promise<string> {
   const [row] = await db.select().from(laligaSessions).where(eq(laligaSessions.userId, userId));
@@ -105,7 +112,7 @@ export async function getUserAccessToken(db: Db, userId: number): Promise<string
   } catch (e) {
     const msg = String(e instanceof Error ? e.message : e);
     await db.update(laligaSessions).set({ lastError: msg, updatedAt: new Date() }).where(eq(laligaSessions.userId, userId));
-    throw new Error(`La sesión de LaLiga del usuario ${userId} ha caducado: tiene que volver a conectar (${msg})`);
+    throw new SessionExpired(userId, !row.lastError, msg);
   }
   if (t.refresh_token) await saveUserSession(db, userId, t.refresh_token, row.redirect);
   const bearer = t.access_token ?? t.id_token;

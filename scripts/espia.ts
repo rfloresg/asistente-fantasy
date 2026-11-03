@@ -17,7 +17,7 @@ import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup } from "../src/lib/plan/lineup";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
-import { getAccessToken, getUserAccessToken } from "../src/lib/laliga/auth";
+import { getAccessToken, getUserAccessToken, SessionExpired } from "../src/lib/laliga/auth";
 import { doneKeyPrefix } from "../src/lib/plan/plan";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
@@ -101,6 +101,14 @@ async function main() {
       return cache.get(k)!;
     };
 
+    // Si a alguien le caduca la sesión, se le avisa una vez por Telegram
+    const warnExpired = async (e: unknown) => {
+      if (!(e instanceof SessionExpired) || !e.firstTime || mode === "preview") return;
+      const [u] = await db.select().from(users).where(eq(users.id, e.userId));
+      const chat = u?.telegramId ?? (u?.isAdmin ? process.env.ESPIA_PLAN_CHAT : undefined);
+      if (chat) await sendMessage(chat, "⚠️ <b>Tu sesión de LaLiga ha caducado</b>\nHasta que vuelvas a conectar no puedo hacerte el plan ni leer tus ligas. Escribe /conectar y en un minuto está.").catch(() => {});
+    };
+    const errors: string[] = [];
     let failed = 0;
     for (const t of targets) {
       try {
@@ -110,10 +118,16 @@ async function main() {
         await runLeague(db, token, t.leagueId, t.chatId, name, t.reader, t.planUsers, tokenFor);
       } catch (e) {
         failed++;
-        console.error(`${t.leagueId}: ${String(e instanceof Error ? e.message : e)}`);
+        await warnExpired(e);
+        const msg = `${t.name || t.leagueId}: ${String(e instanceof Error ? e.message : e)}`;
+        errors.push(msg);
+        console.error(msg);
       }
     }
-    if (failed) throw new Error(`${failed} liga(s) con error`);
+    if (failed) {
+      await alertAdmin(db, errors);
+      throw new Error(`${failed} liga(s) con error`);
+    }
   } finally {
     await close();
   }
@@ -143,6 +157,9 @@ async function runLeague(
           await runPlan(db, await ligaFor(u.userId), leagueId, leagueName, standing, await moneyFor(u.userId), acts, ctx, u, header);
         } catch (e) {
           console.error(`${leagueName}, plan del usuario ${u.userId}: ${String(e instanceof Error ? e.message : e)}`);
+          if (e instanceof SessionExpired && e.firstTime && u.chat && mode !== "preview") {
+            await sendMessage(u.chat, "⚠️ <b>Tu sesión de LaLiga ha caducado</b>\nHasta que vuelvas a conectar no puedo hacerte el plan. Escribe /conectar y en un minuto está.").catch(() => {});
+          }
         }
       }
     };
@@ -273,6 +290,20 @@ async function runLeague(
 }
 
 type Liga = ReturnType<typeof leagueClient>;
+
+// Aviso al administrador cuando algo falla (como mucho uno cada 6 horas), p. ej. si LaLiga cambia su API
+async function alertAdmin(db: Db, errors: string[]) {
+  if (mode === "preview") return;
+  const slot = `alerta:${new Date().toISOString().slice(0, 10)}:${Math.floor(new Date().getUTCHours() / 6)}`;
+  const [seen] = await db.select().from(espiaEvents).where(and(eq(espiaEvents.leagueId, "admin"), eq(espiaEvents.activityId, slot)));
+  if (seen) return;
+  const [admin] = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
+  const chat = admin?.telegramId ?? process.env.ESPIA_PLAN_CHAT;
+  if (!chat) return;
+  const list = errors.slice(0, 5).map((e) => `• ${esc(e.slice(0, 200))}`).join("\n");
+  await sendMessage(chat, `🚨 <b>El Espía ha fallado</b> (${mode})\n${list}\n\nMira la pestaña Actions de GitHub.`).catch(() => {});
+  await db.insert(espiaEvents).values({ leagueId: "admin", activityId: slot, createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
+}
 
 // Dinero estimado por equipo: 100 M iniciales + actividad de la temporada - subidas de cláusula
 // detectadas. El tuyo es el real (la API solo te deja ver el tuyo). Si algo falla, el resumen sale sin esto.

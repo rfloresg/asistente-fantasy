@@ -247,6 +247,17 @@ export const memberships = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.leagueId] })],
 );
 
+// Preguntas al chat por usuario y día (cada pregunta cuesta dinero de la API de Anthropic)
+export const chatUsage = pgTable(
+  "chat_usage",
+  {
+    userId: integer("user_id").notNull(),
+    day: date("day").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day] })],
+);
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
