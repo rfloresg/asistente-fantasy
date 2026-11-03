@@ -35,3 +35,10 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 6. Validación de la nota (hecho): `npm run validar` (`src/lib/nota/validate.ts`). Ajustar pesos solo con muchos datos
 7. Espía (hecho): `src/lib/espia/`. Dinero estimado y subidas de cláusula tras variables `ESPIA_DINERO` / `ESPIA_SUBIDAS`
 8. Meta (hecho): `src/lib/meta/manual.ts`. Reglas con fuente; lo no oficial va con `verificar`
+9. Servicio con usuarios (hecho, gratis): entrar con el bot (`/web`), conectar LaLiga desde la web (vuelta por jwt.ms + PKCE, sesión cifrada con `SESSION_KEY`), `/espia` en un grupo. Pendiente: cobro con Telegram Stars y servidor propio
+
+## Usuarios
+
+- Tablas: `users`, `laliga_sessions` (refresh token cifrado, nunca contraseñas), `leagues` (grupo y dueño), `memberships` (plan privado sí/no).
+- El Espía recorre `leagues` activas; cada plan usa la sesión de su usuario (dinero real). Si `leagues` está vacía, usa `ESPIA_LIGAS` (modo antiguo).
+- Una sesión de LaLiga solo se renueva desde GitHub Actions (las pasadas van de una en una): la web solo la crea.

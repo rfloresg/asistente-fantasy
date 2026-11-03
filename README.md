@@ -63,6 +63,14 @@ Una sola app, con selector de liga arriba (se recuerda en una cookie):
 
 La página Liga y las listas de Plantilla se refrescan cada 30 minutos con la pasada del Espía; el dinero estimado y el plan, a las 9:00 y a las 18:00. Hoy y Liga salen de lo que guarda `npm run espia plan` en `espia_plans` (columnas `lineup` y `liga`), así la web nunca usa tu sesión de LaLiga. Estilo: campo de fútbol (césped, cal) y tarjetas de árbitro por tipo de acción; letra Archivo, estrecha en los títulos. En el móvil la navegación va abajo.
 
+## Servicio para otras ligas
+
+1. **Entrar:** escribe `/web` al bot en privado y pulsa *Entrar en la web* (enlace personal de 15 min). En el ordenador también vale el botón de Telegram de `/login`.
+2. **Conectar LaLiga** (Cuenta): se abre el login oficial de LaLiga; al terminar llegas a `jwt.ms`, copias su dirección y la pegas. Se guarda solo la sesión, cifrada con `SESSION_KEY`; la contraseña nunca pasa por aquí. Dura 90 días y se renueva sola.
+3. **Grupo:** mete el bot en el grupo de la liga y escribe `/espia`; quien conectó la liga pulsa el botón y la elige.
+
+Variables: `SESSION_KEY` (Vercel, GitHub y `.env`, la misma), `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` y `ADMIN_TELEGRAM_ID` en Vercel. El bot se apunta a la web con `npm run telegram:webhook`. Lo de antes se pasó con `npm run usuarios:migrar`.
+
 ## Nota Fantasy
 
 Nota de 0 a 100 por jugador. Cada factor es el percentil del jugador dentro de su posición.
