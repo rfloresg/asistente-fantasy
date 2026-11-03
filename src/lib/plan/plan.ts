@@ -332,6 +332,9 @@ export function dailyPlan(i: PlanInput): Accion[] {
   return out.sort((a, c) => a.prioridad - c.prioridad);
 }
 
+// Prefijo de las claves de "Hecho" en la base de datos: cada usuario marca lo suyo (null = modo antiguo)
+export const doneKeyPrefix = (userId: number | null) => (userId === null ? "" : `u${userId}:`);
+
 export const actionKey = (a: Pick<Accion, "tipo" | "playerId" | "titulo">) => `${a.tipo}:${a.playerId ?? a.titulo ?? ""}`;
 
 // Lo que no se puede comprobar en LaLiga (tus pujas no se ven; los avisos son solo avisos)

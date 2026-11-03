@@ -1,15 +1,18 @@
 // Botón "Actualizar plan": lanza un plan nuevo. GET: hora del último plan, para saber cuándo ha llegado.
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { espiaPlans } from "@/db/schema";
 import { dispatchPlan } from "@/lib/github";
+import { currentUser } from "@/lib/session";
 
 export async function GET(req: Request) {
   const liga = new URL(req.url).searchParams.get("liga");
   const db = await getDb();
+  const user = await currentUser().catch(() => null);
+  const conds = [liga ? eq(espiaPlans.leagueId, liga) : undefined, user ? eq(espiaPlans.userId, user.id) : undefined].filter((c) => c !== undefined);
   const q = db.select({ at: espiaPlans.createdAt }).from(espiaPlans);
-  const [last] = await (liga ? q.where(eq(espiaPlans.leagueId, liga)) : q).orderBy(desc(espiaPlans.createdAt)).limit(1);
+  const [last] = await (conds.length ? q.where(and(...conds)) : q).orderBy(desc(espiaPlans.createdAt)).limit(1);
   return NextResponse.json({ last: last?.at ?? null });
 }
 

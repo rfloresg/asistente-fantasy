@@ -45,7 +45,7 @@ export default function Connect({ connected }: { connected: boolean }) {
     setBusy(false);
     if (!res.ok) return setMsg({ ok: false, text: body.error ?? `No se pudo conectar (error ${res.status})` });
     const ligas = (body.leagues ?? []).map((l: { name: string }) => l.name).join(", ") || "ninguna";
-    const caduca = body.sessionHours ? ` Ojo: LaLiga dice que esta sesión caduca en ${body.sessionHours} horas.` : "";
+    const caduca = body.sessionHours && body.sessionHours < 72 ? ` Ojo: LaLiga dice que esta sesión caduca en ${body.sessionHours} horas.` : "";
     setMsg({ ok: true, text: `Conectado. Ligas: ${ligas}.${caduca}` });
     setStep(1);
     setPasted("");

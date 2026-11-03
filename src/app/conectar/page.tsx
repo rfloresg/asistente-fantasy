@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { laligaSessions, leagues, memberships } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import Connect from "./Connect";
+import LeagueRow from "./LeagueRow";
 
 export const dynamic = "force-dynamic";
 
@@ -48,12 +49,7 @@ export default async function Conectar() {
           <h2 style={{ marginTop: 28 }}>Tus ligas</h2>
           {mine.length ? (
             <ul className="rule">
-              {mine.map((l) => (
-                <li key={l.id} style={{ padding: "12px 0" }}>
-                  <b>{l.name}</b>
-                  <div className="small">{l.plan ? "Plan privado activado" : "Sin plan privado"}{l.group ? " · Espía en el grupo" : ""}</div>
-                </li>
-              ))}
+              {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} group={!!l.group} />)}
             </ul>
           ) : (
             <p className="muted">Aparecerán cuando conectes.</p>

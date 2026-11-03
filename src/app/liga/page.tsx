@@ -15,8 +15,8 @@ const KIND: [RegExp, string][] = [[/ficha/, "Ficha"], [/vende/, "Vende"], [/Clau
 const kind = (t: string) => KIND.find(([r]) => r.test(t))?.[1] ?? "";
 
 export default async function Liga() {
-  const { current } = await currentLeague();
-  const plan = current ? await latestPlan(current.id) : null;
+  const { current, user } = await currentLeague();
+  const plan = current ? await latestPlan(current.id, user?.id) : null;
   const liga = plan?.liga;
 
   if (!plan || !liga) {

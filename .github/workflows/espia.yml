@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 5
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SESSION_KEY: ${{ secrets.SESSION_KEY }}
       ESPIA_LIGAS: ${{ secrets.ESPIA_LIGAS }}
       ESPIA_DINERO: ${{ vars.ESPIA_DINERO || secrets.ESPIA_DINERO }}
       ESPIA_SUBIDAS: ${{ vars.ESPIA_SUBIDAS || secrets.ESPIA_SUBIDAS }}

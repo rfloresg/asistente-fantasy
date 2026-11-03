@@ -77,8 +77,8 @@ function Pitch({ l }: { l: LineupSnapshot }) {
 }
 
 export default async function Hoy() {
-  const { current } = await currentLeague();
-  const plan = current ? await latestPlan(current.id) : null;
+  const { current, user } = await currentLeague();
+  const plan = current ? await latestPlan(current.id, user?.id) : null;
 
   if (!plan) {
     return (

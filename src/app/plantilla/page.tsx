@@ -113,8 +113,8 @@ export default async function Plantilla({ searchParams }: { searchParams: Search
   const fromShot = (q.ids ?? "").split(",").filter((x) => /^\d+$/.test(x));
 
   // Sin captura: tu plantilla o el mercado de la liga elegida, tal como los guardó el Espía
-  const { current } = await currentLeague();
-  const liga = !fromShot.length && current ? (await latestPlan(current.id))?.liga : null;
+  const { current, user } = await currentLeague();
+  const liga = !fromShot.length && current ? (await latestPlan(current.id, user?.id))?.liga : null;
   const fromLeague = tipo === "plantilla" ? liga?.squad : liga?.market;
   const ids = fromShot.length ? fromShot : (fromLeague ?? []).map((x) => x.id);
   const extra: Extra = !fromShot.length && liga
