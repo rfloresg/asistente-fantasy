@@ -19,7 +19,8 @@
     "espia": "tsx scripts/espia.ts",
     "telegram:chat": "tsx scripts/telegram-chat.ts",
     "liga:olvidar": "tsx scripts/olvidar-liga.ts",
-    "usuarios:migrar": "tsx scripts/usuarios-migrar.ts"
+    "usuarios:migrar": "tsx scripts/usuarios-migrar.ts",
+    "telegram:webhook": "tsx scripts/telegram-webhook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

@@ -47,6 +47,7 @@ export default async function Conectar() {
             <p className="muted">Sin conectar.</p>
           )}
           <h2 style={{ marginTop: 28 }}>Tus ligas</h2>
+          <p className="small" style={{ marginTop: -4 }}>Para que el Espía publique en el grupo de una liga: mete el bot en el grupo y escribe <code>/espia</code>.</p>
           {mine.length ? (
             <ul className="rule">
               {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} group={!!l.group} />)}
@@ -54,6 +55,10 @@ export default async function Conectar() {
           ) : (
             <p className="muted">Aparecerán cuando conectes.</p>
           )}
+          <form method="post" action="/api/logout" style={{ marginTop: 28 }}>
+            <p className="small" style={{ margin: "0 0 8px" }}>Has entrado como <b>{user.name}</b>.</p>
+            <button type="submit" className="chip">Salir</button>
+          </form>
         </aside>
       </div>
     </main>
