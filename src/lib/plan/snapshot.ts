@@ -3,6 +3,7 @@
 
 export interface LigaSnapshot {
   myTeamId: string;
+  updatedAt?: string; // última vez que se refrescó (cada 30 min)
   standing: { teamId: string; manager: string; position: number; previous?: number; points: number; teamValue?: number; money?: number }[];
   activity: { at: string; text: string }[]; // últimos movimientos (HTML con <b>, nombres escapados)
   unlocks: { player: string; manager: string; at: string; clause?: number }[]; // cláusulas que se liberan en 24 h

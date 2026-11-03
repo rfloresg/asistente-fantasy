@@ -59,7 +59,7 @@ Una sola app, con selector de liga arriba (se recuerda en una cookie):
 | `/plantilla` | Analizar una captura de tu plantilla o del mercado de tu liga |
 | `/chat` | Preguntas al asistente (consulta el plan, la nota y el manual del meta) |
 
-Hoy y Liga salen de lo que guarda `npm run espia plan` en `espia_plans` (columnas `lineup` y `liga`), así la web nunca usa tu sesión de LaLiga. Estilo: campo de fútbol (césped, cal) y tarjetas de árbitro por tipo de acción; letra Archivo, estrecha en los títulos. En el móvil la navegación va abajo.
+La página Liga y las listas de Plantilla se refrescan cada 30 minutos con la pasada del Espía; el dinero estimado y el plan, a las 9:00 y a las 18:00. Hoy y Liga salen de lo que guarda `npm run espia plan` en `espia_plans` (columnas `lineup` y `liga`), así la web nunca usa tu sesión de LaLiga. Estilo: campo de fútbol (césped, cal) y tarjetas de árbitro por tipo de acción; letra Archivo, estrecha en los títulos. En el móvil la navegación va abajo.
 
 ## Nota Fantasy
 
@@ -160,6 +160,8 @@ La primera vez no publica el historial: solo un mensaje de "Espía activado". La
 4. **Pujas:** jugadores del mercado de tu liga que compensan, con la puja sugerida (valor +5 %, o +12 % si ya hay pujas, sin pasar de tu tope).
 5. **Vender:** nota baja y bajando, o lesionado.
 6. **Alineación y capitán** (`src/lib/plan/lineup.ts`): el once que más puntos espera entre las formaciones sin Premium. Puntos esperados = forma × probabilidad de ser titular (once probable) × estado (lesionado o sancionado 0, en duda la mitad). Capitán: el de más puntos esperados. Avisa de dudas y de a quién no alinear.
+
+**Recordatorio:** 4 horas antes del cierre del mercado te llega en privado el plan recién calculado, con lo que te queda por hacer (una vez por jornada).
 
 Es **solo para ti**: se envía al chat privado `ESPIA_PLAN_CHAT` (abre el bot en privado, escríbele `/start` y saca el ID con `npm run telegram:chat`), nunca al grupo. Se genera a las 9:00 y a las 18:00, se guarda en `espia_plans` y se ve en `/plan` de la web. El chat también lo consulta (herramienta `plan_del_dia`). Umbrales en `PLAN`.
 

@@ -10,7 +10,7 @@
 //   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
-import { and, eq, inArray, max, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaEvents, espiaPlans, espiaRaises, espiaState, matches, players, playerScores, playerValues } from "../src/db/schema";
 import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
@@ -25,6 +25,7 @@ import { pack, sendMessage } from "../src/lib/espia/telegram";
 
 const mode = process.argv[2] ?? "eventos";
 const MAX_AGE_H = 48; // actividad más vieja no se avisa
+const REMINDER_H = 4; // recordatorio privado: horas antes del cierre del mercado
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 
@@ -135,6 +136,20 @@ async function runLeague(db: Db, token: string, leagueId: string, chatId: string
       lines.push(...meta.map((m) => m.text));
       if (mode !== "preview" && meta.length) {
         await db.insert(espiaEvents).values(meta.map((m) => ({ leagueId, activityId: m.key, createdAt: new Date(), sentAt: new Date() }))).onConflictDoNothing();
+      }
+
+      if (mode === "eventos") {
+        // Recordatorio privado unas horas antes del cierre: tu plan recién calculado
+        const next = nextMatchday(mts, new Date());
+        const toClose = next ? next.close.getTime() - Date.now() : -1;
+        const key = next ? `recordatorio:${next.week}` : "";
+        if (next && toClose > 0 && toClose <= REMINDER_H * 3600e3 && !seen.has(key) && process.env.ESPIA_PLAN_CHAT) {
+          const hora = next.close.toLocaleString("es-ES", { timeZone: "Europe/Madrid", weekday: "long", hour: "2-digit", minute: "2-digit" });
+          await runPlan(db, liga, leagueId, leagueName, standing, await getMoney(), acts, ctx, `⏰ <b>Cierra el mercado el ${esc(hora)}</b>. Lo que te queda por hacer:`);
+          await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
+        } else {
+          await refreshLiga(db, liga, leagueId, standing, teams, acts, ctx);
+        }
       }
 
       if (mode === "preview") {
@@ -288,11 +303,60 @@ async function trackClauses(db: Db, leagueId: string, teams: Awaited<ReturnType<
 
 const fmtM = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
 
+const STATUS_ES: Record<string, string> = { injured: "Lesión", suspended: "Sanción", doubtful: "Duda" };
+
+// Lo que enseña la web de la liga (/liga, /plantilla). Se guarda con cada plan y se refresca cada 30 min.
+function buildLigaSnap(i: {
+  standing: Awaited<ReturnType<Liga["standing"]>>; teams: Awaited<ReturnType<Liga["team"]>>[]; acts: Activity[]; ctx: Ctx;
+  market: Awaited<ReturnType<Liga["market"]>>; myTeamId: string; moneyByTeam: Map<string, number | undefined>; now: Date;
+}): LigaSnapshot {
+  const myTeam = i.teams.find((t) => String(t.id) === i.myTeamId);
+  return {
+    myTeamId: i.myTeamId,
+    updatedAt: i.now.toISOString(),
+    standing: i.standing.map((st) => ({
+      teamId: String(st.team.id),
+      manager: st.team.manager?.managerName ?? "?",
+      position: st.position,
+      previous: st.previousPosition,
+      points: st.points,
+      teamValue: st.team.teamValue,
+      money: i.moneyByTeam.get(String(st.team.id)),
+    })).sort((a, b) => a.position - b.position),
+    activity: [...i.acts]
+      .filter((a) => i.now.getTime() - Date.parse(a.createdAt) < 7 * 24 * 3600e3)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .flatMap((a) => { const t = activityMessage(a, i.ctx); return t ? [{ at: a.createdAt, text: t }] : []; })
+      .slice(0, 15),
+    unlocks: clauseUnlocks(i.teams, i.now.getTime(), i.now.getTime() + 24 * 3600e3).map((u) => ({ player: u.player, manager: u.manager, at: u.at, clause: u.clause })),
+    injuries: i.teams.flatMap((t) => t.players
+      .filter((p) => STATUS_ES[p.playerMaster.playerStatus])
+      .map((p) => ({ player: p.playerMaster.nickname, manager: t.manager?.managerName ?? "?", status: STATUS_ES[p.playerMaster.playerStatus] }))),
+    squad: (myTeam?.players ?? []).map((p) => ({
+      id: String(p.playerMaster.id), clause: p.buyoutClause, lockedUntil: p.buyoutClauseLockedEndTime, shielded: p.isShielded,
+    })),
+    market: i.market.filter((m) => m.status === "on_sale").map((m) => ({
+      id: String(m.playerMaster.id), price: m.salePrice, bids: m.numberOfBids, seller: m.sellerTeam?.manager?.managerName,
+    })),
+  };
+}
+
+// Cada 30 min: refresca lo que enseña la web de la liga sobre el último plan (el dinero se queda el del plan)
+async function refreshLiga(db: Db, liga: Liga, leagueId: string, standing: Awaited<ReturnType<Liga["standing"]>>, teams: Awaited<ReturnType<Liga["team"]>>[], acts: Activity[], ctx: Ctx) {
+  const [last] = await db.select({ id: espiaPlans.id, liga: espiaPlans.liga }).from(espiaPlans)
+    .where(eq(espiaPlans.leagueId, leagueId)).orderBy(desc(espiaPlans.createdAt)).limit(1);
+  if (!last?.liga) return;
+  const market = await liga.market();
+  const moneyByTeam = new Map(last.liga.standing.map((st) => [st.teamId, st.money]));
+  const snap = buildLigaSnap({ standing, teams, acts, ctx, market, myTeamId: last.liga.myTeamId, moneyByTeam, now: new Date() });
+  await db.update(espiaPlans).set({ liga: snap }).where(eq(espiaPlans.id, last.id));
+}
+
 // Plan del día: solo para ti. Nunca va al grupo.
 async function runPlan(
   db: Db, liga: Liga, leagueId: string, leagueName: string,
   standing: Awaited<ReturnType<Liga["standing"]>>, money: Awaited<ReturnType<typeof estimateLeagueMoney>>,
-  acts: Activity[], ctx: Ctx,
+  acts: Activity[], ctx: Ctx, header?: string,
 ) {
   if (!money?.mine) {
     console.log(`${leagueName}: sin tu dinero no hay plan`);
@@ -354,35 +418,8 @@ async function runPlan(
     })),
     out: lineup.out.map((p) => ({ id: p.id, name: p.name })),
   };
-  const STATUS_ES: Record<string, string> = { injured: "Lesión", suspended: "Sanción", doubtful: "Duda" };
-  const ligaSnap: LigaSnapshot = {
-    myTeamId: money.mine.teamId,
-    standing: standing.map((st) => ({
-      teamId: String(st.team.id),
-      manager: st.team.manager?.managerName ?? "?",
-      position: st.position,
-      previous: st.previousPosition,
-      points: st.points,
-      teamValue: st.team.teamValue,
-      money: money.byTeam.get(String(st.team.id)),
-    })).sort((a, b) => a.position - b.position),
-    activity: [...acts]
-      .filter((a) => Date.now() - Date.parse(a.createdAt) < 7 * 24 * 3600e3)
-      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .flatMap((a) => { const t = activityMessage(a, ctx); return t ? [{ at: a.createdAt, text: t }] : []; })
-      .slice(0, 15),
-    unlocks: clauseUnlocks(teams, now.getTime(), now.getTime() + 24 * 3600e3).map((u) => ({ player: u.player, manager: u.manager, at: u.at, clause: u.clause })),
-    injuries: teams.flatMap((t) => t.players
-      .filter((p) => STATUS_ES[p.playerMaster.playerStatus])
-      .map((p) => ({ player: p.playerMaster.nickname, manager: t.manager?.managerName ?? "?", status: STATUS_ES[p.playerMaster.playerStatus] }))),
-    squad: myTeam.players.map((p) => ({
-      id: String(p.playerMaster.id), clause: p.buyoutClause, lockedUntil: p.buyoutClauseLockedEndTime, shielded: p.isShielded,
-    })),
-    market: market.filter((m) => m.status === "on_sale").map((m) => ({
-      id: String(m.playerMaster.id), price: m.salePrice, bids: m.numberOfBids, seller: m.sellerTeam?.manager?.managerName,
-    })),
-  };
-  const text = planMessage(leagueName, money.mine.money, acciones);
+  const ligaSnap = buildLigaSnap({ standing, teams, acts, ctx, market, myTeamId: money.mine.teamId, moneyByTeam: money.byTeam, now });
+  const text = (header ? `${header}\n\n` : "") + planMessage(leagueName, money.mine.money, acciones);
   const chat = process.env.ESPIA_PLAN_CHAT;
   if (mode === "preview" || !chat) {
     console.log(`\n== Plan (privado) de ${leagueName}${chat ? "" : " · sin ESPIA_PLAN_CHAT no se envía"}`);

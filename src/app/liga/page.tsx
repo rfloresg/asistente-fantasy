@@ -133,7 +133,7 @@ export default async function Liga() {
       </div>
 
       <p className="small" style={{ marginTop: 40 }}>
-        Datos de las {plan.createdAt.toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" })}. Se actualizan a las 9:00 y a las 18:00.
+        Datos de las {new Date(liga.updatedAt ?? plan.createdAt).toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" })}. Se actualizan cada 30 minutos; el dinero, a las 9:00 y a las 18:00.
       </p>
     </main>
   );
