@@ -39,6 +39,14 @@ function Pitch({ l }: { l: LineupSnapshot }) {
             {l.starters.filter((p) => p.positionId === pos).map((p) => {
               const cls = p.hole ? "player hole" : doubt.includes(p) ? "player doubt" : "player";
               const pct = p.startProb !== null && (p.hole || doubt.includes(p)) ? `${p.startProb} %` : null;
+              if (p.id.startsWith("vacio-")) {
+                return (
+                  <span key={p.id} className="player hole">
+                    <span className="disc">+</span>
+                    <span className="name">Sin jugador</span>
+                  </span>
+                );
+              }
               return (
                 <Link key={p.id} href={`/jugador/${p.id}`} className={cls}>
                   <span className="disc">{p.nota ?? "–"}</span>
@@ -56,7 +64,7 @@ function Pitch({ l }: { l: LineupSnapshot }) {
           <li><span className="k c" aria-hidden="true">C</span><span>Capitán: {captain.name}, {captain.expected.toLocaleString("es-ES")} pts esperados{captain.startProb !== null ? ` y ${captain.startProb} % de ser titular` : ""}.</span></li>
         )}
         {hole.length > 0 && (
-          <li><span className="k h" aria-hidden="true" /><span>Huecos: {hole.map((p) => p.name).join(" y ")} {hole.length > 1 ? "entran" : "entra"} por obligación y no {hole.length > 1 ? "van" : "va"} a jugar.</span></li>
+          <li><span className="k h" aria-hidden="true" /><span>Huecos: {hole.filter((p) => !p.id.startsWith("vacio-")).length ? `${hole.filter((p) => !p.id.startsWith("vacio-")).map((p) => p.name).join(" y ")} entra${hole.filter((p) => !p.id.startsWith("vacio-")).length > 1 ? "n" : ""} por obligación y no va${hole.filter((p) => !p.id.startsWith("vacio-")).length > 1 ? "n" : ""} a jugar. ` : ""}{hole.some((p) => p.id.startsWith("vacio-")) ? "Te faltan jugadores para completar el once." : ""}</span></li>
         )}
         {doubt.length > 0 && (
           <li><span className="k d" aria-hidden="true" /><span>Dudas: {doubt.map((p) => p.name).join(", ")}.{l.out.length ? ` No alinees a ${l.out.map((p) => p.name).join(", ")}.` : ""}</span></li>

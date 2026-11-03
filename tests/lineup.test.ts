@@ -98,3 +98,14 @@ describe("huecos sin mercado", () => {
     expect(acc.some((a) => a.texto.includes("hoy no hay ninguno a tu alcance"))).toBe(true);
   });
 });
+
+describe("plantilla corta", () => {
+  it("si no llegas a un once, rellena con huecos en vez de no enseñar nada", () => {
+    const short = [pl("POR", 1, 5), pl("D1", 2, 6), pl("D2", 2, 5), pl("M1", 3, 9), pl("M2", 3, 8), pl("M3", 3, 7), pl("M4", 3, 6), pl("A1", 4, 10), pl("A2", 4, 9), pl("A3", 4, 8)];
+    const l = bestLineup(short)!;
+    expect(l.starters).toHaveLength(11);
+    expect(l.holes.some((p) => p.id.startsWith("vacio-2"))).toBe(true);
+    const acc = dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 1, rivals: [], market: [], scores: new Map(), lineup: l });
+    expect(planMessage("L", 1, acc)).toContain("No te llega para un once: ficha un defensa.");
+  });
+});

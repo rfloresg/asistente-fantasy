@@ -4,7 +4,7 @@
 
 import type { MarketItem, Team, TeamPlayer } from "@/lib/espia/league";
 import { RAISE_RATIO } from "@/lib/espia/money";
-import type { Lineup } from "./lineup";
+import { isEmpty, type Lineup } from "./lineup";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -319,9 +319,12 @@ export function dailyPlan(i: PlanInput): Accion[] {
     ];
     if (l.captain) lines.push(`©️ Capitán: ${b(l.captain.name)} (${l.captain.expected.toLocaleString("es-ES")} pts esperados${l.captain.startProb !== null ? `, ${l.captain.startProb} % de ser titular` : ""}).`);
     if (doubts.length) lines.push(`Dudas: ${doubts.map((p) => `${b(p.name)}${p.startProb !== null ? ` (${p.startProb} %)` : " (en duda)"}`).join(", ")}. Revisa el once antes de la jornada.`);
-    if (l.holes.length) {
-      lines.push(`⚠️ Te faltan titulares: ${l.holes.map((p) => `${b(p.name)} (${POS[p.positionId]}${p.startProb !== null ? `, ${p.startProb} %` : ""})`).join(", ")} ${l.holes.length > 1 ? "entran por obligación y no van" : "entra por obligación y no va"} a jugar. Ficha ${needText(l.holes)} que ${l.holes.length > 1 ? "jueguen" : "juegue"}.`);
+    const missing = l.holes.filter((p) => isEmpty(p.id));
+    const benchwarm = l.holes.filter((p) => !isEmpty(p.id));
+    if (benchwarm.length) {
+      lines.push(`⚠️ Te faltan titulares: ${benchwarm.map((p) => `${b(p.name)} (${POS[p.positionId]}${p.startProb !== null ? `, ${p.startProb} %` : ""})`).join(", ")} ${benchwarm.length > 1 ? "entran por obligación y no van" : "entra por obligación y no va"} a jugar. Ficha ${needText(benchwarm)} que ${benchwarm.length > 1 ? "jueguen" : "juegue"}.`);
     }
+    if (missing.length) lines.push(`⚠️ No te llega para un once: ficha ${needText(missing)}.`);
     if (l.out.length) lines.push(`No alinees: ${l.out.map((p) => b(p.name)).join(", ")}.`);
     out.push({ tipo: "alinear", prioridad: 3, texto: lines.join("\n") });
   }
