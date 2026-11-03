@@ -9,6 +9,15 @@ import { exchangeCode, parseCallback, saveUserSession, WEB_REDIRECT_URI } from "
 import { currentUser } from "@/lib/session";
 
 export async function POST(req: Request) {
+  try {
+    return await finish(req);
+  } catch (e) {
+    // Siempre un mensaje claro (antes salía "No se pudo conectar" sin más)
+    return NextResponse.json({ error: `Error al guardar la sesión: ${String(e instanceof Error ? e.message : e)}` }, { status: 500 });
+  }
+}
+
+async function finish(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Entra primero en la web" }, { status: 401 });
   const { pasted } = (await req.json().catch(() => ({}))) as { pasted?: string };
