@@ -231,7 +231,7 @@ async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standin
       const ids = new Set(all.map((a) => String(a.id)));
       if (!batch.length || batch.every((a) => ids.has(String(a.id)))) break; // fin del historial
       all.push(...batch);
-      await sleep(300);
+      await sleep(150);
     }
     const net = netByManager(all);
     const raises = await db

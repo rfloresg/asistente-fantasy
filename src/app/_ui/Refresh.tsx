@@ -4,9 +4,28 @@
 // "Actualizar plan" y "Hecho" en cada movimiento.
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type State = "idle" | "busy" | "error";
+
+export function Spinner() {
+  return <span className="spinner" aria-hidden="true" />;
+}
+
+// Segundos desde que empezó, para enseñar que no se ha quedado parado
+export function useElapsed(active: boolean) {
+  const [s, setS] = useState(0);
+  useEffect(() => {
+    if (!active) return setS(0);
+    const start = Date.now();
+    const t = setInterval(() => setS(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return s;
+}
+
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const stage = (s: number) => (s < 4 ? "Pidiendo el plan…" : s < 25 ? "Preparando el cálculo…" : s < 90 ? "Calculando con tus datos de LaLiga…" : "Casi listo, está tardando un poco más…");
 
 function useReplan(since: string | null, leagueId?: string) {
   const router = useRouter();
@@ -37,21 +56,22 @@ function useReplan(since: string | null, leagueId?: string) {
         setMsg("Está tardando más de lo normal. Mira la pestaña Actions de GitHub.");
         return;
       }
-      setTimeout(poll, 10_000);
+      setTimeout(poll, 4_000);
     };
-    setTimeout(poll, 30_000);
+    setTimeout(poll, 12_000);
   }
   return { state, msg, run };
 }
 
 export default function Refresh({ since, leagueId }: { since: string | null; leagueId?: string }) {
   const { state, msg, run } = useReplan(since, leagueId);
+  const secs = useElapsed(state === "busy");
   return (
     <div className="refresh">
-      <button type="button" className="primary" onClick={() => run("/api/actualizar")} disabled={state === "busy"} style={{ marginTop: 0 }}>
-        {state === "busy" ? "Actualizando…" : "Actualizar plan"}
+      <button type="button" className="primary with-spin" onClick={() => run("/api/actualizar")} disabled={state === "busy"} style={{ marginTop: 0 }}>
+        {state === "busy" ? <><Spinner /> Actualizando · {clock(secs)}</> : "Actualizar plan"}
       </button>
-      {state === "busy" && <p className="small" role="status" style={{ margin: "8px 0 0" }}>Calculando tu plan con los datos de ahora. Tarda uno o dos minutos.</p>}
+      {state === "busy" && <p className="small" role="status" style={{ margin: "8px 0 0" }}>{stage(secs)}</p>}
       {msg && <p className="bad" role="status" style={{ margin: "8px 0 0" }}>{msg}</p>}
     </div>
   );
@@ -59,10 +79,11 @@ export default function Refresh({ since, leagueId }: { since: string | null; lea
 
 export function DoneButton({ since, leagueId, k }: { since: string; leagueId: string; k: string }) {
   const { state, msg, run } = useReplan(since, leagueId);
+  const secs = useElapsed(state === "busy");
   return (
     <span className="done-btn">
-      <button type="button" className="chip" disabled={state === "busy"} onClick={() => run("/api/hecho", { leagueId, key: k })}>
-        {state === "busy" ? "Comprobando…" : "Hecho"}
+      <button type="button" className="chip with-spin" disabled={state === "busy"} onClick={() => run("/api/hecho", { leagueId, key: k })}>
+        {state === "busy" ? <><Spinner /> Comprobando · {clock(secs)}</> : "Hecho"}
       </button>
       {msg && <span className="bad" role="status" style={{ fontSize: 13 }}>{msg}</span>}
     </span>

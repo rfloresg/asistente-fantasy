@@ -228,3 +228,11 @@ ul.reasons li.bad::marker { color: var(--down); }
 .done-btn .chip:disabled { opacity: .6; cursor: default; }
 .move p.pending { color: var(--ambar-t); font-weight: 600; font-size: 14px; }
 .done-list li { padding: 10px 0; color: var(--muted); }
+
+/* Cargando */
+.spinner { display: inline-block; width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; vertical-align: -2px; flex: 0 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none !important; border-right-color: currentColor; opacity: .6; } }
+.with-spin { display: inline-flex; align-items: center; gap: 8px; }
+.primary.with-spin:disabled { opacity: .85; }
+.thinking { display: flex; align-items: center; gap: 8px; }

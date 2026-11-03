@@ -39,8 +39,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci --omit=optional
+      # node_modules guardado entre pasadas: se ahorra ~40 s de instalación
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: node_modules
+          key: deps-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+      - if: steps.deps.outputs.cache-hit != 'true'
+        run: npm ci --omit=optional
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       - name: Resumen diario

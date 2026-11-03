@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Spinner, useElapsed } from "../_ui/Refresh";
 
 interface Msg {
   role: "user" | "assistant";
@@ -21,6 +22,7 @@ export default function Chat({ initial }: { initial?: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const secs = useElapsed(busy);
   const [error, setError] = useState<string | null>(null);
 
   // Pregunta que llega desde otra página (p. ej. Mi plantilla): se envía sola una vez
@@ -80,7 +82,7 @@ export default function Chat({ initial }: { initial?: string }) {
           )}
         </div>
       ))}
-      {busy && <p className="muted">Consultando los datos…</p>}
+      {busy && <p className="muted thinking" role="status"><Spinner /> {secs < 6 ? "Consultando tus datos…" : secs < 15 ? "Mirando notas, mercado y tu plan…" : "Escribiendo la respuesta…"} · {secs} s</p>}
       {error && <p className="bad">{error}</p>}
       <form
         className="ask"
@@ -90,7 +92,7 @@ export default function Chat({ initial }: { initial?: string }) {
         }}
       >
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregunta sobre jugadores o el mercado" />
-        <button type="submit" disabled={busy}>Enviar</button>
+        <button type="submit" disabled={busy} className="with-spin">{busy ? <><Spinner /> Pensando</> : "Enviar"}</button>
       </form>
     </div>
   );
