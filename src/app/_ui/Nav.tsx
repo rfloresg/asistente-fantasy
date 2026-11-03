@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/mercado", label: "Mercado", icon: "M3 7h18l-2 13H5zM8 7a4 4 0 0 1 8 0" },
   { href: "/plantilla", label: "Plantilla", icon: "M4 5h16v14H4zM4 12h16M12 5v14" },
   { href: "/chat", label: "Pregunta", icon: "M4 5h16v11H9l-5 4z" },
+  { href: "/conectar", label: "Cuenta", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0" },
 ];
 
 export function Nav() {

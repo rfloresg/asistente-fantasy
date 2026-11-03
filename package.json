@@ -18,7 +18,8 @@
     "liga:probe": "tsx scripts/liga-probe.ts",
     "espia": "tsx scripts/espia.ts",
     "telegram:chat": "tsx scripts/telegram-chat.ts",
-    "liga:olvidar": "tsx scripts/olvidar-liga.ts"
+    "liga:olvidar": "tsx scripts/olvidar-liga.ts",
+    "usuarios:migrar": "tsx scripts/usuarios-migrar.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

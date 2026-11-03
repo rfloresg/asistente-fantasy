@@ -175,6 +175,7 @@ export const espiaRaises = pgTable("espia_raises", {
 // Plan del día (solo para ti): acciones recomendadas por liga. La web enseña el último.
 export const espiaPlans = pgTable("espia_plans", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id"), // de quién es el plan (null = planes de antes de los usuarios)
   leagueId: text("league_id").notNull(),
   leagueName: text("league_name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
@@ -195,6 +196,55 @@ export const espiaDone = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.leagueId, t.key] })],
+);
+
+// ---------- Usuarios (servicio para varias ligas) ----------
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  telegramId: text("telegram_id").unique(), // también es su chat privado con el bot
+  isAdmin: boolean("is_admin").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// Sesión de LaLiga de cada usuario: el refresh token, cifrado (SESSION_KEY). Nunca la contraseña.
+export const laligaSessions = pgTable("laliga_sessions", {
+  userId: integer("user_id").primaryKey(),
+  refreshEnc: text("refresh_enc").notNull(),
+  redirect: text("redirect").notNull(), // con qué dirección de vuelta se inició (hace falta para renovar)
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  lastError: text("last_error"),
+});
+
+// Inicios de sesión a medias (PKCE): caducan a los 15 min
+export const loginAttempts = pgTable("login_attempts", {
+  state: text("state").primaryKey(),
+  verifier: text("verifier").notNull(),
+  userId: integer("user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// Ligas que sigue el Espía. groupOwnerId: la sesión con la que se lee para el grupo de Telegram.
+export const leagues = pgTable("leagues", {
+  leagueId: text("league_id").primaryKey(),
+  name: text("name").notNull(),
+  groupChatId: text("group_chat_id"),
+  groupOwnerId: integer("group_owner_id"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// Quién está en qué liga y si quiere su plan privado
+export const memberships = pgTable(
+  "memberships",
+  {
+    userId: integer("user_id").notNull(),
+    leagueId: text("league_id").notNull(),
+    plan: boolean("plan").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.leagueId] })],
 );
 
 export const ingestRuns = pgTable("ingest_runs", {

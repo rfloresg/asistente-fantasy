@@ -71,6 +71,13 @@
       "when": 1793702435318,
       "tag": "0009_hecho",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793704665271,
+      "tag": "0010_usuarios",
+      "breakpoints": true
     }
   ]
 }
