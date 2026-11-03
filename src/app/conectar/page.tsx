@@ -48,7 +48,7 @@ export default async function Conectar() {
           ) : (
             <p className="muted">Sin conectar.</p>
           )}
-          <h2 style={{ marginTop: 28 }}>Tus ligas</h2>
+          <h2 id="ligas" style={{ marginTop: 28 }}>Tus ligas</h2>
           <p className="small" style={{ marginTop: -4 }}>Para que el Espía publique en el grupo de una liga: mete el bot en el grupo y escribe <code>/espia</code>.</p>
           {mine.length ? (
             <ul className="rule">

@@ -1,11 +1,15 @@
 // Hoy: tu plan en la liga elegida (movimientos por prioridad) y tu once en el campo.
 // Lo genera el Espía a las 9:00 y a las 18:00 (npm run espia plan).
 
+import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { getDb } from "@/db";
+import { laligaSessions } from "@/db/schema";
 import { money } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import type { LineupSnapshot } from "@/lib/plan/snapshot";
 import Refresh, { DoneButton } from "./_ui/Refresh";
+import Welcome from "./_ui/Welcome";
 
 export const dynamic = "force-dynamic";
 
@@ -81,15 +85,20 @@ export default async function Hoy() {
   const plan = current ? await latestPlan(current.id, user?.id) : null;
 
   if (!plan) {
+    const [session] = user ? await (await getDb()).select().from(laligaSessions).where(eq(laligaSessions.userId, user.id)) : [];
+    const connected = !user || (!!session && !session.lastError);
     return (
       <main>
         <h1>Tu plan de hoy</h1>
         <p className="lead">Aquí verás qué hacer en cada liga: a quién proteger, por quién pujar, a quién vender y tu mejor once.</p>
-        <div className="empty">
-          <h2>Aún no hay plan</h2>
-          <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, pulsa el botón.</p>
-          <div style={{ marginTop: 16 }}><Refresh since={null} /></div>
-        </div>
+        {user && <Welcome userId={user.id} />}
+        {connected && (
+          <div className="empty">
+            <h2>Aún no hay plan</h2>
+            <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, pulsa el botón.</p>
+            <div style={{ marginTop: 16 }}><Refresh since={null} /></div>
+          </div>
+        )}
       </main>
     );
   }
@@ -103,6 +112,7 @@ export default async function Hoy() {
 
   return (
     <main>
+      {user && <Welcome userId={user.id} />}
       <div className="hero">
         <div>
           <h1>{close ? `Antes del ${madrid(close, { weekday: "long" })} a las ${madrid(close, { hour: "2-digit", minute: "2-digit" })}` : "Tu plan de hoy"}</h1>

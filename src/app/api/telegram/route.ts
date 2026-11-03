@@ -14,7 +14,7 @@ type Chat = { id: number; type: string; title?: string };
 type Update = {
   message?: { chat: Chat; text?: string; from?: From };
   callback_query?: { id: string; data?: string; from: From; message?: { chat: Chat } };
-  my_chat_member?: { chat: Chat; new_chat_member?: { status?: string } };
+  my_chat_member?: { chat: Chat; old_chat_member?: { status?: string }; new_chat_member?: { status?: string } };
 };
 type Button = { text: string; url?: string; callback_data?: string };
 
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
           await dispatchPlan().catch(() => null);
           const ligas = out.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna (¿estás en alguna liga?)";
           await reply(m.chat.id,
-            `✅ <b>¡Conectado!</b>\n\nTus ligas: ${ligas}\n\n📋 Estoy preparando tu primer plan: <b>te llega aquí en un minuto</b>.\n\n🕵️ ¿Quieres el Espía en el grupo de tu liga? Métame en el grupo y escribid /espia.`,
+            `✅ <b>¡Conectado!</b>\n\nTus ligas: ${ligas}\n\n📋 Estoy preparando tu primer plan: <b>te llega aquí en un minuto</b>.\n\n🕵️ ¿Quieres el Espía en el grupo de tu liga? Métame en el grupo y te saldrá un botón para elegir la liga.`,
             [[{ text: "Ver mi plan en la web", url: botLoginUrl(String(m.chat.id), nameOf(m.from), "/") }]]);
         } catch (e) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
@@ -113,15 +113,23 @@ export async function POST(req: Request) {
       } else {
         await reply(m.chat.id, "No te he entendido. Prueba con /conectar para conectar tu LaLiga o /web para entrar en la web.");
       }
-    } else if (m && m.chat.type !== "private" && m.text?.trim().split(/\s|@/)[0].toLowerCase() === "/espia") {
-      await reply(m.chat.id,
-        "🕵️ Para activar el Espía aquí, quien conectó la liga pulsa el botón y elige cuál es.",
-        [[{ text: "Elegir la liga de este grupo", url: activateUrl(String(m.chat.id), m.chat.title ?? "Grupo") }]]);
-    } else if (u.my_chat_member && u.my_chat_member.chat.type !== "private" && ["member", "administrator"].includes(u.my_chat_member.new_chat_member?.status ?? "")) {
-      await reply(u.my_chat_member.chat.id, "👋 ¡Hola! Escribid /espia y os contaré aquí todo lo que pasa en vuestra liga: fichajes, ventas, cláusulas y un resumen cada mañana.");
+    } else if (m && m.chat.type !== "private" && ["/espia", "/start"].includes(m.text?.trim().split(/\s|@/)[0].toLowerCase() ?? "")) {
+      // /espia, o /start cuando entra por el enlace "Añadir a un grupo" (t.me/bot?startgroup=espia)
+      await askActivation(m.chat.id, m.chat.title, false);
+    } else if (u.my_chat_member && u.my_chat_member.chat.type !== "private" && ["member", "administrator"].includes(u.my_chat_member.new_chat_member?.status ?? "")
+      && !["member", "administrator"].includes(u.my_chat_member.old_chat_member?.status ?? "")) {
+      // Recién metido en el grupo: el botón sale ya, sin tener que escribir nada
+      await askActivation(u.my_chat_member.chat.id, u.my_chat_member.chat.title, true);
     }
   } catch {
     // Telegram reintenta si fallamos: respondemos siempre 200
   }
   return NextResponse.json({ ok: true });
+}
+
+async function askActivation(chatId: number, title: string | undefined, hello: boolean) {
+  await reply(chatId,
+    `${hello ? "👋 <b>¡Hola!</b> Soy el Espía: os contaré aquí los fichajes, ventas y cláusulas de la liga, y un resumen cada mañana.\n\n" : "🕵️ "}`
+      + "Para empezar, <b>quien conectó la liga en la web</b> pulsa el botón y elige cuál es la de este grupo.",
+    [[{ text: "👉 Elegir la liga de este grupo", url: activateUrl(String(chatId), title ?? "Grupo") }]]);
 }
