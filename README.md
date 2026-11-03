@@ -140,6 +140,8 @@ Varias ligas: `ESPIA_LIGAS=018477470:-5110647810,018218984:-100...` (id de liga:
 
 5. En GitHub, secretos `TELEGRAM_BOT_TOKEN` y `ESPIA_LIGAS` (o `LIGA_ID` + `TELEGRAM_CHAT_ID` para una sola liga). El workflow `espia.yml` mira la liga cada 30 min (07:00 a 01:00) y manda el resumen a las 09:00.
 
+Para dejar una liga: quítala de `ESPIA_LIGAS` (en `.env` y en el secreto de GitHub) y ejecuta `npm run liga:olvidar <id>`, que borra sus planes, avisos y cláusulas guardados.
+
 La primera vez no publica el historial: solo un mensaje de "Espía activado". Las actividades ya avisadas se guardan en `espia_events`.
 
 ### Espía v2
