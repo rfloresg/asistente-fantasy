@@ -1,20 +1,22 @@
 // Webhook del bot de Telegram (se configura con npm run telegram:webhook).
-// En privado: /start (bienvenida), /conectar (conectar LaLiga paso a paso), /web (entrar en la web)
-//   y, si le mandas la dirección de jwt.ms, termina de conectar.
-// En un grupo: /espia (botón para elegir qué liga es el grupo).
+// Todo se hace aquí, sin pasar por la web:
+// - En privado: /start te da ya el botón para entrar en LaLiga; le devuelves la página de jwt.ms y quedas conectado.
+//   Luego, un botón para meter el Espía en el grupo de tu liga. /web te da un enlace para entrar en la web.
+// - En un grupo: al meter el bot, si quien lo mete ya está conectado, se activa solo (o elige la liga con un botón).
 import { NextResponse } from "next/server";
-import { getDb } from "@/db";
+import { getDb, type Db } from "@/db";
 import { ConnectError, findCallback, finishConnect, startConnect } from "@/lib/conectar";
 import { dispatchPlan } from "@/lib/github";
-import { activateUrl, botLoginUrl } from "@/lib/grupo";
+import { botLoginUrl } from "@/lib/grupo";
+import { activateGroup, activatedText, telegramLeagues } from "@/lib/grupo-activar";
 import { userForTelegram } from "@/lib/users";
 
 type From = { id: number; first_name?: string; last_name?: string; username?: string };
 type Chat = { id: number; type: string; title?: string };
 type Update = {
   message?: { chat: Chat; text?: string; from?: From };
-  callback_query?: { id: string; data?: string; from: From; message?: { chat: Chat } };
-  my_chat_member?: { chat: Chat; old_chat_member?: { status?: string }; new_chat_member?: { status?: string } };
+  callback_query?: { id: string; data?: string; from: From; message?: { chat: Chat; message_id: number } };
+  my_chat_member?: { chat: Chat; from: From; old_chat_member?: { status?: string }; new_chat_member?: { status?: string } };
 };
 type Button = { text: string; url?: string; callback_data?: string };
 
@@ -23,43 +25,66 @@ const tg = (method: string, body: object) =>
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   });
 
+const markup = (buttons: Button[][]) => (buttons.length ? { reply_markup: { inline_keyboard: buttons } } : {});
 const reply = (chatId: number, text: string, buttons: Button[][] = []) =>
-  tg("sendMessage", {
-    chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true,
-    ...(buttons.length ? { reply_markup: { inline_keyboard: buttons } } : {}),
-  });
+  tg("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...markup(buttons) });
+const edit = (chatId: number, messageId: number, text: string, buttons: Button[][] = []) =>
+  tg("editMessageText", { chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", disable_web_page_preview: true, ...markup(buttons) });
+const alert = (id: string, text: string) => tg("answerCallbackQuery", { callback_query_id: id, text, show_alert: true });
 
 const nameOf = (f?: From) => [f?.first_name, f?.last_name].filter(Boolean).join(" ") || f?.username || "Mánager";
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const bot = () => process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "") ?? "";
+const addToGroup = (): Button => ({ text: "🕵️ Meter el Espía en el grupo de mi liga", url: `https://t.me/${bot()}?startgroup=espia` });
+const webButton = (chatId: number, from?: From): Button => ({ text: "🌐 Ver mi plan en la web", url: botLoginUrl(String(chatId), nameOf(from), "/") });
 
-const WELCOME = `🕵️ <b>Asistente Fantasy</b>
+const CONNECT = `🕵️ <b>Asistente Fantasy</b>
 
-Cada día te digo qué hacer en LaLiga Fantasy:
-🛡️ a quién <b>proteger</b>
-🛒 por quién <b>pujar</b> y cuánto
-💰 a quién <b>vender</b>
-📋 tu <b>mejor once</b> y el capitán
+Cada día te digo a quién <b>proteger</b>, por quién <b>pujar</b>, a quién <b>vender</b> y tu <b>mejor once</b>. Y en el grupo de tu liga, un Espía que cuenta cada fichaje, venta y cláusula.
 
-Y en el grupo de tu liga, un Espía que cuenta cada fichaje, venta y cláusula.
-
-Para empezar, conecta tu cuenta de LaLiga 👇`;
-
-const GUIDE = `🔐 <b>Conectar tu LaLiga</b> · tarda 1 minuto
+<b>Conecta tu LaLiga</b> · 1 minuto
 
 <b>1.</b> Pulsa <b>Entrar en LaLiga</b> y entra como siempre.
+<b>2.</b> Acabarás en una página en blanco de Microsoft (<b>jwt.ms</b>). Es normal.
+<b>3.</b> Ahí pulsa <b>compartir → Telegram → este chat</b>.
+      ¿No ves compartir? <b>⋮ → Copiar enlace</b> y pégalo aquí.
 
-<b>2.</b> Acabarás en una <b>página en blanco de Microsoft</b> (jwt.ms). Es normal: ahí va tu código.
+🔒 Tu contraseña la escribes en LaLiga: yo nunca la veo. Solo leo; nunca ficho ni vendo.`;
 
-<b>3.</b> En esa página, pulsa <b>compartir</b> (arriba) → <b>Telegram</b> → este chat.
-     ¿No ves compartir? Toca <b>⋮</b> → <b>Copiar enlace</b> y pégalo aquí.
-
-🔒 Tu contraseña la escribes en LaLiga: yo nunca la veo. Solo leo tus ligas; nunca ficho ni vendo nada.
-⏱️ El botón vale 15 minutos.`;
-
-async function sendGuide(db: Awaited<ReturnType<typeof getDb>>, chatId: number, from?: From) {
+// /start en privado: si no estás conectado, el botón de LaLiga directamente; si lo estás, lo siguiente que toca
+async function start(db: Db, chatId: number, from?: From, force = false) {
   const user = await userForTelegram(db, String(chatId), nameOf(from));
+  const mine = force ? null : await telegramLeagues(db, String(chatId));
+  if (mine) {
+    const ligas = mine.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna";
+    await reply(chatId, `✅ Ya estás conectado. Tus ligas: ${ligas}.\n\nTe mando el plan aquí a las 9:00 y a las 18:00.`, [
+      [addToGroup()], [webButton(chatId, from)], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
+    ]);
+    return;
+  }
   const url = await startConnect(db, user.id);
-  await reply(chatId, GUIDE, [[{ text: "🔐 Entrar en LaLiga", url }]]);
+  await reply(chatId, `${CONNECT}\n⏱️ El botón vale 15 minutos.`, [[{ text: "🔐 Entrar en LaLiga", url }]]);
+}
+
+// En un grupo: activar con las ligas de quien lo pide (quien mete el bot o quien pulsa el botón)
+async function offerGroup(db: Db, chat: Chat, from: From, hello: boolean, messageId?: number) {
+  const say = (text: string, buttons: Button[][] = []) => (messageId ? edit(chat.id, messageId, text, buttons) : reply(chat.id, text, buttons));
+  const intro = hello ? "👋 <b>¡Hola!</b> Soy el Espía: os contaré aquí los fichajes, ventas y cláusulas de vuestra liga, y un resumen cada mañana.\n\n" : "";
+  const mine = await telegramLeagues(db, String(from.id));
+  if (!mine || !mine.leagues.length) {
+    await say(`${intro}Para activarme, <b>quien tenga la liga conectada</b> pulsa el botón. ¿Nadie la ha conectado? Habladme por privado: es un minuto.`, [
+      [{ text: "🕵️ Activar en este grupo", callback_data: "act" }],
+      [{ text: "🔐 Conectar mi LaLiga", url: `https://t.me/${bot()}?start=conectar` }],
+    ]);
+    return;
+  }
+  if (mine.leagues.length === 1) {
+    const out = await activateGroup(db, mine.user.id, mine.leagues[0].id, String(chat.id));
+    await say(out.ok ? `${intro}${activatedText(out.name)}` : `${intro}❌ ${esc(out.error)}`);
+    return;
+  }
+  await say(`${intro}${esc(nameOf(from))}, ¿qué liga es este grupo?`,
+    mine.leagues.map((l) => [{ text: l.name, callback_data: `act:${l.id}` }]));
 }
 
 export async function POST(req: Request) {
@@ -73,8 +98,35 @@ export async function POST(req: Request) {
     // Botones con acción (callback)
     if (u.callback_query) {
       const cq = u.callback_query;
-      await tg("answerCallbackQuery", { callback_query_id: cq.id });
-      if (cq.data === "conectar" && cq.message?.chat.type === "private") await sendGuide(db, cq.message.chat.id, cq.from);
+      const msg = cq.message;
+      if (cq.data === "conectar" && msg?.chat.type === "private") {
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+        await start(db, msg.chat.id, cq.from, true);
+      } else if (cq.data === "act" && msg) {
+        const mine = await telegramLeagues(db, String(cq.from.id));
+        if (!mine?.leagues.length) {
+          await alert(cq.id, `Primero conecta tu LaLiga: abre @${bot()} en privado y pulsa Iniciar. Luego vuelve y pulsa otra vez.`);
+        } else {
+          await tg("answerCallbackQuery", { callback_query_id: cq.id });
+          await offerGroup(db, msg.chat, cq.from, false, msg.message_id);
+        }
+      } else if (cq.data?.startsWith("act:") && msg) {
+        const mine = await telegramLeagues(db, String(cq.from.id));
+        const leagueId = cq.data.slice(4);
+        if (!mine) {
+          await alert(cq.id, `Primero conecta tu LaLiga hablando con @${bot()} en privado.`);
+        } else {
+          const out = await activateGroup(db, mine.user.id, leagueId, String(msg.chat.id));
+          if (out.ok) {
+            await tg("answerCallbackQuery", { callback_query_id: cq.id });
+            await edit(msg.chat.id, msg.message_id, activatedText(out.name));
+          } else {
+            await alert(cq.id, out.error);
+          }
+        }
+      } else {
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -83,7 +135,7 @@ export async function POST(req: Request) {
       const text = m.text?.trim() ?? "";
       const [first, arg] = text.split(/\s+/);
       const cmd = (first.split("@")[0] ?? "").toLowerCase();
-      const startArg = cmd === "/start" ? (arg ?? "").toLowerCase() : ""; // t.me/bot?start=conectar
+      const startArg = cmd === "/start" ? (arg ?? "").toLowerCase() : "";
       if (findCallback(text)) {
         // Ha vuelto con la dirección de jwt.ms: terminamos de conectar
         const user = await userForTelegram(db, String(m.chat.id), nameOf(m.from));
@@ -93,43 +145,30 @@ export async function POST(req: Request) {
           await dispatchPlan().catch(() => null);
           const ligas = out.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna (¿estás en alguna liga?)";
           await reply(m.chat.id,
-            `✅ <b>¡Conectado!</b>\n\nTus ligas: ${ligas}\n\n📋 Estoy preparando tu primer plan: <b>te llega aquí en un minuto</b>.\n\n🕵️ ¿Quieres el Espía en el grupo de tu liga? Métame en el grupo y te saldrá un botón para elegir la liga.`,
-            [[{ text: "Ver mi plan en la web", url: botLoginUrl(String(m.chat.id), nameOf(m.from), "/") }]]);
+            `✅ <b>¡Conectado!</b> Tus ligas: ${ligas}.\n\n📋 Tu primer plan <b>te llega aquí en un minuto</b>. Luego, cada día a las 9:00 y a las 18:00.\n\n🕵️ <b>Último paso (opcional):</b> pulsa el botón, elige el grupo de tu liga y el Espía se activa solo.`,
+            [[addToGroup()], [webButton(m.chat.id, m.from)]]);
         } catch (e) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
-          await reply(m.chat.id, `❌ ${esc(msg)}`, [[{ text: "Volver a intentarlo", callback_data: "conectar" }]]);
+          await reply(m.chat.id, `❌ ${esc(msg)}`, [[{ text: "🔐 Volver a intentarlo", callback_data: "conectar" }]]);
         }
-      } else if (cmd === "/conectar" || startArg === "conectar") {
-        await sendGuide(db, m.chat.id, m.from);
       } else if (cmd === "/web" || startArg === "web") {
-        await reply(m.chat.id, "🌐 Tu enlace para entrar en la web. Es solo tuyo y vale 15 minutos.",
-          [[{ text: "Entrar en la web", url: botLoginUrl(String(m.chat.id), nameOf(m.from), "/") }]]);
-      } else if (cmd === "/start") {
-        await userForTelegram(db, String(m.chat.id), nameOf(m.from));
-        await reply(m.chat.id, WELCOME, [
-          [{ text: "🔐 Conectar mi LaLiga", callback_data: "conectar" }],
-          [{ text: "Abrir la web", url: botLoginUrl(String(m.chat.id), nameOf(m.from), "/") }],
-        ]);
+        await reply(m.chat.id, "🌐 Tu enlace para entrar en la web. Es solo tuyo y vale 15 minutos.", [[webButton(m.chat.id, m.from)]]);
+      } else if (cmd === "/conectar" || startArg === "conectar") {
+        await start(db, m.chat.id, m.from, true);
+      } else if (cmd === "/start" || cmd === "/espia") {
+        await start(db, m.chat.id, m.from);
       } else {
-        await reply(m.chat.id, "No te he entendido. Prueba con /conectar para conectar tu LaLiga o /web para entrar en la web.");
+        await reply(m.chat.id, "No te he entendido. Escribe /start y te digo qué toca.");
       }
-    } else if (m && m.chat.type !== "private" && ["/espia", "/start"].includes(m.text?.trim().split(/\s|@/)[0].toLowerCase() ?? "")) {
-      // /espia, o /start cuando entra por el enlace "Añadir a un grupo" (t.me/bot?startgroup=espia)
-      await askActivation(m.chat.id, m.chat.title, false);
+    } else if (m?.from && m.chat.type !== "private" && m.text?.trim().split(/\s|@/)[0].toLowerCase() === "/espia") {
+      await offerGroup(db, m.chat, m.from, false);
     } else if (u.my_chat_member && u.my_chat_member.chat.type !== "private" && ["member", "administrator"].includes(u.my_chat_member.new_chat_member?.status ?? "")
       && !["member", "administrator"].includes(u.my_chat_member.old_chat_member?.status ?? "")) {
-      // Recién metido en el grupo: el botón sale ya, sin tener que escribir nada
-      await askActivation(u.my_chat_member.chat.id, u.my_chat_member.chat.title, true);
+      // Recién metido en el grupo (a mano o con el botón del privado). El /start que manda Telegram después se ignora.
+      await offerGroup(db, u.my_chat_member.chat, u.my_chat_member.from, true);
     }
   } catch {
     // Telegram reintenta si fallamos: respondemos siempre 200
   }
   return NextResponse.json({ ok: true });
-}
-
-async function askActivation(chatId: number, title: string | undefined, hello: boolean) {
-  await reply(chatId,
-    `${hello ? "👋 <b>¡Hola!</b> Soy el Espía: os contaré aquí los fichajes, ventas y cláusulas de la liga, y un resumen cada mañana.\n\n" : "🕵️ "}`
-      + "Para empezar, <b>quien conectó la liga en la web</b> pulsa el botón y elige cuál es la de este grupo.",
-    [[{ text: "👉 Elegir la liga de este grupo", url: activateUrl(String(chatId), title ?? "Grupo") }]]);
 }

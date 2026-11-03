@@ -25,7 +25,8 @@ export default async function Welcome({ userId }: { userId: number }) {
       title: session?.lastError ? "Vuelve a conectar tu LaLiga" : "Conecta tu LaLiga",
       text: session?.lastError ? "Tu sesión ha caducado. Entra otra vez y sigues como estabas." : "Entras en la página de LaLiga y el Espía puede leer tus ligas. Solo lee: nunca ficha ni vende.",
       done: connected,
-      cta: { label: "Conectar", href: "/conectar" },
+      // En el bot es todo seguido (entrar, devolver jwt.ms, listo); sin bot configurado, la página de Cuenta
+      cta: bot ? { label: "Conectar en Telegram", href: `https://t.me/${bot}?start=conectar`, external: true } : { label: "Conectar", href: "/conectar" },
     },
     {
       title: "Elige tus ligas",
@@ -35,7 +36,7 @@ export default async function Welcome({ userId }: { userId: number }) {
     },
     {
       title: "Mete el Espía en el grupo",
-      text: "Opcional. Cuenta en el grupo de tu liga los fichajes, ventas y cláusulas, y un resumen cada mañana.",
+      text: "Opcional. Pulsa el botón, elige el grupo de tu liga y se activa solo. Cuenta los fichajes, ventas y cláusulas, y un resumen cada mañana.",
       done: !!group,
       cta: bot && connected ? { label: "Añadir a un grupo", href: `https://t.me/${bot}?startgroup=espia`, external: true } : undefined,
     },

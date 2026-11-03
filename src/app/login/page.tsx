@@ -14,7 +14,7 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
 
       <section className="card" style={{ padding: 24 }}>
         <h2 style={{ marginBottom: 6 }}>Entra con Telegram</h2>
-        <p className="muted" style={{ marginTop: 0 }}>Sin contraseñas. Abre el bot, pulsa Entrar en la web y listo. Te llegará tu plan por Telegram, solo a ti.</p>
+        <p className="muted" style={{ marginTop: 0 }}>Todo empieza en Telegram: abre el bot, pulsa Iniciar y sigue los pasos. El plan te llega allí; esta web es para verlo con más calma.</p>
         {bot ? (
           <>
             <a className="primary" href={`https://t.me/${bot}?start=web`} style={{ display: "inline-block", textDecoration: "none", marginTop: 4 }}>Abrir el bot en Telegram</a>
