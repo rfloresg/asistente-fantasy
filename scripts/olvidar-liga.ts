@@ -12,7 +12,8 @@ async function main() {
   if (!leagueId || !/^\d+$/.test(leagueId)) throw new Error("Uso: npm run liga:olvidar <id de la liga>");
   const { db, close } = await getConn();
   try {
-    const plans = await db.delete(espiaPlans).where(eq(espiaPlans.leagueId, leagueId)).returning({ id: espiaPlans.id });
+    const plans = await db.select({ id: espiaPlans.id }).from(espiaPlans).where(eq(espiaPlans.leagueId, leagueId));
+    await db.delete(espiaPlans).where(eq(espiaPlans.leagueId, leagueId));
     await db.delete(espiaEvents).where(eq(espiaEvents.leagueId, leagueId));
     await db.delete(espiaState).where(eq(espiaState.leagueId, leagueId));
     await db.delete(espiaClauses).where(eq(espiaClauses.leagueId, leagueId));
