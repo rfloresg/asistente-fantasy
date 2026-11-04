@@ -3,7 +3,9 @@
 import { notFound } from "next/navigation";
 import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
-import { ACTION, money, n1, notaClass, pct, POS, STATUS } from "@/lib/format";
+import { money, n1, notaClass, pct, POS, STATUS } from "@/lib/format";
+import { currentLeague, latestPlan } from "@/lib/ligas";
+import { advice, ownerOf } from "@/lib/propiedad";
 import { playerCard, teamNames } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,8 @@ function ValueChart({ values }: { values: { day: string; value: number }[] }) {
 
 export default async function Player({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [card, names] = await Promise.all([playerCard(id), teamNames()]);
+  const { current, user } = await currentLeague();
+  const [card, names, plan] = await Promise.all([playerCard(id), teamNames(), current ? latestPlan(current.id, user?.id) : null]);
   if (!card) notFound();
   const { player: p, team, score: s, values, weeks } = card;
   const why = s ? reasons(s, p.status, (tid) => names.get(tid) ?? tid) : [];
@@ -61,7 +64,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
       ) : (
         <>
           <div className="grid">
-            <div className="card"><div className="k">Recomendación</div><div className="v">{ACTION[s.action]}</div></div>
+            <div className="card"><div className="k">Recomendación{plan?.liga?.owners ? ` en ${plan.leagueName}` : ""}</div><div className="v">{advice(ownerOf(plan?.liga, id), s.action, plan?.acciones ?? [], id).label}</div></div>
             <div className="card"><div className="k">Titular probable</div><div className="v">{s.startProb === null ? "Sin dato" : `${s.startProb} %`}</div></div>
             <div className="card"><div className="k">Valor hoy</div><div className="v">{money(s.value)}</div></div>
             <div className="card"><div className="k">Esperado en {CONFIG.holdDays} días</div><div className="v">{money(s.expected)}</div></div>

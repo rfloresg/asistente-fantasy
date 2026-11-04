@@ -8,9 +8,10 @@ import { espiaPlans, players, playerScores, teams } from "@/db/schema";
 import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
 import { norm } from "@/lib/onces/match";
-import { ACTION, money, n1, pct, POS, STATUS } from "@/lib/format";
+import { money, n1, pct, POS, STATUS } from "@/lib/format";
 import { market, playerCard, scoresFor, teamNames } from "@/lib/queries";
 import { tema, TEMAS } from "@/lib/meta/manual";
+import { advice, ownerOf } from "@/lib/propiedad";
 
 export const TOOLS: Anthropic.Tool[] = [
   {
@@ -59,7 +60,7 @@ export const TOOLS: Anthropic.Tool[] = [
   {
     name: "plan_del_dia",
     description:
-      "Último plan del día de Rubén en cada liga: qué vender, a quién proteger (subir cláusula o blindar), por quién pujar y cuánto, y clausulazos. Úsala cuando pregunte qué hacer hoy o qué movimientos hacer.",
+      "Último plan del día de quien pregunta en cada liga: qué vender, a quién proteger (subir cláusula o blindar), por quién pujar y cuánto, y clausulazos. Úsala cuando pregunte qué hacer hoy o qué movimientos hacer.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -97,6 +98,24 @@ async function planDelDia(userId: number | null) {
   return out.length ? { planes: out } : { error: "Aún no hay plan: se genera a las 9:00 y a las 18:00" };
 }
 
+// Su último plan (de su liga más reciente): para no recomendarle fichar a uno que ya es suyo
+type Own = (id: string, action: string) => { en_tu_liga: string; recomendacion: string; mio: boolean; puja: boolean };
+async function ownership(userId: number | null): Promise<Own> {
+  const db = await getDb();
+  const [plan] = userId === null ? [] : await db.select({ liga: espiaPlans.liga, acciones: espiaPlans.acciones, leagueName: espiaPlans.leagueName })
+    .from(espiaPlans).where(eq(espiaPlans.userId, userId)).orderBy(desc(espiaPlans.createdAt)).limit(1);
+  return (id, action) => {
+    const owner = ownerOf(plan?.liga, id);
+    const a = advice(owner, action, plan?.acciones ?? [], id);
+    return {
+      en_tu_liga: !owner ? "sin datos de tu liga" : owner.kind === "mio" ? `es tuyo (${plan!.leagueName})` : owner.kind === "rival" ? `es de ${owner.manager}: solo con cláusula` : owner.onSale ? "libre y en venta en tu liga" : "libre",
+      recomendacion: a.label,
+      mio: owner?.kind === "mio",
+      puja: a.bid,
+    };
+  };
+}
+
 async function buscarJugador({ nombre }: Input) {
   const q = norm(String(nombre ?? ""));
   if (!q) return { error: "Falta el nombre" };
@@ -123,7 +142,7 @@ async function buscarJugador({ nombre }: Input) {
   };
 }
 
-async function fichaJugador({ id }: Input) {
+async function fichaJugador({ id }: Input, own: Own) {
   const card = await playerCard(String(id ?? ""));
   if (!card) return { error: "No existe ese jugador" };
   const names = await teamNames();
@@ -137,7 +156,7 @@ async function fichaJugador({ id }: Input) {
     estado: STATUS[p.status] ?? "Disponible",
     dia_de_los_datos: s.day,
     nota: s.nota,
-    recomendacion: ACTION[s.action],
+    ...(({ en_tu_liga, recomendacion }) => ({ en_tu_liga, recomendacion }))(own(String(p.id), s.action)),
     motivos: reasons(s, p.status, (tid) => names.get(tid) ?? tid).map((r) => `${r.good ? "+" : "-"} ${r.text}`),
     desglose_percentiles: { forma: s.f, tendencia: s.t, puntos_por_millon: s.p, minutos: s.m, calendario: s.c, resta_por_riesgo: s.r },
     valor: money(s.value),
@@ -155,7 +174,7 @@ async function fichaJugador({ id }: Input) {
   };
 }
 
-async function mercadoTool(i: Input) {
+async function mercadoTool(i: Input, own: Own) {
   const posIdx = POS.indexOf(String(i.posicion ?? ""));
   const { day, rows } = await market(
     {
@@ -166,26 +185,29 @@ async function mercadoTool(i: Input) {
     },
     Math.min(Math.max(Number(i.limite) || 10, 1), 15),
   );
+  // Al buscar a quién fichar, fuera los que ya son suyos
+  const list = rows.map((r) => ({ r, o: own(String(r.id), r.s.action) })).filter(({ o }) => !(i.accion === "fichar" && o.mio));
   return {
     dia_de_los_datos: day,
-    jugadores: rows.map(({ id, nickname, team, position, status, s }) => ({
+    jugadores: list.map(({ r: { id, nickname, team, position, status, s }, o }) => ({
       id,
       jugador: nickname,
       equipo: team,
       posicion: POS[position],
       estado: STATUS[status] ?? "Disponible",
       nota: s.nota,
-      recomendacion: ACTION[s.action],
+      en_tu_liga: o.en_tu_liga,
+      recomendacion: o.recomendacion,
       valor: money(s.value),
       cambio_valor_7_dias: pct(s.pct7),
       forma_pts_por_partido: n1(s.formAvg),
       titular_probable: s.startProb === null ? "sin dato" : `${s.startProb} %`,
-      puja_maxima_para_jugar: s.action === "fichar" ? money(s.maxBidPlay) : "no recomendado fichar",
+      puja_maxima_para_jugar: o.puja ? money(s.maxBidPlay) : "no aplica",
     })),
   };
 }
 
-async function variosJugadores({ ids }: Input) {
+async function variosJugadores({ ids }: Input, own: Own) {
   const list = (Array.isArray(ids) ? ids : []).map(String).slice(0, 30);
   const names = await teamNames();
   const { day, rows } = await scoresFor(list);
@@ -200,7 +222,7 @@ async function variosJugadores({ ids }: Input) {
       ...(s
         ? {
             nota: s.nota,
-            recomendacion: ACTION[s.action],
+            ...(({ en_tu_liga, recomendacion }) => ({ en_tu_liga, recomendacion }))(own(String(id), s.action)),
             motivos: reasons(s, status, (tid) => names.get(tid) ?? tid).map((r) => `${r.good ? "+" : "-"} ${r.text}`),
             valor: money(s.value),
             cambio_valor_7_dias: pct(s.pct7),
@@ -224,11 +246,11 @@ export async function runTool(name: string, input: Input, userId: number | null 
     case "buscar_jugador":
       return buscarJugador(input);
     case "ficha_jugador":
-      return fichaJugador(input);
+      return fichaJugador(input, await ownership(userId));
     case "mercado":
-      return mercadoTool(input);
+      return mercadoTool(input, await ownership(userId));
     case "varios_jugadores":
-      return variosJugadores(input);
+      return variosJugadores(input, await ownership(userId));
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }

@@ -10,6 +10,7 @@ export interface LigaSnapshot {
   injuries: { player: string; manager: string; status: string }[];
   squad?: { id: string; clause?: number; lockedUntil?: string; shielded?: boolean }[]; // tu plantilla
   market?: { id: string; price: number; bids?: number; seller?: string }[]; // en venta en la liga
+  owners?: Record<string, string>; // jugador → equipo que lo tiene en esta liga (el tuyo incluido)
 }
 
 export interface LineupSnapshot {

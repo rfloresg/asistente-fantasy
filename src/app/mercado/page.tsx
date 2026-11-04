@@ -1,7 +1,9 @@
 // Mercado: todos los jugadores con su Nota Fantasy del día.
 
 import Link from "next/link";
-import { ACTION, money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
+import { money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
+import { currentLeague, latestPlan } from "@/lib/ligas";
+import { advice, ownerOf } from "@/lib/propiedad";
 import { lastRun, market, type Order } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +17,18 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
   const order = (["nota", "forma", "tendencia", "valor"].includes(q.orden ?? "") ? q.orden : "nota") as Order;
   const maxValue = Number(q.max) ? Number(q.max) * 1e6 : undefined;
 
-  const [run, { day, rows }] = await Promise.all([lastRun(), market({ pos, action, order, maxValue })]);
+  const { current, user } = await currentLeague();
+  const [run, { day, rows: all }, plan] = await Promise.all([
+    lastRun(), market({ pos, action, order, maxValue }), current ? latestPlan(current.id, user?.id) : null,
+  ]);
+  // Con los datos de tu liga: tus jugadores salen como tuyos (nunca "Fichar"); al filtrar por Fichar, no salen
+  const withAdvice = all.map((r) => ({ ...r, adv: advice(ownerOf(plan?.liga, String(r.id)), r.s.action, plan?.acciones ?? [], String(r.id)) }));
+  const rows = action === "fichar" ? withAdvice.filter((r) => r.adv.tone !== "mio") : withAdvice;
 
   return (
     <main>
       <h1>Mercado</h1>
-      <p className="lead">Todos los jugadores con su nota de hoy. Filtra por puesto, consejo o precio.</p>
+      <p className="lead">Todos los jugadores con su nota de hoy{plan?.liga?.owners ? ` y de quién son en ${plan.leagueName}` : ""}. Filtra por puesto, consejo o precio.</p>
       <p className="muted">
         {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Sin datos. Ejecuta npm run ingest."}
         {day ? ` · Nota del ${day}` : " · Sin notas. Ejecuta npm run score."}
@@ -70,7 +78,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ id, nickname, team, position, status, s }) => (
+            {rows.map(({ id, nickname, team, position, status, s, adv }) => (
               <tr key={id}>
                 <td><span className={notaClass(s.nota)}>{s.nota}</span></td>
                 <td>
@@ -78,12 +86,12 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
                   {STATUS[status] && <span className="bad">{STATUS[status]}</span>}
                 </td>
                 <td>{POS[position]}</td>
-                <td>{ACTION[s.action]}</td>
+                <td><span className={`own ${adv.tone}`}>{adv.label}</span></td>
                 <td className="n">{money(s.value)}</td>
                 <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s.pct7)}</td>
                 <td className="n">{n1(s.formAvg)}</td>
                 <td className="n">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
-                <td className="n">{s.action === "fichar" ? money(s.maxBidPlay) : "–"}</td>
+                <td className="n">{adv.bid ? money(s.maxBidPlay) : "–"}</td>
               </tr>
             ))}
           </tbody>

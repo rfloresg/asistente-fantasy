@@ -440,6 +440,7 @@ function buildLigaSnap(i: {
     squad: (myTeam?.players ?? []).map((p) => ({
       id: String(p.playerMaster.id), clause: p.buyoutClause, lockedUntil: p.buyoutClauseLockedEndTime, shielded: p.isShielded,
     })),
+    owners: Object.fromEntries(i.teams.flatMap((t) => t.players.map((p) => [String(p.playerMaster.id), String(t.id)]))),
     market: i.market.filter((m) => m.status === "on_sale").map((m) => ({
       id: String(m.playerMaster.id), price: m.salePrice, bids: m.numberOfBids, seller: m.sellerTeam?.manager?.managerName,
     })),
