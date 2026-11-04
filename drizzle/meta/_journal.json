@@ -92,6 +92,13 @@
       "when": 1793716524683,
       "tag": "0012_ajustes_grupo",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793789771951,
+      "tag": "0013_opiniones",
+      "breakpoints": true
     }
   ]
 }

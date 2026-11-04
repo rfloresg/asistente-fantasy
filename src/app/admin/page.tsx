@@ -2,7 +2,8 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db";
-import { chatUsage, espiaPlans, laligaSessions, leagues, memberships, users } from "@/db/schema";
+import { chatUsage, espiaPlans, feedback, laligaSessions, leagues, memberships, users } from "@/db/schema";
+import { seats } from "@/lib/plazas";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export default async function Admin() {
   const me = await requireUser("/admin");
   if (!me.isAdmin) notFound();
   const db = await getDb();
-  const [us, ss, ms, ls, plans, chats] = await Promise.all([
+  const [us, ss, ms, ls, plans, chats, ops, plazas] = await Promise.all([
     db.select().from(users).orderBy(users.id),
     db.select().from(laligaSessions),
     db.select().from(memberships),
@@ -25,6 +26,8 @@ export default async function Admin() {
     db.select({ userId: espiaPlans.userId, leagueId: espiaPlans.leagueId, createdAt: espiaPlans.createdAt, acciones: espiaPlans.acciones })
       .from(espiaPlans).orderBy(desc(espiaPlans.createdAt)).limit(500),
     db.select().from(chatUsage).where(eq(chatUsage.day, new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }))),
+    db.select().from(feedback).orderBy(desc(feedback.createdAt)).limit(50),
+    seats(db),
   ]);
   const leagueName = new Map(ls.map((l) => [l.leagueId, l.name]));
   const rows = us.map((u) => {
@@ -42,7 +45,7 @@ export default async function Admin() {
   return (
     <main>
       <h1>Administración</h1>
-      <p className="lead">{us.length} usuarios · {ss.filter((s) => !s.lastError).length} conectados · {ls.filter((l) => l.active && l.groupChatId).length} grupos con Espía</p>
+      <p className="lead">{us.length} usuarios · {ss.filter((s) => !s.lastError).length} conectados · {ls.filter((l) => l.active && l.groupChatId).length} grupos con Espía · plazas {plazas.max ? `${plazas.used}/${plazas.max}` : "sin tope (pon MAX_USUARIOS en Vercel)"}</p>
       {stale.length > 0 && <p className="bad">Sin plan en más de 26 h aunque están conectados: {stale.map((r) => r.u.name).join(", ")}. Mira los registros de GitHub Actions.</p>}
 
       <section aria-labelledby="usuarios">
@@ -69,6 +72,20 @@ export default async function Admin() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section aria-labelledby="opiniones" style={{ marginTop: 40 }}>
+        <h2 id="opiniones">Opiniones</h2>
+        {ops.length ? (
+          <ul className="rule">
+            {ops.map((o) => (
+              <li key={o.id}>
+                <b>{o.name}</b> <span className="small">· {madrid(o.createdAt)}</span>
+                <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap", color: "var(--ink-2)" }}>{o.text}</p>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="muted">Aún nadie ha mandado nada. Llegan con /opinion en el bot.</p>}
       </section>
 
       <section aria-labelledby="grupos" style={{ marginTop: 40 }}>

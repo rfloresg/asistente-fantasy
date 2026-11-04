@@ -261,6 +261,15 @@ export const chatUsage = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
 
+// Opiniones que mandan los usuarios por el bot (/opinion). Le llegan al administrador por Telegram.
+export const feedback = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  name: text("name").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

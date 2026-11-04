@@ -10,6 +10,7 @@
 //   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
+import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
 import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
@@ -130,6 +131,7 @@ async function main() {
         console.error(msg);
       }
     }
+    if (mode === "resumen") await sendDigest(db).catch((e) => console.error(`parte: ${e}`));
     if (failed) {
       await alertAdmin(db, errors);
       throw new Error(`${failed} liga(s) con error`);
@@ -298,14 +300,24 @@ async function runLeague(
 
 type Liga = ReturnType<typeof leagueClient>;
 
+// Parte diario para el administrador (con el resumen de la mañana), una vez al día
+async function sendDigest(db: Db) {
+  const key = digestKey();
+  const [seen] = await db.select().from(espiaEvents).where(and(eq(espiaEvents.leagueId, "admin"), eq(espiaEvents.activityId, key)));
+  if (seen) return;
+  const chat = await adminChat(db);
+  if (!chat) return;
+  await sendMessage(chat, digestText(await gatherDigest(db)));
+  await db.insert(espiaEvents).values({ leagueId: "admin", activityId: key, createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
+}
+
 // Aviso al administrador cuando algo falla (como mucho uno cada 6 horas), p. ej. si LaLiga cambia su API
 async function alertAdmin(db: Db, errors: string[]) {
   if (mode === "preview") return;
   const slot = `alerta:${new Date().toISOString().slice(0, 10)}:${Math.floor(new Date().getUTCHours() / 6)}`;
   const [seen] = await db.select().from(espiaEvents).where(and(eq(espiaEvents.leagueId, "admin"), eq(espiaEvents.activityId, slot)));
   if (seen) return;
-  const [admin] = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
-  const chat = admin?.telegramId ?? process.env.ESPIA_PLAN_CHAT;
+  const chat = await adminChat(db);
   if (!chat) return;
   const list = errors.slice(0, 5).map((e) => `• ${esc(e.slice(0, 200))}`).join("\n");
   await sendMessage(chat, `🚨 <b>El Espía ha fallado</b> (${mode})\n${list}\n\nMira la pestaña Actions de GitHub.`).catch(() => {});

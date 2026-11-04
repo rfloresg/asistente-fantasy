@@ -45,4 +45,4 @@ export async function middleware(req: NextRequest) {
 }
 
 // El icono, el manifiesto y el service worker se sirven sin contraseña (los pide el móvil al instalar)
-export const config = { matcher: ["/((?!_next/|favicon.ico|icons/|manifest.webmanifest|sw.js).*)"] };
+export const config = { matcher: ["/((?!_next/|favicon.ico|icons/|manifest.webmanifest|sw.js|promo/).*)"] };

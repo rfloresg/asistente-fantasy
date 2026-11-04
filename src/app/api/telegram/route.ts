@@ -2,19 +2,24 @@
 // Todo se hace aquí, sin pasar por la web:
 // - En privado: /start te da ya el botón para entrar en LaLiga; le devuelves la página de jwt.ms y quedas conectado.
 //   Luego, un botón para meter el Espía en el grupo de tu liga. /web te da un enlace para entrar en la web.
+//   /opinion (o el botón "Dar mi opinión") manda lo que escribas al administrador.
+//   Con MAX_USUARIOS, cuando la beta está llena no deja conectar a nadie nuevo y avisa al administrador.
 // - En un grupo: al meter el bot, si quien lo mete ya está conectado, se activa solo (o elige la liga con un botón).
 import { NextResponse } from "next/server";
 import { getDb, type Db } from "@/db";
+import { feedback } from "@/db/schema";
+import { adminChat } from "@/lib/admin";
 import { ConnectError, findCallback, finishConnect, startConnect } from "@/lib/conectar";
 import { dispatchPlan } from "@/lib/github";
 import { botLoginUrl } from "@/lib/grupo";
 import { activateGroup, activatedText, telegramLeagues } from "@/lib/grupo-activar";
+import { canJoin, seats } from "@/lib/plazas";
 import { userForTelegram } from "@/lib/users";
 
 type From = { id: number; first_name?: string; last_name?: string; username?: string };
 type Chat = { id: number; type: string; title?: string };
 type Update = {
-  message?: { chat: Chat; text?: string; from?: From };
+  message?: { chat: Chat; text?: string; from?: From; reply_to_message?: { text?: string; from?: { is_bot?: boolean } } };
   callback_query?: { id: string; data?: string; from: From; message?: { chat: Chat; message_id: number } };
   my_chat_member?: { chat: Chat; from: From; old_chat_member?: { status?: string }; new_chat_member?: { status?: string } };
 };
@@ -38,6 +43,24 @@ const bot = () => process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "") ?? "";
 const addToGroup = (): Button => ({ text: "🕵️ Meter el Espía en el grupo de mi liga", url: `https://t.me/${bot()}?startgroup=espia` });
 const webButton = (chatId: number, from?: From): Button => ({ text: "🌐 Ver mi plan en la web", url: botLoginUrl(String(chatId), nameOf(from), "/") });
 
+const opinionButton: Button = { text: "💬 Dar mi opinión", callback_data: "opinion" };
+const OPINION_ASK = "💬 Cuéntame qué tal: qué falla, qué no se entiende o qué echas de menos. Escríbelo respondiendo a este mensaje.";
+
+const askOpinion = (chatId: number) =>
+  tg("sendMessage", { chat_id: chatId, text: OPINION_ASK, reply_markup: { force_reply: true, input_field_placeholder: "Tu opinión…" } });
+
+async function saveOpinion(db: Db, chatId: number, from: From | undefined, text: string) {
+  const clean = text.trim().slice(0, 2000);
+  if (!clean) return askOpinion(chatId);
+  const user = await userForTelegram(db, String(chatId), nameOf(from));
+  await db.insert(feedback).values({ userId: user.id, name: user.name, text: clean, createdAt: new Date() });
+  const admin = await adminChat(db);
+  if (admin && admin !== String(chatId)) {
+    await reply(Number(admin), `💬 <b>Opinión de ${esc(user.name)}</b>${from?.username ? ` (@${esc(from.username)})` : ""}\n\n${esc(clean)}`);
+  }
+  await reply(chatId, "🙌 ¡Gracias! Le ha llegado a quien lo ha montado. Si hace falta, te contesta por aquí.");
+}
+
 const CONNECT = `🕵️ <b>Asistente Fantasy</b>
 
 Cada día te digo a quién <b>proteger</b>, por quién <b>pujar</b>, a quién <b>vender</b> y tu <b>mejor once</b>. Y en el grupo de tu liga, un Espía que cuenta cada fichaje, venta y cláusula.
@@ -58,8 +81,15 @@ async function start(db: Db, chatId: number, from?: From, force = false) {
   if (mine) {
     const ligas = mine.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna";
     await reply(chatId, `✅ Ya estás conectado. Tus ligas: ${ligas}.\n\nTe mando el plan aquí a las 9:00 y a las 18:00.`, [
-      [addToGroup()], [webButton(chatId, from)], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
+      [addToGroup()], [webButton(chatId, from)], [opinionButton], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
     ]);
+    return;
+  }
+  if (!(await canJoin(db, user.id))) {
+    await reply(chatId, "🔒 <b>La beta está completa</b> ahora mismo.\n\nTe he apuntado: en cuanto haya sitio te escribo por aquí.");
+    const admin = await adminChat(db);
+    const { used, max } = await seats(db);
+    if (admin) await reply(Number(admin), `⏳ <b>${esc(user.name)}</b> quiere entrar, pero la beta está completa (${used}/${max}). Sube MAX_USUARIOS en Vercel para dejarle.`);
     return;
   }
   const url = await startConnect(db, user.id);
@@ -99,7 +129,10 @@ export async function POST(req: Request) {
     if (u.callback_query) {
       const cq = u.callback_query;
       const msg = cq.message;
-      if (cq.data === "conectar" && msg?.chat.type === "private") {
+      if (cq.data === "opinion" && msg?.chat.type === "private") {
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+        await askOpinion(msg.chat.id);
+      } else if (cq.data === "conectar" && msg?.chat.type === "private") {
         await tg("answerCallbackQuery", { callback_query_id: cq.id });
         await start(db, msg.chat.id, cq.from, true);
       } else if (cq.data === "act" && msg) {
@@ -136,7 +169,13 @@ export async function POST(req: Request) {
       const [first, arg] = text.split(/\s+/);
       const cmd = (first.split("@")[0] ?? "").toLowerCase();
       const startArg = cmd === "/start" ? (arg ?? "").toLowerCase() : "";
-      if (findCallback(text)) {
+      if (m.reply_to_message?.from?.is_bot && m.reply_to_message.text?.startsWith(OPINION_ASK.slice(0, 20))) {
+        // Respuesta al "Cuéntame qué tal"
+        await saveOpinion(db, m.chat.id, m.from, text);
+      } else if (cmd === "/opinion") {
+        const rest = text.slice(first.length).trim();
+        await (rest ? saveOpinion(db, m.chat.id, m.from, rest) : askOpinion(m.chat.id));
+      } else if (findCallback(text)) {
         // Ha vuelto con la dirección de jwt.ms: terminamos de conectar
         const user = await userForTelegram(db, String(m.chat.id), nameOf(m.from));
         await reply(m.chat.id, "⏳ Conectando con LaLiga…");
@@ -146,7 +185,7 @@ export async function POST(req: Request) {
           const ligas = out.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna (¿estás en alguna liga?)";
           await reply(m.chat.id,
             `✅ <b>¡Conectado!</b> Tus ligas: ${ligas}.\n\n📋 Tu primer plan <b>te llega aquí en un minuto</b>. Luego, cada día a las 9:00 y a las 18:00.\n\n🕵️ <b>Último paso (opcional):</b> pulsa el botón, elige el grupo de tu liga y el Espía se activa solo.`,
-            [[addToGroup()], [webButton(m.chat.id, m.from)]]);
+            [[addToGroup()], [webButton(m.chat.id, m.from)], [opinionButton]]);
         } catch (e) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
           await reply(m.chat.id, `❌ ${esc(msg)}`, [[{ text: "🔐 Volver a intentarlo", callback_data: "conectar" }]]);
@@ -158,7 +197,7 @@ export async function POST(req: Request) {
       } else if (cmd === "/start" || cmd === "/espia") {
         await start(db, m.chat.id, m.from);
       } else {
-        await reply(m.chat.id, "No te he entendido. Escribe /start y te digo qué toca.");
+        await reply(m.chat.id, "No te he entendido. Escribe /start y te digo qué toca, o /opinion para contarme algo.");
       }
     } else if (m?.from && m.chat.type !== "private" && m.text?.trim().split(/\s|@/)[0].toLowerCase() === "/espia") {
       await offerGroup(db, m.chat, m.from, false);

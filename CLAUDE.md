@@ -35,7 +35,7 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 6. Validación de la nota (hecho): `npm run validar` (`src/lib/nota/validate.ts`). Ajustar pesos solo con muchos datos
 7. Espía (hecho): `src/lib/espia/`. Dinero estimado y subidas de cláusula: los activa el dueño del grupo en Cuenta (`leagues.show_money` / `show_raises`); en modo antiguo, `ESPIA_DINERO` / `ESPIA_SUBIDAS`
 8. Meta (hecho): `src/lib/meta/manual.ts`. Reglas con fuente; lo no oficial va con `verificar`
-9. Servicio con usuarios (hecho, gratis): todo desde el bot, sin pasar por la web. `/start` da el botón de LaLiga (vuelta por jwt.ms + PKCE, sesión cifrada con `SESSION_KEY`); al meter el bot en un grupo se activa con las ligas de quien lo mete (`src/lib/grupo-activar.ts`). La web es opcional (`/web`). Pendiente: cobro con Telegram Stars y servidor propio
+9. Servicio con usuarios (hecho, gratis): todo desde el bot, sin pasar por la web. `/start` da el botón de LaLiga (vuelta por jwt.ms + PKCE, sesión cifrada con `SESSION_KEY`); al meter el bot en un grupo se activa con las ligas de quien lo mete (`src/lib/grupo-activar.ts`). La web es opcional (`/web`); sin entrar, `/login` es la portada con el vídeo. Beta: `MAX_USUARIOS` (`src/lib/plazas.ts`), `/opinion` (tabla `feedback`) y parte diario al admin con el resumen (`src/lib/admin.ts`). Pendiente: cobro con Telegram Stars y servidor propio
 
 ## Usuarios
 
