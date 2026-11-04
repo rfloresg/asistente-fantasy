@@ -1,4 +1,4 @@
-// Empezar de cero: borra todos los usuarios con sus sesiones de LaLiga, planes, ligas y grupos,
+// Empezar de cero: borra TODOS los usuarios (también a tus amigos; para uno solo, npm run usuario:borrar) con sus sesiones de LaLiga, planes, ligas y grupos,
 // como si nadie hubiera usado nunca el servicio. Lo de las ligas que ya ha visto el Espía (fichajes
 // avisados, cláusulas) se queda, para que al volver a activarlo no repita avisos viejos en el grupo.
 // Uso: npm run empezar-de-cero -- --si

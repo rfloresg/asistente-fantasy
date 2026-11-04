@@ -15,6 +15,7 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 - `npm run ingest`, `npm run onces` y luego `npm run score` (apaga `npm run dev` si usas PGlite)
 - `npm test`, `npm run typecheck`, `npm run lint`
 - Cambio de esquema: editar `src/db/schema.ts` y luego `npm run db:generate`
+- Borrar un usuario para probar el alta: `npm run usuario:borrar` (lista) y `-- <id> --si`. `npm run empezar-de-cero` borra a TODOS
 
 ## Datos útiles de la API
 
