@@ -455,3 +455,11 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
 .timeline .when { color: var(--muted); }
 .timeline q { display: block; margin-top: 2px; color: var(--ink); quotes: "«" "»"; }
 @media (max-width: 760px) { .timeline li { grid-template-columns: 74px 20px 1fr; } }
+
+/* Aviso tras actualizar */
+.toast {
+  position: fixed; z-index: 40; left: 50%; top: calc(80px + env(safe-area-inset-top)); transform: translateX(-50%);
+  margin: 0; padding: 12px 20px; border-radius: 999px; background: var(--pitch); color: #04110A; font-weight: 800; font-size: 15px;
+  box-shadow: var(--glow-green), 0 10px 30px rgba(0, 0, 0, .5); animation: toast 5s ease-out both; white-space: nowrap;
+}
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, -10px); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }

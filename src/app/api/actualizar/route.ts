@@ -7,6 +7,8 @@ import { dispatchPlan } from "@/lib/github";
 import { logActivity } from "@/lib/actividad";
 import { currentUser } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const liga = new URL(req.url).searchParams.get("liga");
   const db = await getDb();
