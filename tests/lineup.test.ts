@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestLineup, expectedPoints, type LineupPlayer } from "../src/lib/plan/lineup";
+import { bestLineup, expectedPoints, lineupDisputes, type LineupPlayer } from "../src/lib/plan/lineup";
 import { dailyPlan, planMessage, type Score } from "../src/lib/plan/plan";
 
 const pl = (id: string, positionId: number, formAvg: number, extra: Partial<LineupPlayer> = {}): LineupPlayer => ({
@@ -114,5 +114,30 @@ describe("plantilla corta", () => {
     expect(l.holes.some((p) => p.id.startsWith("vacio-2"))).toBe(true);
     const acc = dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 1, rivals: [], market: [], scores: new Map(), lineup: l });
     expect(planMessage("L", 1, acc)).toContain("No te llega para un once: ficha un defensa.");
+  });
+});
+
+describe("las fuentes de onces no coinciden", () => {
+  const src = (a: number, b: number) => [
+    { source: "Futbol Fantasy", starter: a >= 50, prob: a },
+    { source: "Analítica Fantasy", starter: b >= 50, prob: b },
+  ];
+  const base = (m1: Partial<LineupPlayer>, extraMid = true) => [
+    pl("POR", 1, 5), pl("D1", 2, 6), pl("D2", 2, 5), pl("D3", 2, 4), pl("D4", 2, 3),
+    pl("M1", 3, 9, m1), pl("M2", 3, 8), pl("M3", 3, 7), pl("M4", 3, 6),
+    ...(extraMid ? [pl("M5", 3, 2)] : []),
+    pl("A1", 4, 10), pl("A2", 4, 9),
+  ];
+  it("avisa con el suplente que entraría", () => {
+    const l = bestLineup(base({ startSources: src(80, 20) }))!;
+    const d = lineupDisputes(l);
+    expect(d.map((x) => x.name)).toEqual(["M1"]);
+    expect(d[0].sub.name).toBe("M5");
+  });
+  it("un 50 / 50 no es un desacuerdo", () => {
+    expect(lineupDisputes(bestLineup(base({ startSources: src(50, 50) }))!)).toEqual([]);
+  });
+  it("sin recambio no avisa", () => {
+    expect(lineupDisputes(bestLineup(base({ startSources: src(80, 20) }, false))!)).toEqual([]);
   });
 });

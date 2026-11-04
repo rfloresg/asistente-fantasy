@@ -18,7 +18,8 @@ import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
 import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
-import { bestLineup } from "../src/lib/plan/lineup";
+import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
+import { sourcesText } from "../src/lib/onces/combine";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken, getUserAccessToken, SessionExpired } from "../src/lib/laliga/auth";
 import { doneKeyPrefix } from "../src/lib/plan/plan";
@@ -529,6 +530,7 @@ async function runPlan(
       formAvg: s?.formAvg ?? null,
       startProb: s?.startProb ?? null,
       xp: s?.xpNext?.[0]?.pts ?? null, // puntos esperados del próximo partido
+      startSources: s?.startSources ?? [],
     };
   }), { captain: premium });
   const closeAt = nextMatchday(mts, now)?.close ?? null;
@@ -561,6 +563,7 @@ async function runPlan(
       nota: scores.get(p.id)?.nota ?? null, hole: lineup.holes.some((h) => h.id === p.id),
     })),
     out: lineup.out.map((p) => ({ id: p.id, name: p.name })),
+    disputes: lineupDisputes(lineup).map((d) => ({ id: d.id, name: d.name, sources: sourcesText(d.sources), sub: d.sub.name })),
   };
   const ligaSnap = buildLigaSnap({ standing, teams, acts, ctx, market, myTeamId: money.mine.teamId, moneyByTeam: money.byTeam, now });
   const text = (header ? `${header}\n\n` : "") + planMessage(leagueName, money.mine.money, acciones);

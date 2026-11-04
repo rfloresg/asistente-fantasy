@@ -2,6 +2,8 @@
 // Puntos esperados del próximo partido: los del modelo xP (rival, titularidad, goles y portería) si los hay;
 // si no, forma × probabilidad de jugar (once probable) × estado (lesionado o sancionado 0, en duda la mitad).
 
+import { strongDispute } from "../onces/combine";
+
 export const FORMATIONS = ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]; // las de todo el mundo (sin Premium)
 
 export interface LineupPlayer {
@@ -12,6 +14,7 @@ export interface LineupPlayer {
   formAvg: number | null;
   startProb: number | null; // % titular según el once probable; null = sin dato
   xp?: number | null; // puntos esperados del próximo partido (modelo xP), ya con titularidad y estado
+  startSources?: { source: string; starter: boolean; prob: number }[]; // lo que dice cada fuente de onces
 }
 
 export interface Pick extends LineupPlayer {
@@ -70,4 +73,26 @@ export function bestLineup(players: LineupPlayer[], opts: { captain?: boolean } 
   best.out = picks.filter((p) => !inXI.has(p.id) && wontPlay(p));
   best.holes = best.starters.filter(wontPlay);
   return best;
+}
+
+// Titulares de tu once en los que las fuentes de onces no coinciden de verdad, con el suplente que
+// entraría (mismo puesto, que vaya a puntuar). Sin recambio no se avisa: no cambia nada.
+export interface LineupDispute {
+  id: string;
+  name: string;
+  sources: { source: string; starter: boolean; prob: number }[];
+  sub: { id: string; name: string };
+}
+
+export function lineupDisputes(l: Lineup): LineupDispute[] {
+  const inXi = new Set(l.starters.map((p) => p.id));
+  const out = new Set(l.out.map((p) => p.id));
+  const holes = new Set(l.holes.map((p) => p.id));
+  const res: LineupDispute[] = [];
+  for (const p of l.starters) {
+    if (holes.has(p.id) || !strongDispute(p.startSources)) continue;
+    const sub = l.all.filter((q) => q.positionId === p.positionId && !inXi.has(q.id) && !out.has(q.id) && q.expected > 0).sort((a, b) => b.expected - a.expected)[0];
+    if (sub) res.push({ id: p.id, name: p.name, sources: p.startSources!, sub: { id: sub.id, name: sub.name } });
+  }
+  return res;
 }

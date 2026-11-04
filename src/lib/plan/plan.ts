@@ -5,7 +5,8 @@
 import type { MarketItem, Team, TeamPlayer } from "@/lib/espia/league";
 import { RAISE_RATIO } from "@/lib/espia/money";
 import { impact, pts } from "./impact";
-import { isEmpty, type Lineup, type LineupPlayer } from "./lineup";
+import { isEmpty, lineupDisputes, type Lineup, type LineupPlayer } from "./lineup";
+import { sourcesText } from "@/lib/onces/combine";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -351,12 +352,15 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const POS = ["", "POR", "DEF", "MED", "DEL"];
     const row = (pos: number) => l.starters.filter((p) => p.positionId === pos).map((p) => esc(p.name)).join(", ");
     const holeIds = new Set(l.holes.map((p) => p.id));
-    const doubts = l.starters.filter((p) => !holeIds.has(p.id) && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
+    const disputes = lineupDisputes(l);
+    const disputed = new Set(disputes.map((d) => d.id));
+    const doubts = l.starters.filter((p) => !holeIds.has(p.id) && !disputed.has(p.id) && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
     const lines = [
       `📋 Alinea un ${b(l.formation)} (unos ${l.expected.toLocaleString("es-ES")} pts esperados${l.captain ? " con el capitán" : ""}):`,
       ...[1, 2, 3, 4].map((pos) => `${POS[pos]}: ${row(pos)}`),
     ];
     if (l.captain) lines.push(`©️ Capitán: ${b(l.captain.name)} (${l.captain.expected.toLocaleString("es-ES")} pts esperados${l.captain.startProb !== null ? `, ${l.captain.startProb} % de ser titular` : ""}).`);
+    for (const d of disputes) lines.push(`⚠️ No está claro que ${b(d.name)} sea titular: ${esc(sourcesText(d.sources))}. Si no sale en el once, mete a ${b(d.sub.name)}.`);
     if (doubts.length) lines.push(`Dudas: ${doubts.map((p) => `${b(p.name)}${p.startProb !== null ? ` (${p.startProb} %)` : " (en duda)"}`).join(", ")}. Revisa el once antes de la jornada.`);
     const missing = l.holes.filter((p) => isEmpty(p.id));
     const benchwarm = l.holes.filter((p) => !isEmpty(p.id));

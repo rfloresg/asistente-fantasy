@@ -29,7 +29,9 @@ function Pitch({ l }: { l: LineupSnapshot }) {
   // De arriba abajo: delanteros, medios, defensas, portero
   const rows: [number, string][] = [[4, "16%"], [3, "40%"], [2, "64%"], [1, "87%"]];
   const hole = l.starters.filter((p) => p.hole);
-  const doubt = l.starters.filter((p) => !p.hole && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
+  const disputes = l.disputes ?? [];
+  const doubt = l.starters.filter((p) => !p.hole && (disputes.some((d) => d.id === p.id) || p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
+  const doubtOnly = doubt.filter((p) => !disputes.some((d) => d.id === p.id));
   const captain = l.starters.find((p) => p.id === l.captainId);
   const label = `Once en ${l.formation}${captain ? `, con ${captain.name} de capitán` : ""}${hole.length ? ` y ${hole.length} hueco${hole.length > 1 ? "s" : ""}` : ""}`;
   return (
@@ -70,8 +72,11 @@ function Pitch({ l }: { l: LineupSnapshot }) {
         {hole.length > 0 && (
           <li><span className="k h" aria-hidden="true" /><span>Huecos: {hole.filter((p) => !p.id.startsWith("vacio-")).length ? `${hole.filter((p) => !p.id.startsWith("vacio-")).map((p) => p.name).join(" y ")} entra${hole.filter((p) => !p.id.startsWith("vacio-")).length > 1 ? "n" : ""} por obligación y no va${hole.filter((p) => !p.id.startsWith("vacio-")).length > 1 ? "n" : ""} a jugar. ` : ""}{hole.some((p) => p.id.startsWith("vacio-")) ? "Te faltan jugadores para completar el once." : ""}</span></li>
         )}
-        {doubt.length > 0 && (
-          <li><span className="k d" aria-hidden="true" /><span>Dudas: {doubt.map((p) => p.name).join(", ")}.{l.out.length ? ` No alinees a ${l.out.map((p) => p.name).join(", ")}.` : ""}</span></li>
+        {disputes.map((d) => (
+          <li key={d.id}><span className="k d" aria-hidden="true" /><span>⚠️ No está claro que {d.name} sea titular: {d.sources}. Si no sale en el once, mete a {d.sub}.</span></li>
+        ))}
+        {doubtOnly.length > 0 && (
+          <li><span className="k d" aria-hidden="true" /><span>Dudas: {doubtOnly.map((p) => p.name).join(", ")}.{l.out.length ? ` No alinees a ${l.out.map((p) => p.name).join(", ")}.` : ""}</span></li>
         )}
         {!doubt.length && l.out.length > 0 && <li><span className="k d" aria-hidden="true" /><span>No alinees a {l.out.map((p) => p.name).join(", ")}.</span></li>}
       </ul>

@@ -26,6 +26,14 @@ export function disputed(sources: { starter: boolean; prob: number }[]): boolean
   return new Set(sources.map((s) => s.starter)).size > 1 || Math.max(...ps) - Math.min(...ps) >= DISPUTE_GAP;
 }
 
+// Para el plan, solo cuando la diferencia es grande (un 50 / 50 es una duda, no un desacuerdo útil)
+export const PLAN_DISPUTE_GAP = 30;
+export function strongDispute(sources: { prob: number }[] | undefined): boolean {
+  if (!sources || sources.length < 2) return false;
+  const ps = sources.map((s) => s.prob);
+  return Math.max(...ps) - Math.min(...ps) >= PLAN_DISPUTE_GAP;
+}
+
 // "Futbol Fantasy: titular 80 % · Analítica Fantasy: suplente 30 %"
 export const sourcesText = (sources: { source: string; starter: boolean; prob: number }[]) =>
   sources.map((s) => `${s.source}: ${s.starter ? "titular" : "suplente"} ${s.prob} %`).join(" · ");

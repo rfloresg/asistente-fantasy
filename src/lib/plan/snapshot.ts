@@ -19,4 +19,5 @@ export interface LineupSnapshot {
   captainId: string | null;
   starters: { id: string; name: string; positionId: number; expected: number; startProb: number | null; status: string; nota: number | null; hole: boolean }[];
   out: { id: string; name: string }[];
+  disputes?: { id: string; name: string; sources: string; sub: string }[]; // las fuentes de onces no coinciden
 }
