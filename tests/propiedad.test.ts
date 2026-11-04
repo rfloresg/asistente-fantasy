@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LigaSnapshot } from "../src/lib/plan/snapshot";
-import { advice, ownerOf } from "../src/lib/propiedad";
+import { advice, myPlayerIds, ownerOf } from "../src/lib/propiedad";
 
 const liga: LigaSnapshot = {
   myTeamId: "t1", standing: [{ teamId: "t1", manager: "Yo", position: 1, points: 0 }, { teamId: "t2", manager: "Jonix", position: 2, points: 0 }],
@@ -26,9 +26,17 @@ describe("de quién es y qué hacer", () => {
     expect(advice(ownerOf(liga, "30"), "fichar", [], "30")).toMatchObject({ label: "En venta · Fichar", bid: true });
     expect(advice(ownerOf(liga, "40"), "fichar", [], "40").label).toBe("Fichar");
     expect(advice(ownerOf(liga, "40"), "mantener", [], "40").label).toBe("Sin prisa");
+    expect(advice(ownerOf(liga, "40"), "vender", [], "40").label).toBe("No fichar"); // no es tuyo: no se vende, no se ficha
   });
   it("sin datos de la liga, como antes", () => {
     expect(ownerOf({ ...liga, owners: undefined }, "10")).toBeNull();
     expect(advice(null, "fichar", [], "10").label).toBe("Fichar");
+  });
+});
+
+describe("tus jugadores", () => {
+  it("salen de los dueños de la liga", () => {
+    expect(myPlayerIds(liga)).toEqual(["10"]);
+    expect(myPlayerIds({ ...liga, owners: undefined })).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import AutoForm from "../_ui/AutoForm";
 import { money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
-import { advice, ownerOf } from "@/lib/propiedad";
+import { advice, myPlayerIds, ownerOf } from "@/lib/propiedad";
 import { lastRun, market, type Order } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +19,20 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
   const maxValue = Number(q.max) ? Number(q.max) * 1e6 : undefined;
 
   const { current, user } = await currentLeague();
-  const [run, { day, rows: all }, plan] = await Promise.all([
-    lastRun(), market({ pos, action, order, maxValue }), current ? latestPlan(current.id, user?.id) : null,
-  ]);
-  // Con los datos de tu liga: tus jugadores salen como tuyos (nunca "Fichar"); al filtrar por Fichar, no salen
+  const plan = current ? await latestPlan(current.id, user?.id) : null;
+  const mine = myPlayerIds(plan?.liga); // null = sin datos de tu liga
+  // "¿Qué buscas?": con los datos de tu liga, mira si el jugador es tuyo
+  const base = { pos, order, maxValue };
+  const filter =
+    action === "mios" || action === "vender" ? (mine ? { ...base, ids: mine } : { ...base, action: action === "vender" ? "vender" : undefined })
+    : action === "fichar" ? { ...base, action: "fichar", excludeIds: mine ?? undefined }
+    : action === "nofichar" ? { ...base, action: "vender", excludeIds: mine ?? undefined }
+    : base;
+  const [run, { day, rows: all }] = await Promise.all([lastRun(), market(filter, action === "mios" || action === "vender" ? 40 : 60)]);
   const withAdvice = all.map((r) => ({ ...r, adv: advice(ownerOf(plan?.liga, String(r.id)), r.s.action, plan?.acciones ?? [], String(r.id)) }));
-  const rows = action === "fichar" ? withAdvice.filter((r) => r.adv.tone !== "mio") : withAdvice;
+  const rows = action === "vender" && mine ? withAdvice.filter((r) => r.adv.label.includes("Vender")) : withAdvice;
+  const empty =
+    action === "vender" ? "Ninguno de tus jugadores está para vender hoy." : action === "mios" && !mine ? "Aún no sé qué jugadores tienes: llega con tu próximo plan." : "Nadie con esos filtros.";
 
   return (
     <main>
@@ -42,11 +50,12 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
             <option key={p} value={p}>{POS[p]}</option>
           ))}
         </select>
-        <select name="accion" defaultValue={q.accion ?? ""}>
-          <option value="">Todas las acciones</option>
-          <option value="fichar">Fichar</option>
-          <option value="mantener">Mantener</option>
-          <option value="vender">Vender</option>
+        <select name="accion" defaultValue={q.accion ?? ""} aria-label="Qué buscas">
+          <option value="">Todos los jugadores</option>
+          <option value="fichar">Para fichar</option>
+          <option value="mios">Mis jugadores</option>
+          <option value="vender">Mis jugadores para vender</option>
+          <option value="nofichar">Mejor no fichar</option>
         </select>
         <select name="max" defaultValue={q.max ?? ""}>
           <option value="">Cualquier precio</option>
@@ -98,6 +107,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
           </tbody>
         </table>
       </div>
+      {!rows.length && <div className="empty" style={{ marginTop: 12 }}><p>{empty}</p></div>}
       <p className="muted">
         Forma: puntos por partido en los últimos 5 de su equipo. Titular: probabilidad según el once probable de futbolfantasy. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
       </p>

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, max, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, max, ne, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { ingestRuns, players, playerScores, playerValues, playerWeeks, teams } from "@/db/schema";
 
@@ -26,6 +26,8 @@ export interface MarketFilter {
   action?: string;
   order?: Order;
   maxValue?: number;
+  ids?: string[]; // solo estos jugadores (p. ej. tu plantilla)
+  excludeIds?: string[]; // sin estos (p. ej. al buscar a quién fichar, sin los tuyos)
 }
 
 const ORDER = {
@@ -46,6 +48,11 @@ export async function market(f: MarketFilter, limit = 60) {
     where.push(eq(playerScores.action, f.action));
   }
   if (f.maxValue) where.push(sql`${playerScores.value} <= ${f.maxValue}`);
+  if (f.ids) {
+    if (!f.ids.length) return { day, rows: [] };
+    where.push(inArray(players.id, f.ids));
+  }
+  if (f.excludeIds?.length) where.push(notInArray(players.id, f.excludeIds));
   const rows = await db
     .select({
       id: players.id,

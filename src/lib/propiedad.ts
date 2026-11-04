@@ -34,5 +34,9 @@ export function advice(owner: Owner | null, notaAction: string, plan: PlanAction
     return { label: inPlan("clausulazo") ? `De ${owner.manager} · Clausúlalo` : `De ${owner.manager}`, tone: "rival", bid: false };
   }
   if (notaAction === "fichar") return { label: owner.onSale ? "En venta · Fichar" : "Fichar", tone: "libre", bid: true };
-  return { label: notaAction === "vender" ? "Evitar" : "Sin prisa", tone: "neutro", bid: false };
+  return { label: notaAction === "vender" ? "No fichar" : "Sin prisa", tone: "neutro", bid: false };
 }
+
+// Tus jugadores en esa liga (según el último plan)
+export const myPlayerIds = (liga: LigaSnapshot | null | undefined) =>
+  liga?.owners ? Object.entries(liga.owners).filter(([, team]) => team === liga.myTeamId).map(([id]) => id) : null;
