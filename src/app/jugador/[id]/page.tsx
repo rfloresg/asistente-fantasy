@@ -68,7 +68,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
           <div className="grid">
             <div className="card"><div className="k">Recomendación{plan?.liga?.owners ? ` en ${plan.leagueName}` : ""}</div><div className="v">{advice(ownerOf(plan?.liga, id), s.action, plan?.acciones ?? [], id).label}</div></div>
             <div className="card"><div className="k">Pts esperados por partido</div><div className="v">{s.xp === null ? "–" : n1(s.xp)}</div></div>
-            <div className="card"><div className="k">Titular probable</div><div className="v">{s.startProb === null ? "Sin dato" : `${s.startProb} %`}</div></div>
+            <div className="card"><div className="k">Titular probable</div><div className="v">{s.startProb !== null ? `${s.startProb} %` : s.pStart !== null ? `${Math.round(s.pStart * 100)} %` : "Sin dato"}</div>{s.startProb === null && s.pStart !== null && <div className="small">por sus últimos minutos</div>}</div>
             <div className="card"><div className="k">Valor hoy</div><div className="v">{money(s.value)}</div></div>
             <div className="card"><div className="k">Esperado en {CONFIG.holdDays} días</div><div className="v">{money(s.expected)}</div></div>
             <div className="card"><div className="k">Puja máx. para especular</div><div className="v">{s.maxBidSpec ? money(s.maxBidSpec) : "No compensa"}</div></div>
