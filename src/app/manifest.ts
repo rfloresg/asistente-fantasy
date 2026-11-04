@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Qué hacer hoy en tus ligas de LaLiga Fantasy",
     start_url: "/",
     display: "standalone",
-    background_color: "#EEF2EC",
-    theme_color: "#102A1E",
+    background_color: "#060A07",
+    theme_color: "#060A07",
     lang: "es",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
