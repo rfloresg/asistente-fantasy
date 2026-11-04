@@ -56,7 +56,7 @@ function Market({ rows, extra = {} }: { rows: Row[]; extra?: Extra }) {
 function Table({ rows, advice, market, extra = {} }: { rows: Row[]; advice: Record<string, string>; market: boolean; extra?: Extra }) {
   return (
     <div className="wrap" style={{ marginTop: 16 }}>
-      <table>
+      <table className="cards-m">
         <thead>
           <tr>
             <th>Nota</th>
@@ -75,29 +75,29 @@ function Table({ rows, advice, market, extra = {} }: { rows: Row[]; advice: Reco
         <tbody>
           {rows.map(({ id, nickname, team, position, status, s }) => (
             <tr key={id}>
-              <td>{s ? <span className={notaClass(s.nota)}>{s.nota}</span> : "–"}</td>
-              <td>
-                <Link href={`/jugador/${id}`}>{nickname}</Link> <span className="muted">{team}</span>{" "}
+              <td className="c-nota">{s ? <span className={notaClass(s.nota)}>{s.nota}</span> : "–"}</td>
+              <td className="c-name">
+                <Link href={`/jugador/${id}`} className="stretch">{nickname}</Link> <span className="muted">{team}</span>{" "}
                 {STATUS[status] && <span className="bad">{STATUS[status]}</span>}
               </td>
-              <td>{POS[position]}</td>
-              <td>{s ? advice[s.action] : "Sin nota"}</td>
-              <td className="n">{money(s?.value ?? null)}</td>
-              <td className={`n ${(s?.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s?.pct7 ?? null)}</td>
-              <td className="n">{n1(s?.formAvg ?? null)}</td>
-              <td className="n">{s?.startProb == null ? "–" : `${s.startProb} %`}</td>
+              <td className="c-pos">{POS[position]}</td>
+              <td className="c-act">{s ? advice[s.action] : "Sin nota"}</td>
+              <td className="n" data-label="Valor">{money(s?.value ?? null)}</td>
+              <td className={`n ${(s?.pct7 ?? 0) >= 0 ? "up" : "down"}`} data-label="7 días">{pct(s?.pct7 ?? null)}</td>
+              <td className="n" data-label="Forma">{n1(s?.formAvg ?? null)}</td>
+              <td className="n" data-label="Titular">{s?.startProb == null ? "–" : `${s.startProb} %`}</td>
               {market ? (
-                <td className="n">{s?.action === "fichar" ? money(s.maxBidPlay) : s?.maxBidSpec ? `${money(s.maxBidSpec)} (especular)` : "–"}</td>
+                <td className="n" data-label="Puja máx.">{s?.action === "fichar" ? money(s.maxBidPlay) : s?.maxBidSpec ? `${money(s.maxBidSpec)} (especular)` : "–"}</td>
               ) : (
-                <td className="n">{money(s?.expected ?? null)}</td>
+                <td className="n" data-label="En 7 días">{money(s?.expected ?? null)}</td>
               )}
               {extra.clauses && (() => {
                 const c = extra.clauses!.get(id);
-                return <td className="n">{c?.clause ? money(c.clause) : "–"}<div className="small">{c?.shielded ? "blindado" : lockTxt(c?.lockedUntil)}</div></td>;
+                return <td className="n" data-label="Cláusula">{c?.clause ? money(c.clause) : "–"}<div className="small">{c?.shielded ? "blindado" : lockTxt(c?.lockedUntil)}</div></td>;
               })()}
               {extra.prices && (() => {
                 const m = extra.prices!.get(id);
-                return <td className="n">{m ? money(m.price) : "–"}<div className="small">{m?.bids ? `${m.bids} puja${m.bids > 1 ? "s" : ""}` : m?.seller ? `de ${m.seller}` : "de la liga"}</div></td>;
+                return <td className="n" data-label="Sale por">{m ? money(m.price) : "–"}<div className="small">{m?.bids ? `${m.bids} puja${m.bids > 1 ? "s" : ""}` : m?.seller ? `de ${m.seller}` : "de la liga"}</div></td>;
               })()}
             </tr>
           ))}
@@ -145,7 +145,7 @@ export default async function Plantilla({ searchParams }: { searchParams: Search
       {!auto && <Upload tipo={tipo} hasIds={fromShot.length > 0} restore={!liga} />}
       {rows.length > 0 && (
         <>
-          <p className="muted">Notas del {day}. Las cifras salen de la base de datos{fromShot.length ? ", no de la captura" : ""}.</p>
+          <p className="muted">Notas del {new Date(`${day}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}. Las cifras salen de la base de datos{fromShot.length ? ", no de la captura" : ""}.</p>
           {tipo === "plantilla" ? <Squad rows={rows} extra={extra} /> : <Market rows={rows} extra={extra} />}
           <p style={{ marginTop: 16 }}>
             <Link href={`/chat?q=${encodeURIComponent(question)}`}>Pregúntale al asistente por esta lista</Link>

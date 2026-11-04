@@ -26,7 +26,7 @@ export default async function Liga() {
         <p className="lead">Clasificación, dinero de cada mánager, fichajes y cláusulas.</p>
         <div className="empty">
           <h2>Aún no hay datos de la liga</h2>
-          <p>Llegan con el próximo plan (a las 9:00 o a las 18:00), o ya mismo con <code>npm run espia plan</code>.</p>
+          <p>Llegan con el próximo plan (a las 9:00 o a las 18:00). Si acabas de conectar, en un par de minutos están aquí.</p>
         </div>
       </main>
     );
@@ -85,7 +85,7 @@ export default async function Liga() {
                 {liga.activity.map((a, i) => (
                   <li key={i} style={{ display: "flex", gap: 16 }}>
                     <span className="small when">
-                      {kind(a.text)}<br />{madrid(a.at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+                      <span className="kind">{kind(a.text)}</span><br />{madrid(a.at, { weekday: "short", hour: "2-digit", minute: "2-digit" })}
                     </span>
                     <span dangerouslySetInnerHTML={{ __html: clean(a.text) }} />
                   </li>

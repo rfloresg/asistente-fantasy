@@ -471,3 +471,105 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
 .own.rival { color: var(--muted); }
 .own.libre { color: var(--pitch); }
 .own.neutro { color: var(--ink-2); }
+
+/* ===== Móvil a fondo ===== */
+@media (max-width: 760px) {
+  /* Tablas que pasan a tarjetas: nota a la izquierda, nombre y consejo, y los datos en una rejilla debajo */
+  .wrap:has(> table.cards-m) { border: 0; background: none; overflow: visible; border-radius: 0; }
+  table.cards-m, table.cards-m tbody { display: block; }
+  table.cards-m thead { display: none; }
+  table.cards-m tr {
+    position: relative; display: grid; grid-template-columns: 52px repeat(3, minmax(0, 1fr)); column-gap: 10px; row-gap: 2px;
+    padding: 14px 14px 12px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+  }
+  table.cards-m tr:hover td { background: none; }
+  table.cards-m td { display: block; padding: 0; border: 0; white-space: normal; text-align: left !important; min-width: 0; }
+  table.cards-m td.c-nota { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  table.cards-m td.c-nota .nota { min-width: 48px; padding: 8px 6px; font-size: 20px; }
+  table.cards-m td.c-name { grid-column: 2 / -1; grid-row: 1; font-size: 17px; font-weight: 700; padding-right: 44px; }
+  table.cards-m td.c-name .muted { font-weight: 500; }
+  table.cards-m td.c-pos { position: absolute; top: 14px; right: 14px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--muted); }
+  table.cards-m td.c-act { grid-column: 2 / -1; grid-row: 2; font-size: 14px; color: var(--ink-2); }
+  table.cards-m td[data-label] { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 15px; font-weight: 700; }
+  table.cards-m td[data-label]::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  table.cards-m td[data-label] .small { font-weight: 400; }
+  table.cards-m tr.me { box-shadow: inset 3px 0 0 var(--pitch); }
+  /* Toda la tarjeta es el enlace a la ficha */
+  table.cards-m .stretch::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
+  table.cards-m .stretch { text-decoration: none; }
+  /* Variante de dos columnas (Administración) */
+  table.cards-m.two tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  table.cards-m.two td.c-name { grid-column: 1 / -1; padding-right: 0; }
+  table.cards-m.two td.c-btn { grid-column: 1 / -1; margin-top: 12px; }
+  table.cards-m.two td.c-btn .chip { display: block; text-align: center; min-height: 44px; line-height: 30px; margin: 0; }
+  table.cards-m.two td.c-btn:empty { display: none; }
+
+  /* Hoy: el cierre arriba a lo ancho, dinero y puesto al lado */
+  .hero > div:last-child { width: 100%; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .stats > div { min-width: 0; }
+  .stats .clock { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+  .stats .clock dt { margin: 0; }
+  .stats .clock dd { margin: 0; display: flex; align-items: baseline; gap: 10px; font-size: 34px; }
+  .stats .clock .day { display: inline; font-size: 20px; margin: 0; }
+  .refresh, .refresh .primary { width: 100%; }
+  .refresh .primary { justify-content: center; }
+
+  /* Movimientos: el botón Hecho a lo ancho debajo, cómodo para el dedo */
+  .move { flex-wrap: wrap; }
+  .move .done-btn { flex: 1 1 100%; align-items: stretch; }
+  .move .done-btn .chip { width: 100%; min-height: 44px; margin: 4px 0 0; }
+
+  /* Liga: tipo y hora en una línea encima del texto */
+  ul.rule > li:has(> .when) { flex-direction: column; gap: 4px !important; }
+  .when { flex: none; padding: 0; }
+  .when br { display: none; }
+  .when .kind:not(:empty)::after { content: " · "; }
+
+  /* Filtros del mercado: rejilla de 2 */
+  .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .filters select { width: 100%; min-width: 0; }
+  .filters button { grid-column: 1 / -1; }
+
+  /* Botones y enlaces cómodos para el dedo */
+  .chip { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+  .seg a { padding: 11px 16px; }
+  details > summary { min-height: 44px; display: flex; align-items: center; }
+  .group-settings label { min-height: 44px; }
+  .ligas button { min-height: 44px; }
+
+  /* Ficha de jugador */
+  .head { gap: 16px; }
+  .nota.big { font-size: 38px; min-width: 78px; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .card .v { font-size: 22px; overflow-wrap: anywhere; }
+  .bar { grid-template-columns: 1fr 1.2fr 34px; }
+
+  /* Chat: caja de escribir siempre encima de la barra de abajo */
+  .ask { bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .msg .bubble { max-width: 92%; }
+
+  /* Portada */
+  .land-hero h1 { font-size: clamp(50px, 15vw, 72px); }
+  .land-cta .primary { width: 100%; text-align: center; }
+  .land-section > .primary { width: 100%; text-align: center; }
+}
+@media (max-width: 760px) {
+  table.cards-m td.hide-m { display: none; }
+  /* La puja máxima, en su propia fila a lo ancho: etiqueta a la izquierda, cifra en dorado a la derecha */
+  table.cards-m td[data-label="Puja máx."], table.cards-m td[data-label="Cláusula"], table.cards-m td[data-label="Sale por"] {
+    grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--yellow);
+  }
+  table.cards-m td[data-label="Puja máx."]::before, table.cards-m td[data-label="Cláusula"]::before, table.cards-m td[data-label="Sale por"]::before { margin: 0; }
+  .move .done-btn .chip { justify-content: center; }
+  /* El título del movimiento abre la ficha desde toda la tarjeta; el botón Hecho queda por encima */
+  .move h3 a::after { content: ""; position: absolute; inset: 0; }
+  .move .done-btn { position: relative; z-index: 2; }
+}
+@media (max-width: 760px) {
+  table.cards-m td.hide-m[data-label] { display: none; }
+  table.cards-m td[data-label="En 7 días"] { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  table.cards-m td[data-label="En 7 días"]::before { margin: 0; }
+}
+/* iPhone hace zoom al escribir en campos con letra menor de 16 px */
+@media (max-width: 760px) { input, select, textarea, .ask input, .ask-input, .paste-row input, .filters select { font-size: 16px !important; } }

@@ -88,7 +88,7 @@ export default async function Admin() {
       <section aria-labelledby="usuarios">
         <h2 id="usuarios">Usuarios</h2>
         <div className="wrap">
-          <table>
+          <table className="cards-m two">
             <thead>
               <tr>
                 <th scope="col">Usuario</th><th scope="col">LaLiga</th><th scope="col">Última visita</th><th scope="col">Último plan</th>
@@ -98,15 +98,15 @@ export default async function Admin() {
             <tbody>
               {rows.map(({ u, s, last, ligas, pending, days, done, asked, chatToday }) => (
                 <tr key={u.id}>
-                  <td style={{ fontWeight: 600 }}>{u.name}{u.isAdmin && <span className="muted" style={{ fontWeight: 400 }}> (tú)</span>}<div className="small">{ligas.join(", ") || "sin ligas"}</div></td>
-                  <td>
+                  <td className="c-name" style={{ fontWeight: 600 }}>{u.name}{u.isAdmin && <span className="muted" style={{ fontWeight: 400 }}> (tú)</span>}<div className="small">{ligas.join(", ") || "sin ligas"}</div></td>
+                  <td data-label="LaLiga">
                     {!s ? <span className="muted">Sin conectar</span> : s.lastError ? <span className="bad" title={s.lastError}>Caducada</span> : <span className="up">Conectada</span>}
                     <div className="small">desde el {madrid(u.createdAt, { day: "numeric", month: "short" })}</div>
                   </td>
-                  <td>{u.isAdmin ? <span className="muted">–</span> : u.lastSeenAt ? <>{ago(u.lastSeenAt)}<div className="small">{days} de 7 días</div></> : <span className="muted">Nunca</span>}</td>
-                  <td>{last ? <>{ago(last.createdAt)}<div className="small">{leagueName.get(last.leagueId) ?? last.leagueName} · {pending} pendiente{pending === 1 ? "" : "s"}</div></> : <span className="muted">Ninguno</span>}</td>
-                  <td>{u.isAdmin ? <span className="muted">–</span> : <>{done} hecho{done === 1 ? "" : "s"} · {asked} pregunta{asked === 1 ? "" : "s"}<div className="small">{chatToday} preguntas hoy</div></>}</td>
-                  <td>{!u.isAdmin && last && <a className="chip" href={`/api/admin/ver?u=${u.id}`}>Ver su plan</a>}</td>
+                  <td data-label="Última visita">{u.isAdmin ? <span className="muted">–</span> : u.lastSeenAt ? <>{ago(u.lastSeenAt)}<div className="small">{days} de 7 días</div></> : <span className="muted">Nunca</span>}</td>
+                  <td data-label="Último plan">{last ? <>{ago(last.createdAt)}<div className="small">{leagueName.get(last.leagueId) ?? last.leagueName} · {pending} pendiente{pending === 1 ? "" : "s"}</div></> : <span className="muted">Ninguno</span>}</td>
+                  <td data-label="Esta semana">{u.isAdmin ? <span className="muted">–</span> : <>{done} hecho{done === 1 ? "" : "s"} · {asked} pregunta{asked === 1 ? "" : "s"}<div className="small">{chatToday} preguntas hoy</div></>}</td>
+                  <td className="c-btn">{!u.isAdmin && last && <a className="chip" href={`/api/admin/ver?u=${u.id}`}>Ver su plan</a>}</td>
                 </tr>
               ))}
             </tbody>

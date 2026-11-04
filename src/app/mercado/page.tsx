@@ -1,6 +1,7 @@
 // Mercado: todos los jugadores con su Nota Fantasy del día.
 
 import Link from "next/link";
+import AutoForm from "../_ui/AutoForm";
 import { money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import { advice, ownerOf } from "@/lib/propiedad";
@@ -30,11 +31,11 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
       <h1>Mercado</h1>
       <p className="lead">Todos los jugadores con su nota de hoy{plan?.liga?.owners ? ` y de quién son en ${plan.leagueName}` : ""}. Filtra por puesto, consejo o precio.</p>
       <p className="muted">
-        {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Sin datos. Ejecuta npm run ingest."}
-        {day ? ` · Nota del ${day}` : " · Sin notas. Ejecuta npm run score."}
+        {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Aún no hay datos de los jugadores."}
+        {day ? ` · Notas del ${new Date(`${day}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : " · Aún sin notas de hoy."}
       </p>
 
-      <form className="filters">
+      <AutoForm className="filters">
         <select name="pos" defaultValue={q.pos ?? ""}>
           <option value="">Todas las posiciones</option>
           {[1, 2, 3, 4, 5].map((p) => (
@@ -60,10 +61,10 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
           <option value="valor">Ordenar por valor</option>
         </select>
         <button type="submit">Filtrar</button>
-      </form>
+      </AutoForm>
 
       <div className="wrap">
-        <table>
+        <table className="cards-m">
           <thead>
             <tr>
               <th>Nota</th>
@@ -80,18 +81,18 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
           <tbody>
             {rows.map(({ id, nickname, team, position, status, s, adv }) => (
               <tr key={id}>
-                <td><span className={notaClass(s.nota)}>{s.nota}</span></td>
-                <td>
-                  <Link href={`/jugador/${id}`}>{nickname}</Link> <span className="muted">{team}</span>{" "}
+                <td className="c-nota"><span className={notaClass(s.nota)}>{s.nota}</span></td>
+                <td className="c-name">
+                  <Link href={`/jugador/${id}`} className="stretch">{nickname}</Link> <span className="muted">{team}</span>{" "}
                   {STATUS[status] && <span className="bad">{STATUS[status]}</span>}
                 </td>
-                <td>{POS[position]}</td>
-                <td><span className={`own ${adv.tone}`}>{adv.label}</span></td>
-                <td className="n">{money(s.value)}</td>
-                <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`}>{pct(s.pct7)}</td>
-                <td className="n">{n1(s.formAvg)}</td>
-                <td className="n">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
-                <td className="n">{adv.bid ? money(s.maxBidPlay) : "–"}</td>
+                <td className="c-pos">{POS[position]}</td>
+                <td className="c-act"><span className={`own ${adv.tone}`}>{adv.label}</span></td>
+                <td className="n" data-label="Valor">{money(s.value)}</td>
+                <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`} data-label="7 días">{pct(s.pct7)}</td>
+                <td className="n" data-label="Forma">{n1(s.formAvg)}</td>
+                <td className="n" data-label="Titular">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
+                <td className={`n${adv.bid ? "" : " hide-m"}`} data-label="Puja máx.">{adv.bid ? money(s.maxBidPlay) : "–"}</td>
               </tr>
             ))}
           </tbody>
