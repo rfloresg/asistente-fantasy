@@ -115,18 +115,24 @@ export default async function Hoy() {
       {user && !viewing && <Welcome userId={user.id} />}
       <div className="hero">
         <div>
-          <h1>{close ? `Antes del ${madrid(close, { weekday: "long" })} a las ${madrid(close, { hour: "2-digit", minute: "2-digit" })}` : "Tu plan de hoy"}</h1>
+          <p className="kicker">Tu plan · {plan.leagueName}</p>
+          <h1>{close ? <>Cierre del <span className="hl">mercado</span></> : <>Tu plan <span className="hl">de hoy</span></>}</h1>
           <p className="lead">
-            {close ? "Entonces cierra el mercado de la próxima jornada. " : ""}
-            Esto es lo que te toca hacer en {plan.leagueName}, de lo más urgente a lo que puede esperar.
+            {close ? "Esto es lo que te toca hacer antes de que cierre, de lo más urgente a lo que puede esperar." : "Esto es lo que te toca hacer, de lo más urgente a lo que puede esperar."}
           </p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "flex-start" }}>
-        <dl className="stats">
-          <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : undefined}>{money(plan.myMoney)}</dd></div>
-          {me && <div><dt>Puesto</dt><dd>{me.position}.º · {me.points} pts</dd></div>}
-        </dl>
-        {!viewing && <Refresh since={since} leagueId={plan.leagueId} />}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
+          <dl className="stats">
+            {close && (
+              <div className="clock">
+                <dt>El mercado cierra</dt>
+                <dd><span className="day">{madrid(close, { weekday: "long" })}</span>{madrid(close, { hour: "2-digit", minute: "2-digit" })}</dd>
+              </div>
+            )}
+            <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : "cash"}>{money(plan.myMoney)}</dd></div>
+            {me && <div><dt>Puesto</dt><dd>{me.position}.º <span className="pts">{me.points} pts</span></dd></div>}
+          </dl>
+          {!viewing && <Refresh since={since} leagueId={plan.leagueId} />}
         </div>
       </div>
 

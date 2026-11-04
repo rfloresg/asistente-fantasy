@@ -9,7 +9,8 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
   const bot = process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "");
   return (
     <main style={{ maxWidth: 560 }}>
-      <h1>Asistente Fantasy</h1>
+      <p className="kicker">Asistente Fantasy · LaLiga Fantasy</p>
+      <h1>Deja de fichar <span className="gold">a ojo</span></h1>
       <p className="lead">Tu plan del día en LaLiga Fantasy: a quién proteger, por quién pujar, a quién vender y tu mejor once. Y un Espía que cuenta en el grupo todo lo que pasa en la liga.</p>
 
       <section className="card" style={{ padding: 24 }}>
