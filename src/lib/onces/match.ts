@@ -21,8 +21,15 @@ const words = (s: string) => tokens(s).filter((w) => w.length > 1);
 
 // ff "real-madrid" -> nuestro equipo cuyo slug o nombre contiene todas sus palabras.
 // Si hay varios ("deportivo" está en "Deportivo Alavés"), gana el que coincide exacto.
+// Nombres con ciudad que nuestra API no lleva ("Racing Santander" = "R. Racing Club").
+const TEAM_ALIASES: Record<string, string> = {
+  "racing santander": "racing",
+  "deportivo la coruna": "deportivo",
+  "celta vigo": "celta",
+};
+
 export function matchTeam(ffSlug: string, teams: { id: string; slug: string | null; name: string }[]): string | null {
-  const want = tokens(ffSlug).filter((t) => !STOP.has(t));
+  const want = tokens(TEAM_ALIASES[norm(ffSlug)] ?? ffSlug).filter((t) => !STOP.has(t));
   const hits = teams.filter((t) => {
     const have = new Set([...tokens(t.slug ?? ""), ...tokens(t.name)]);
     return want.every((w) => have.has(w));
@@ -68,12 +75,12 @@ export function similarity(f: FfPlayer, o: OurPlayer): number | null {
 }
 
 // Devuelve ffId -> id nuestro.
-export function matchPlayers(ff: FfPlayer[], ours: OurPlayer[]): Map<string, string> {
+export function matchPlayers(ff: FfPlayer[], ours: OurPlayer[], aliases: Record<string, string> = PLAYER_ALIASES): Map<string, string> {
   const result = new Map<string, string>();
   const used = new Set<string>();
 
   for (const f of ff) {
-    const alias = PLAYER_ALIASES[f.ffId];
+    const alias = aliases[f.ffId];
     if (alias && ours.some((o) => o.id === alias)) {
       result.set(f.ffId, alias);
       used.add(alias);

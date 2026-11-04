@@ -2,6 +2,7 @@
 // Las cifras salen ya formateadas para que el modelo no tenga que calcular nada.
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { disputed, sourcesText } from "../onces/combine";
 import { and, desc, eq, isNull, max, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { espiaPlans, players, playerScores, teams } from "@/db/schema";
@@ -168,6 +169,8 @@ async function fichaJugador({ id }: Input, own: Own) {
     media_temporada_pts_por_partido: n1(s.seasonAvg),
     minutos_por_partido: s.minutesAvg === null ? "–" : String(Math.round(s.minutesAvg)),
     titular_probable: s.startProb === null ? "sin dato" : `${s.startProb} %`,
+    fuentes_titular: s.startSources?.length ? sourcesText(s.startSources) + (disputed(s.startSources) ? " (no coinciden)" : "") : "sin dato",
+    estado_motivo: s.statusInfo ?? "sin dato",
     proximos_rivales: s.nextOpponents.map((o) => `${names.get(o.teamId) ?? o.teamId}${o.home ? " (casa)" : " (fuera)"}`),
     [`valor_esperado_en_${CONFIG.holdDays}_dias`]: money(s.expected),
     puja_maxima_para_especular: s.maxBidSpec ? money(s.maxBidSpec) : "no compensa especular",

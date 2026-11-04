@@ -49,6 +49,22 @@ export const playerValues = pgTable(
   (t) => [primaryKey({ columns: [t.playerId, t.day] })],
 );
 
+// Once probable de analiticafantasy (segunda fuente), por jugador y día, con su estado y el motivo.
+export const lineupsAf = pgTable(
+  "lineups_af",
+  {
+    playerId: text("player_id").notNull(),
+    day: date("day").notNull(),
+    afId: text("af_id").notNull(),
+    starter: boolean("starter").notNull(),
+    prob: integer("prob"),
+    status: text("status"), // doubt | injury | sanction
+    info: text("info"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.playerId, t.day] })],
+);
+
 // Puntos y estadísticas por jornada.
 export const playerWeeks = pgTable(
   "player_weeks",
@@ -107,6 +123,9 @@ export const playerScores = pgTable(
     xp: real("xp"),
     xpNext: jsonb("xp_next").$type<{ week: number; teamId: string; home: boolean; pts: number; goalsFor: number; goalsAgainst: number; label: "fácil" | "normal" | "difícil" }[]>().notNull().default([]),
     pStart: real("p_start"),
+    // Cada fuente de onces probables y el motivo de duda/lesión/sanción si lo hay
+    startSources: jsonb("start_sources").$type<{ source: string; starter: boolean; prob: number }[]>().notNull().default([]),
+    statusInfo: text("status_info"),
   },
   (t) => [primaryKey({ columns: [t.playerId, t.day] })],
 );

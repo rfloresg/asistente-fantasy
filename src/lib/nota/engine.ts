@@ -53,7 +53,7 @@ export interface EngineInput {
   weeks: Map<string, Map<number, WeekLine>>; // jugador -> jornada (con el desglose de puntos si lo hay)
   matches: EngineMatch[];
   // Once probable del día asOf (futbolfantasy). Sin dato = solo minutos.
-  lineups?: Map<string, { starter: boolean; prob: number | null }>;
+  lineups?: Map<string, { starter: boolean; prob: number | null; sources?: { source: string; starter: boolean; prob: number }[]; info?: string | null }>;
 }
 
 export type Action = "fichar" | "mantener" | "vender";
@@ -84,6 +84,8 @@ export interface PlayerScore {
   xp: number | null; // puntos esperados por partido en los próximos
   xpNext: MatchXp[]; // cada próximo partido: rival, goles esperados, puntos esperados y si es fácil o difícil
   pStart: number | null; // 0-1, probabilidad de ser titular que usa el modelo
+  startSources: { source: string; starter: boolean; prob: number }[]; // cada fuente de onces probables
+  statusInfo: string | null; // motivo de duda, lesión o sanción (onces probables)
   expected: number; // valor esperado en holdDays días
   maxBidSpec: number | null; // null = no compensa especular
   maxBidPlay: number;
@@ -260,6 +262,8 @@ export function computeScores(input: EngineInput): PlayerScore[] {
       xp: x?.xp ?? null,
       xpNext: x?.matches ?? [],
       pStart: x?.pStart ?? null,
+      startSources: lu?.sources ?? [],
+      statusInfo: lu?.info ?? null,
       expected,
       maxBidSpec: spec > v0 ? round10k(spec) : null,
     });

@@ -2,6 +2,7 @@
 // Nada inventado: cada frase sale de un campo de PlayerScore.
 
 import type { PlayerScore } from "./engine";
+import { disputed, sourcesText } from "../onces/combine";
 
 export interface Reason {
   good: boolean;
@@ -38,8 +39,12 @@ export function reasons(s: PlayerScore, status: string, teamName: (id: string) =
   if (s.minutesAvg !== null && s.m >= 75) out.push({ good: true, text: `Muchos minutos: ${Math.round(s.minutesAvg)} por partido` });
   if (s.minutesAvg !== null && s.m <= 25) out.push({ good: false, text: `Juega poco: ${Math.round(s.minutesAvg)} min por partido` });
 
-  if (s.startProb !== null && s.startProb >= 70) out.push({ good: true, text: `Titular probable: ${s.startProb} % (futbolfantasy)` });
-  if (s.startProb !== null && s.startProb <= 40) out.push({ good: false, text: `Probable suplente: ${s.startProb} % de ser titular (futbolfantasy)` });
+  const src = s.startSources ?? [];
+  const from = src.length ? ` (${sourcesText(src)})` : "";
+  if (disputed(src)) out.push({ good: false, text: `Las fuentes no coinciden en si será titular: ${sourcesText(src)}` });
+  else if (s.startProb !== null && s.startProb >= 70) out.push({ good: true, text: `Titular probable: ${s.startProb} %${from}` });
+  else if (s.startProb !== null && s.startProb <= 40) out.push({ good: false, text: `Probable suplente: ${s.startProb} % de ser titular${from}` });
+  if (s.statusInfo) out.push({ good: false, text: s.statusInfo });
 
   // Cada rival por separado: "fácil" o "difícil" solo si de verdad cambia sus puntos (0,6 o más frente a un rival medio)
   const vs = (m: { teamId: string; home: boolean }) => `${teamName(m.teamId)}${m.home ? " (casa)" : " (fuera)"}`;

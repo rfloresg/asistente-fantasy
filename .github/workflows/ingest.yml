@@ -5,6 +5,8 @@ on:
     # 04:45 UTC = 05:45 en Madrid en invierno (06:45 en verano).
     # El mercado se actualiza entre las 04:00 y las 05:30.
     - cron: "45 4 * * *"
+    # 15:30 UTC = 16:30 en Madrid: onces y nota frescos antes del plan de las 18:00
+    - cron: "30 15 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -20,9 +22,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run ingest
+        if: github.event.schedule != '30 15 * * *'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      # Si futbolfantasy falla, la nota se calcula igual (solo con minutos)
+      # Si las dos fuentes de onces fallan, la nota se calcula igual (solo con minutos)
       - run: npm run onces
         continue-on-error: true
         env:
