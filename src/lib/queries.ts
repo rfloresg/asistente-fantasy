@@ -32,7 +32,7 @@ export interface MarketFilter {
 
 const ORDER = {
   nota: desc(playerScores.nota),
-  forma: sql`${playerScores.formAvg} desc nulls last`,
+  forma: sql`coalesce(${playerScores.xp}, ${playerScores.formAvg}) desc nulls last`, // puntos esperados (o forma si no hay)
   tendencia: sql`${playerScores.pct7} desc nulls last`,
   valor: desc(playerScores.value),
 };

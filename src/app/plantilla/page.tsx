@@ -65,7 +65,7 @@ function Table({ rows, advice, market, extra = {} }: { rows: Row[]; advice: Reco
             <th>Consejo</th>
             <th className="n">Valor</th>
             <th className="n">7 días</th>
-            <th className="n">Forma</th>
+            <th className="n" title="Puntos esperados por partido en los próximos">Pts esp.</th>
             <th className="n">Titular</th>
             {market ? <th className="n">Puja máx.</th> : <th className="n">En 7 días</th>}
             {extra.clauses && <th className="n">Cláusula</th>}
@@ -84,7 +84,7 @@ function Table({ rows, advice, market, extra = {} }: { rows: Row[]; advice: Reco
               <td className="c-act">{s ? advice[s.action] : "Sin nota"}</td>
               <td className="n" data-label="Valor">{money(s?.value ?? null)}</td>
               <td className={`n ${(s?.pct7 ?? 0) >= 0 ? "up" : "down"}`} data-label="7 días">{pct(s?.pct7 ?? null)}</td>
-              <td className="n" data-label="Forma">{n1(s?.formAvg ?? null)}</td>
+              <td className="n" data-label="Pts esp.">{n1(s?.xp ?? s?.formAvg ?? null)}</td>
               <td className="n" data-label="Titular">{s?.startProb == null ? "–" : `${s.startProb} %`}</td>
               {market ? (
                 <td className="n" data-label="Puja máx.">{s?.action === "fichar" ? money(s.maxBidPlay) : s?.maxBidSpec ? `${money(s.maxBidSpec)} (especular)` : "–"}</td>

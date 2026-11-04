@@ -111,7 +111,10 @@ describe("computeScores", () => {
 
   it("explica la nota con sus cifras", () => {
     const r = reasons(by("star"), "ok", (id) => `Equipo ${id}`);
-    expect(r.some((x) => x.good && x.text.includes("9 pts"))).toBe(true);
+    const s = by("star");
+    // Lo principal ahora son los puntos esperados de sus próximos partidos
+    expect(s.xp).not.toBeNull();
+    expect(r.some((x) => x.good && x.text.startsWith("Esperamos") && x.text.includes(`${String(s.xp).replace(".", ",")} pts`))).toBe(true);
     expect(reasons(by("hurt"), "injured", String)[0]).toEqual({ good: false, text: "Lesionado: resta 25 puntos" });
   });
 });

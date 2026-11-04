@@ -29,11 +29,11 @@ Asistente para LaLiga Fantasy. Next.js 15 + TypeScript, Drizzle, Postgres (PGlit
 ## Hoja de ruta
 
 1. Datos (hecho)
-2. Motor de la Nota Fantasy (hecho): `src/lib/nota/engine.ts`, pesos y umbrales en `CONFIG`
+2. Motor de la Nota Fantasy (hecho): `src/lib/nota/engine.ts`, pesos y umbrales en `CONFIG`. Base: puntos esperados (xP) de los 2 próximos partidos (`xp.ts`): titularidad, puntos fijos, parte de los goles del equipo y portería, con la fuerza de cada equipo (`teams.ts`, Poisson que parte del valor de la plantilla) y el valor de mercado como punto de partida de cada jugador. Desglose de puntos en `breakdown.ts`. No mirar jornadas futuras al validar
 3. Onces probables (hecho): `src/lib/onces/`. Pendiente: contrastar estado con otra fuente
 4. LLM como voz (hecho): `src/lib/chat/`. El control de cifras de `guard.ts` no se quita
 5. Lectura de capturas (hecho): `src/lib/captura/`. La visión solo lee nombres; las cifras, de la base de datos
-6. Validación de la nota (hecho): `npm run validar` (`src/lib/nota/validate.ts`). Ajustar pesos solo con muchos datos
+6. Validación de la nota (hecho): `npm run validar` (`src/lib/nota/validate.ts`), incluye xP frente a la media reciente y la de la temporada. Ajustar pesos solo con muchos datos. Nov 2026 (jornadas 4-11): xP falla 3,4 pts por 2 jornadas frente a 3,6 de la media reciente; orden 0,61 frente a 0,59. Pendiente: Understat y ClubElo (bloqueados o caídos desde fuera en nov 2026)
 7. Espía (hecho): `src/lib/espia/`. Dinero estimado y subidas de cláusula: los activa el dueño del grupo en Cuenta (`leagues.show_money` / `show_raises`); en modo antiguo, `ESPIA_DINERO` / `ESPIA_SUBIDAS`
 8. Meta (hecho): `src/lib/meta/manual.ts`. Reglas con fuente; lo no oficial va con `verificar`
 9. Servicio con usuarios (hecho, gratis): todo desde el bot, sin pasar por la web. `/start` da el botón de LaLiga (vuelta por jwt.ms + PKCE, sesión cifrada con `SESSION_KEY`); al meter el bot en un grupo se activa con las ligas de quien lo mete (`src/lib/grupo-activar.ts`). La web es opcional (`/web`); sin entrar, `/login` es la portada con el vídeo. Beta: `MAX_USUARIOS` (`src/lib/plazas.ts`), `/opinion` (tabla `feedback`) y parte diario al admin con el resumen (`src/lib/admin.ts`). Pendiente: cobro con Telegram Stars y servidor propio

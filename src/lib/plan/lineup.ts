@@ -1,6 +1,6 @@
 // Mejor once y capitán para la próxima jornada. Función pura.
-// Puntos esperados = forma (pts por partido en los últimos partidos de su equipo)
-//   × probabilidad de jugar (once probable) × estado (lesionado o sancionado 0, en duda la mitad).
+// Puntos esperados del próximo partido: los del modelo xP (rival, titularidad, goles y portería) si los hay;
+// si no, forma × probabilidad de jugar (once probable) × estado (lesionado o sancionado 0, en duda la mitad).
 
 export const FORMATIONS = ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]; // las de todo el mundo (sin Premium)
 
@@ -11,6 +11,7 @@ export interface LineupPlayer {
   status: string;
   formAvg: number | null;
   startProb: number | null; // % titular según el once probable; null = sin dato
+  xp?: number | null; // puntos esperados del próximo partido (modelo xP), ya con titularidad y estado
 }
 
 export interface Pick extends LineupPlayer {
@@ -30,6 +31,7 @@ export interface Lineup {
 const STATUS_FACTOR: Record<string, number> = { injured: 0, suspended: 0, doubtful: 0.5, out_of_league: 0 };
 
 export function expectedPoints(p: LineupPlayer): number {
+  if (p.xp !== undefined && p.xp !== null) return Math.round(Math.max(0, p.xp) * (STATUS_FACTOR[p.status] === 0 ? 0 : 1) * 10) / 10;
   const form = Math.max(0, p.formAvg ?? 0);
   // Sin once probable, la forma ya recoge los minutos. Con él, un suplente probable rinde mucho menos.
   const play = p.startProb === null ? 1 : 0.15 + 0.85 * (p.startProb / 100);

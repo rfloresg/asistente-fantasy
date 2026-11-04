@@ -6,6 +6,7 @@ import "dotenv/config";
 import { getTableColumns, max, sql, type SQL } from "drizzle-orm";
 import { getConn } from "../src/db";
 import { lineups, matches, players, playerScores, playerValues, playerWeeks } from "../src/db/schema";
+import { breakdown, type WeekLine } from "../src/lib/nota/breakdown";
 import { addDays, computeScores } from "../src/lib/nota/engine";
 
 const DAYS = Number(process.env.SCORE_DAYS ?? 1);
@@ -29,10 +30,11 @@ async function main() {
       if (!values.has(v.playerId)) values.set(v.playerId, new Map());
       values.get(v.playerId)!.set(v.day, v.value);
     }
-    const weeks = new Map<string, Map<number, { points: number; minutes: number }>>();
+    // Cada jornada con el desglose de sus puntos (goles, asistencias, portería y lo fijo)
+    const weeks = new Map<string, Map<number, WeekLine>>();
     for (const w of wks) {
       if (!weeks.has(w.playerId)) weeks.set(w.playerId, new Map());
-      weeks.get(w.playerId)!.set(w.week, { points: w.points, minutes: w.minutes });
+      weeks.get(w.playerId)!.set(w.week, breakdown(w.points, w.minutes, w.stats));
     }
 
     const set: Record<string, SQL> = {};
@@ -53,7 +55,8 @@ async function main() {
           .onConflictDoUpdate({ target: [playerScores.playerId, playerScores.day], set });
       }
       const count = (a: string) => scores.filter((s) => s.action === a).length;
-      console.log(`${asOf}: ${scores.length} notas · fichar ${count("fichar")} · vender ${count("vender")} · con once ${lineupFor.size}`);
+      const withXp = scores.filter((s) => s.xp !== null).length;
+      console.log(`${asOf}: ${scores.length} notas · con puntos esperados ${withXp} · fichar ${count("fichar")} · vender ${count("vender")} · con once ${lineupFor.size}`);
     }
   } finally {
     await close();

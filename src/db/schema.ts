@@ -103,6 +103,10 @@ export const playerScores = pgTable(
     maxBidSpec: bigint("max_bid_spec", { mode: "number" }),
     maxBidPlay: bigint("max_bid_play", { mode: "number" }).notNull(),
     action: text("action").$type<"fichar" | "mantener" | "vender">().notNull(),
+    // Puntos esperados por partido en los próximos, y el detalle de cada uno (modelo xP)
+    xp: real("xp"),
+    xpNext: jsonb("xp_next").$type<{ week: number; teamId: string; home: boolean; pts: number; goalsFor: number; goalsAgainst: number; label: "fácil" | "normal" | "difícil" }[]>().notNull().default([]),
+    pStart: real("p_start"),
   },
   (t) => [primaryKey({ columns: [t.playerId, t.day] })],
 );

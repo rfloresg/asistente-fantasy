@@ -1,9 +1,17 @@
 // Motor de la Nota Fantasy. Funciones puras: datos in, notas out.
 // Sin base de datos ni LLM aquí. Se puede calcular "a fecha X" para validar.
+// La base son los puntos esperados de sus próximos partidos (xp.ts, con la fuerza de cada equipo de teams.ts);
+// encima, la tendencia de su valor, cuánto rinde por millón y si va a jugar.
+
+import type { WeekLine } from "./breakdown";
+import { teamModel } from "./teams";
+import { learnTables, playerXp, type MatchXp } from "./xp";
 
 export const CONFIG = {
-  // Ajustados con npm run validar (60 días, nov 2026): tendencia y minutos aciertan más; calendario casi nada
-  weights: { form: 0.3, trend: 0.3, ppm: 0.1, minutes: 0.25, calendar: 0.05 },
+  // form = puntos esperados (xP) de los próximos partidos; ppm = xP por millón; calendar = cuánto ayudan los rivales.
+  // Ajustados con npm run validar (nov 2026, 34.565 notas reales): equilibrio entre acertar puntos (0,48) y valor (0,51).
+  // Pts por millón no predice nada con datos reales: peso 0 (se sigue enseñando en la ficha).
+  weights: { form: 0.4, trend: 0.4, ppm: 0, minutes: 0.1, calendar: 0.1 },
   risk: { injured: 25, suspended: 20, doubtful: 10 } as Record<string, number>,
   formWeeks: 5, // últimos partidos del equipo para forma y minutos
   nextMatches: 2, // rivales que mira el calendario (las 2 jornadas siguientes)
@@ -13,7 +21,8 @@ export const CONFIG = {
   specMargin: 0.05, // beneficio mínimo al especular (5 % del valor)
   maxDailyRate: 0.08, // tope de subida/bajada diaria al proyectar
   buy: 70, // nota mínima para fichar
-  buyMinForm: 4, // y al menos 4 pts por partido en los últimos partidos
+  buyMinForm: 4, // y al menos 4 pts esperados por partido (o de media reciente si no hay xP)
+  squadTop: 16, // jugadores más caros de cada equipo para medir lo que vale su plantilla
   buyMinProb: 50, // y, si hay once probable, al menos 50 % de ser titular
   sell: 40, // por debajo, y bajando, vender
 };
@@ -41,7 +50,7 @@ export interface EngineInput {
   asOf: string; // "YYYY-MM-DD": día del último valor conocido
   players: EnginePlayer[];
   values: Map<string, Map<string, number>>; // jugador -> día -> valor
-  weeks: Map<string, Map<number, { points: number; minutes: number }>>; // jugador -> jornada
+  weeks: Map<string, Map<number, WeekLine>>; // jugador -> jornada (con el desglose de puntos si lo hay)
   matches: EngineMatch[];
   // Once probable del día asOf (futbolfantasy). Sin dato = solo minutos.
   lineups?: Map<string, { starter: boolean; prob: number | null }>;
@@ -71,7 +80,10 @@ export interface PlayerScore {
   dailyRate: number | null; // ritmo diario usado para proyectar
   ptsPerM: number | null; // puntos por partido / millón de valor
   nextOpponents: { teamId: string; home: boolean }[];
-  calendarDifficulty: number | null; // más alto = más difícil
+  calendarDifficulty: number | null; // más alto = más difícil (xP contra rivales medios / xP de sus partidos)
+  xp: number | null; // puntos esperados por partido en los próximos
+  xpNext: MatchXp[]; // cada próximo partido: rival, goles esperados, puntos esperados y si es fácil o difícil
+  pStart: number | null; // 0-1, probabilidad de ser titular que usa el modelo
   expected: number; // valor esperado en holdDays días
   maxBidSpec: number | null; // null = no compensa especular
   maxBidPlay: number;
@@ -139,7 +151,7 @@ export function teamInfo(matches: EngineMatch[], asOf: string): Map<string, Team
       V.gd -= diff;
       L.n++;
       V.n++;
-    } else if (m.state !== FINISHED && m.date >= start) {
+    } else if (m.date >= start) { // después de esa fecha (aunque hoy ya se haya jugado, para validar bien)
       L.next.push({ d: +m.date, teamId: m.visitorId, home: true });
       V.next.push({ d: +m.date, teamId: m.localId, home: false });
     }
@@ -182,6 +194,18 @@ export function computeScores(input: EngineInput): PlayerScore[] {
   const { asOf } = input;
   const teams = teamInfo(input.matches, asOf);
 
+  // Fuerza de cada equipo (parte de lo que vale su plantilla) y tablas de puntos por puesto
+  const byTeam = new Map<string, number[]>();
+  for (const pl of input.players) {
+    const v = input.values.get(pl.id)?.get(asOf);
+    if (pl.teamId && v && pl.status !== "out_of_league") byTeam.set(pl.teamId, [...(byTeam.get(pl.teamId) ?? []), v]);
+  }
+  const squad = new Map([...byTeam].map(([id, vs]) => [id, vs.sort((a, b) => b - a).slice(0, CONFIG.squadTop).reduce((x, y) => x + y, 0)]));
+  const model = teamModel(input.matches, asOf, squad);
+  const pw = input.players.map((pl) => ({ id: pl.id, positionId: pl.positionId, teamId: pl.teamId, status: pl.status, weeks: input.weeks.get(pl.id) ?? new Map(), value: input.values.get(pl.id)?.get(asOf) }));
+  const tables = learnTables(pw, model);
+  const xpOf = new Map(pw.map((p) => [p.id, playerXp(p, tables, model, input.lineups?.get(p.id))]));
+
   type Raw = Omit<PlayerScore, "nota" | "f" | "t" | "p" | "m" | "c" | "maxBidPlay" | "action">;
   const raws: (Raw & { positionId: number; status: string })[] = [];
 
@@ -209,8 +233,9 @@ export function computeScores(input: EngineInput): PlayerScore[] {
     const rates = [r3, r7].filter((x): x is number => x !== null);
     const dailyRate = rates.length ? clamp(mean(rates)!, -CONFIG.maxDailyRate, CONFIG.maxDailyRate) : null;
 
-    const next = team?.next ?? [];
-    const difficulty = team ? mean(next.map((n) => matchDifficulty(team, teams.get(n.teamId), n.home, pl.positionId))) : null;
+    const x = xpOf.get(pl.id) ?? null;
+    const next = x ? x.matches.map((m) => ({ teamId: m.teamId, home: m.home })) : team?.next ?? [];
+    const difficulty = x ? 1 / x.calendar : team ? mean(next.map((n) => matchDifficulty(team, teams.get(n.teamId), n.home, pl.positionId))) : null;
 
     const expected = round10k(v0 * (1 + (dailyRate ?? 0)) ** CONFIG.holdDays);
     const spec = expected - v0 * CONFIG.specMargin;
@@ -229,9 +254,12 @@ export function computeScores(input: EngineInput): PlayerScore[] {
       pct3: v3 ? ((v0 - v3) / v3) * 100 : null,
       pct7: v7 ? ((v0 - v7) / v7) * 100 : null,
       dailyRate,
-      ptsPerM: seasonAvg !== null ? seasonAvg / (v0 / 1e6) : null,
+      ptsPerM: (x?.xp ?? seasonAvg) !== null ? (x?.xp ?? seasonAvg)! / (v0 / 1e6) : null,
       nextOpponents: next,
       calendarDifficulty: difficulty,
+      xp: x?.xp ?? null,
+      xpNext: x?.matches ?? [],
+      pStart: x?.pStart ?? null,
       expected,
       maxBidSpec: spec > v0 ? round10k(spec) : null,
     });
@@ -244,7 +272,8 @@ export function computeScores(input: EngineInput): PlayerScore[] {
 
   const W = CONFIG.weights;
   for (const group of byPos.values()) {
-    const F = percentiles(group.map((g) => g.formAvg));
+    // Puntos esperados; sin xP (entrenadores, sin partidos), su media reciente
+    const F = percentiles(group.map((g) => g.xp ?? g.formAvg));
     const T = percentiles(group.map((g) => g.dailyRate));
     const P = percentiles(group.map((g) => g.ptsPerM));
     // Minutos: mitad lo que ha jugado, mitad la probabilidad de ser titular si la hay
@@ -265,7 +294,7 @@ export function computeScores(input: EngineInput): PlayerScore[] {
       const falling = (g.dailyRate ?? 0) < 0;
       const action: Action =
         nota >= CONFIG.buy &&
-        (g.formAvg ?? 0) >= CONFIG.buyMinForm &&
+        (g.xp ?? g.formAvg ?? 0) >= CONFIG.buyMinForm &&
         (g.startProb === null || g.startProb >= CONFIG.buyMinProb) &&
         (g.status === "ok" || g.status === "doubtful")
           ? "fichar"

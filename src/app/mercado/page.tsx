@@ -65,7 +65,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
         </select>
         <select name="orden" defaultValue={order}>
           <option value="nota">Ordenar por nota</option>
-          <option value="forma">Ordenar por forma</option>
+          <option value="forma">Ordenar por pts esperados</option>
           <option value="tendencia">Ordenar por subida 7 días</option>
           <option value="valor">Ordenar por valor</option>
         </select>
@@ -82,7 +82,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
               <th>Acción</th>
               <th className="n">Valor</th>
               <th className="n">7 días</th>
-              <th className="n">Forma</th>
+              <th className="n" title="Puntos esperados por partido en los próximos">Pts esp.</th>
               <th className="n">Titular</th>
               <th className="n">Puja máx.</th>
             </tr>
@@ -99,7 +99,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
                 <td className="c-act"><span className={`own ${adv.tone}`}>{adv.label}</span></td>
                 <td className="n" data-label="Valor">{money(s.value)}</td>
                 <td className={`n ${(s.pct7 ?? 0) >= 0 ? "up" : "down"}`} data-label="7 días">{pct(s.pct7)}</td>
-                <td className="n" data-label="Forma">{n1(s.formAvg)}</td>
+                <td className="n" data-label="Pts esp.">{n1(s.xp ?? s.formAvg)}</td>
                 <td className="n" data-label="Titular">{s.startProb === null ? "–" : `${s.startProb} %`}</td>
                 <td className={`n${adv.bid ? "" : " hide-m"}`} data-label="Puja máx.">{adv.bid ? money(s.maxBidPlay) : "–"}</td>
               </tr>
@@ -109,7 +109,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
       </div>
       {!rows.length && <div className="empty" style={{ marginTop: 12 }}><p>{empty}</p></div>}
       <p className="muted">
-        Forma: puntos por partido en los últimos 5 de su equipo. Titular: probabilidad según el once probable de futbolfantasy. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
+        Pts esp.: puntos que esperamos por partido en sus 2 próximos, según el rival y si va a jugar. Titular: probabilidad según el once probable de futbolfantasy. Puja máx.: lo máximo que pagaría para jugarlo, según su nota.
       </p>
     </main>
   );

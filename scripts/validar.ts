@@ -12,7 +12,7 @@ const madridDay = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe
 const pct = (x: number | null) => (x === null ? "–" : `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)} %`);
 const n2 = (x: number | null) => (x === null ? "–" : x.toFixed(2));
 const n1 = (x: number | null) => (x === null ? "–" : x.toFixed(1));
-const NAMES: Record<string, string> = { nota: "Nota", f: "Forma", t: "Tendencia", p: "Pts/millón", m: "Minutos", c: "Calendario" };
+const NAMES: Record<string, string> = { nota: "Nota", f: "Pts esperados", t: "Tendencia", p: "Pts/millón", m: "Minutos", c: "Calendario" };
 
 async function main() {
   const { db, close } = await getConn();
@@ -65,6 +65,14 @@ async function main() {
     for (const q of r.quintiles) console.log(`nota ${String(q.from).padStart(3)}-${String(q.to).padEnd(3)} · ${String(q.n).padStart(6)} · valor ${pct(q.valueChange)} · ${n1(q.points)} pts`);
 
     console.log(`\nEspecular (valor esperado > valor): ${r.spec.n} casos · subió el ${r.spec.up === null ? "–" : Math.round(r.spec.up * 100)} % · error medio del esperado ${pct(r.spec.meanError)}`);
+
+    console.log(`\n¿Aciertan los puntos esperados? ${r.xp.n} casos (puntos en las ${NEXT_WEEKS} jornadas siguientes)`);
+    console.log("Modelo                    · error medio · orden (-1 a 1)");
+    for (const m of r.xp.models) console.log(`${m.name.padEnd(25)} · ${(m.error === null ? "–" : `${n1(m.error)} pts`).padStart(11)} · ${n2(m.order).padStart(14)}`);
+    if (r.xp.n) {
+      const [x, f] = r.xp.models;
+      if (x.error !== null && f.error !== null) console.log(x.error < f.error ? `→ El modelo xP falla ${n1(f.error - x.error)} pts menos que fiarse de la media reciente.` : "→ El modelo xP aún no mejora a la media reciente: hay que ajustarlo.");
+    } else console.log("Sin casos aún: recalcula notas pasadas con SCORE_DAYS=45 npm run score.");
 
     const w = suggestWeights(r);
     console.log("\nPesos actuales :", JSON.stringify(CONFIG.weights));

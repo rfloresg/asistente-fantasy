@@ -514,6 +514,7 @@ async function runPlan(
       status: p.playerMaster.playerStatus,
       formAvg: s?.formAvg ?? null,
       startProb: s?.startProb ?? null,
+      xp: s?.xpNext?.[0]?.pts ?? null, // puntos esperados del próximo partido
     };
   }));
   const closeAt = nextMatchday(mts, now)?.close ?? null;

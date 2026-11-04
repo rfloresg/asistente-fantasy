@@ -11,12 +11,14 @@ import { playerCard, teamNames } from "@/lib/queries";
 export const dynamic = "force-dynamic";
 
 const FACTORS = [
-  { key: "f", label: "Forma", w: CONFIG.weights.form },
-  { key: "t", label: "Tendencia", w: CONFIG.weights.trend },
-  { key: "p", label: "Pts por millón", w: CONFIG.weights.ppm },
+  { key: "f", label: "Puntos esperados", w: CONFIG.weights.form },
+  { key: "t", label: "Tendencia de valor", w: CONFIG.weights.trend },
+  { key: "p", label: "Pts esperados por millón", w: CONFIG.weights.ppm },
   { key: "m", label: "Minutos", w: CONFIG.weights.minutes },
   { key: "c", label: "Calendario", w: CONFIG.weights.calendar },
 ] as const;
+
+const LABEL_CLASS: Record<string, string> = { fácil: "up", difícil: "down", normal: "muted" };
 
 function ValueChart({ values }: { values: { day: string; value: number }[] }) {
   if (values.length < 2) return null;
@@ -65,12 +67,36 @@ export default async function Player({ params }: { params: Promise<{ id: string 
         <>
           <div className="grid">
             <div className="card"><div className="k">Recomendación{plan?.liga?.owners ? ` en ${plan.leagueName}` : ""}</div><div className="v">{advice(ownerOf(plan?.liga, id), s.action, plan?.acciones ?? [], id).label}</div></div>
+            <div className="card"><div className="k">Pts esperados por partido</div><div className="v">{s.xp === null ? "–" : n1(s.xp)}</div></div>
             <div className="card"><div className="k">Titular probable</div><div className="v">{s.startProb === null ? "Sin dato" : `${s.startProb} %`}</div></div>
             <div className="card"><div className="k">Valor hoy</div><div className="v">{money(s.value)}</div></div>
             <div className="card"><div className="k">Esperado en {CONFIG.holdDays} días</div><div className="v">{money(s.expected)}</div></div>
             <div className="card"><div className="k">Puja máx. para especular</div><div className="v">{s.maxBidSpec ? money(s.maxBidSpec) : "No compensa"}</div></div>
             <div className="card"><div className="k">Puja máx. para jugar</div><div className="v">{money(s.maxBidPlay)}</div></div>
           </div>
+
+          {s.xpNext.length > 0 && (
+            <>
+              <h2>Próximos partidos</h2>
+              <ul className="rule fixtures">
+                {s.xpNext.map((m) => (
+                  <li key={m.week}>
+                    <div>
+                      <b>J{m.week} · {names.get(m.teamId) ?? m.teamId}</b> <span className="muted">{m.home ? "en casa" : "fuera"}</span>
+                      <div className="small">Goles esperados: {n1(m.goalsFor)} a favor, {n1(m.goalsAgainst)} en contra</div>
+                    </div>
+                    <div className="fx-right">
+                      <span className="fx-pts">{n1(m.pts)} <span className="small">pts</span></span>
+                      <span className={`fx-label ${LABEL_CLASS[m.label]}`}>{m.label}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="small">
+                Puntos esperados con su probabilidad de ser titular ({s.pStart === null ? "–" : `${Math.round(s.pStart * 100)} %`}), lo que suma por jugar, su parte de los goles de su equipo y la portería, según la fuerza de cada rival.
+              </p>
+            </>
+          )}
 
           <h2>Por qué esta nota</h2>
           {why.length ? (
@@ -82,7 +108,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
           )}
 
           <h2>Desglose</h2>
-          {FACTORS.map((f) => (
+          {FACTORS.filter((f) => f.w > 0).map((f) => (
             <div className="bar" key={f.key}>
               <span>{f.label} <span className="muted">{Math.round(f.w * 100)} %</span></span>
               <div className="track"><div className="fill" style={{ width: `${s[f.key]}%` }} /></div>

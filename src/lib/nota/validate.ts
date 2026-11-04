@@ -24,6 +24,9 @@ export interface ScoreRow {
   expected: number;
   maxBidSpec: number | null;
   action: string;
+  xp?: number | null; // puntos esperados por partido (modelo xP)
+  formAvg?: number | null;
+  seasonAvg?: number | null;
 }
 
 export interface Outcome {
@@ -94,6 +97,9 @@ export interface Report {
   byAction: Record<string, { n: number; valueChange: number | null; points: number | null; up: number | null }>;
   quintiles: { from: number; to: number; n: number; valueChange: number | null; points: number | null }[];
   spec: { n: number; up: number | null; meanError: number | null }; // jugadores con especulación recomendada
+  // ¿Aciertan los puntos esperados? Frente a fiarse de su media reciente o de la temporada.
+  // error = diferencia media en puntos en las 2 jornadas siguientes; orden = correlación de rangos
+  xp: { n: number; models: { name: string; error: number | null; order: number | null }[] };
 }
 
 export function report(os: Outcome[]): Report {
@@ -132,6 +138,22 @@ export function report(os: Outcome[]): Report {
     });
   }
 
+  // Solo donde los tres modelos tienen dato, para comparar lo mismo
+  const both = withP.filter((o) => o.row.xp != null && o.row.formAvg != null && o.row.seasonAvg != null);
+  const model = (name: string, f: (r: ScoreRow) => number) => ({
+    name,
+    error: avg(both.map((o) => Math.abs(f(o.row) - o.points!))),
+    order: spearman(both.map((o) => f(o.row)), both.map((o) => o.points!)),
+  });
+  const xpReport = {
+    n: both.length,
+    models: [
+      model("Puntos esperados (xP)", (r) => r.xp! * NEXT_WEEKS),
+      model("Media últimos partidos", (r) => r.formAvg! * NEXT_WEEKS),
+      model("Media de la temporada", (r) => r.seasonAvg! * NEXT_WEEKS),
+    ],
+  };
+
   const spec = withV.filter((o) => o.row.maxBidSpec !== null);
   return {
     n: { value: withV.length, points: withP.length },
@@ -144,6 +166,7 @@ export function report(os: Outcome[]): Report {
       // error medio del valor esperado frente al real (en tanto por uno)
       meanError: avg(spec.map((o) => Math.abs(o.row.expected / o.row.value - 1 - o.valueChange!))),
     },
+    xp: xpReport,
   };
 }
 
