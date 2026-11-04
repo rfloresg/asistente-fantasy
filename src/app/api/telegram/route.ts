@@ -11,7 +11,7 @@ import { feedback } from "@/db/schema";
 import { adminChat } from "@/lib/admin";
 import { ConnectError, findCallback, finishConnect, startConnect } from "@/lib/conectar";
 import { dispatchPlan } from "@/lib/github";
-import { botLoginUrl } from "@/lib/grupo";
+import { APP_URL, botLoginUrl } from "@/lib/grupo";
 import { activateGroup, activatedText, telegramLeagues } from "@/lib/grupo-activar";
 import { canJoin, seats } from "@/lib/plazas";
 import { userForTelegram } from "@/lib/users";
@@ -65,14 +65,24 @@ const CONNECT = `🕵️ <b>Asistente Fantasy</b>
 
 Cada día te digo a quién <b>proteger</b>, por quién <b>pujar</b>, a quién <b>vender</b> y tu <b>mejor once</b>. Y en el grupo de tu liga, un Espía que cuenta cada fichaje, venta y cláusula.
 
-<b>Conecta tu LaLiga</b> · 1 minuto
+<b>CONECTA TU LALIGA</b> · 1 minuto
 
-<b>1.</b> Pulsa <b>Entrar en LaLiga</b> y entra como siempre.
-<b>2.</b> Acabarás en una página en blanco de Microsoft (<b>jwt.ms</b>). Es normal.
-<b>3.</b> Ahí pulsa <b>compartir → Telegram → este chat</b>.
-      ¿No ves compartir? <b>⋮ → Copiar enlace</b> y pégalo aquí.
+1️⃣ Pulsa <b>Entrar en LaLiga</b> (abajo) y entra como siempre.
+
+2️⃣ Al terminar verás una página de Microsoft que pone <b>jwt.ms</b>. Parece vacía.
+⚠️ <b>NO LA CIERRES. ES NORMAL.</b>
+
+3️⃣ <b>COMPÁRTEMELA:</b> botón compartir → <b>Telegram</b> → <b>este chat</b>.
+      ¿No ves compartir? Copia la dirección y pégamela aquí.
+
+👇 Te dejo una imagen de cómo se hace.
 
 🔒 Tu contraseña la escribes en LaLiga: yo nunca la veo. Solo leo; nunca ficho ni vendo.`;
+
+const HELP_IMAGE = `${APP_URL}/promo/como-conectar.png`;
+const sendHelp = (chatId: number, caption: string) =>
+  tg("sendPhoto", { chat_id: chatId, photo: HELP_IMAGE, caption, parse_mode: "HTML" });
+
 
 // /start en privado: si no estás conectado, el botón de LaLiga directamente; si lo estás, lo siguiente que toca
 async function start(db: Db, chatId: number, from?: From, force = false) {
@@ -94,6 +104,7 @@ async function start(db: Db, chatId: number, from?: From, force = false) {
   }
   const url = await startConnect(db, user.id);
   await reply(chatId, `${CONNECT}\n⏱️ El botón vale 15 minutos.`, [[{ text: "🔐 Entrar en LaLiga", url }]]);
+  await sendHelp(chatId, "⚠️ <b>Cuando veas la página jwt.ms, NO la cierres: compártela conmigo.</b>");
 }
 
 // En un grupo: activar con las ligas de quien lo pide (quien mete el bot o quien pulsa el botón)
@@ -197,7 +208,14 @@ export async function POST(req: Request) {
       } else if (cmd === "/start" || cmd === "/espia") {
         await start(db, m.chat.id, m.from);
       } else {
-        await reply(m.chat.id, "No te he entendido. Escribe /start y te digo qué toca, o /opinion para contarme algo.");
+        // Sin conectar, casi siempre es que se ha atascado en jwt.ms (manda una captura, o escribe "no va")
+        const mine = await telegramLeagues(db, String(m.chat.id));
+        if (!mine) {
+          await sendHelp(m.chat.id,
+            "🤔 Aún no me ha llegado la página de <b>jwt.ms</b>.\n\n<b>No me mandes una captura</b>: comparte la página (o pega su dirección) en este chat, como en la imagen.\n\n¿Se te cerró o el botón caducó? Escribe /conectar y te doy otro.");
+        } else {
+          await reply(m.chat.id, "No te he entendido. Escribe /start y te digo qué toca, o /opinion para contarme algo.");
+        }
       }
     } else if (m?.from && m.chat.type !== "private" && m.text?.trim().split(/\s|@/)[0].toLowerCase() === "/espia") {
       await offerGroup(db, m.chat, m.from, false);
