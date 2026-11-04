@@ -11,6 +11,7 @@
 
 import "dotenv/config";
 import { pruneActivity } from "../src/lib/actividad";
+import { premiumOf } from "../src/lib/espia/premium";
 import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
 import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
@@ -150,6 +151,7 @@ async function runLeague(
 ) {
   {
     const liga = leagueClient(token, leagueId);
+    if (mode === "plan" || mode === "preview") await detectPremium(db, token, leagueId).catch(() => {});
     const standing = await liga.standing();
     // El dinero necesita todo el historial: se calcula una vez por liga, usuario y pasada.
     // Con la sesión de cada uno, su dinero es el real (la API solo enseña el tuyo).
@@ -464,6 +466,15 @@ async function refreshLiga(db: Db, liga: Liga, leagueId: string, standing: Await
   }
 }
 
+// ¿Liga Premium? Lo busca en tus ligas de la API. Solo lo enciende: apagarlo es cosa de Cuenta,
+// por si el campo de la API no significa lo que creemos. Apunta los campos para poder afinarlo.
+async function detectPremium(db: Db, token: string, leagueId: string) {
+  const l = (await myLeagues(token)).find((x) => String(x.id) === leagueId);
+  if (!l) return;
+  console.log(`  Campos de la liga en la API: ${Object.keys(l).join(", ")}`);
+  if (premiumOf(l) === true) await db.update(leagues).set({ premium: true }).where(eq(leagues.leagueId, leagueId));
+}
+
 // Plan del día: solo para ti. Nunca va al grupo.
 async function runPlan(
   db: Db, liga: Liga, leagueId: string, leagueName: string,
@@ -505,6 +516,9 @@ async function runPlan(
   const positions = new Map(
     (ids.length ? await db.select({ id: players.id, pos: players.positionId }).from(players).where(inArray(players.id, ids)) : []).map((r) => [r.id, r.pos]),
   );
+  // Capitán solo en ligas Premium
+  const [lg] = await db.select({ premium: leagues.premium }).from(leagues).where(eq(leagues.leagueId, leagueId));
+  const premium = lg?.premium ?? false;
   const lineup = bestLineup(myTeam.players.map((p) => {
     const s = scores.get(String(p.playerMaster.id));
     return {
@@ -516,7 +530,7 @@ async function runPlan(
       startProb: s?.startProb ?? null,
       xp: s?.xpNext?.[0]?.pts ?? null, // puntos esperados del próximo partido
     };
-  }));
+  }), { captain: premium });
   const closeAt = nextMatchday(mts, now)?.close ?? null;
   // Lo que marcaste como hecho en la web en las últimas 48 h, y lo que ya tienes a la venta
   // Las claves de "Hecho" llevan delante el usuario (cada uno marca lo suyo)
@@ -527,7 +541,7 @@ async function runPlan(
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida

@@ -24,13 +24,14 @@ const lineup = bestLineup(squad)!;
 const sale = (id: string, pos: number, price: number): MarketItem => ({ id: `m${id}`, salePrice: price, expirationDate: "", status: "on_sale", playerMaster: { id, nickname: id, marketValue: price, positionId: pos, playerStatus: "ok" } });
 
 describe("lo que cambia tu once", () => {
-  const imp = impact(squad);
+  const imp = impact(squad, true); // liga Premium: con capitán
   it("ganas lo que mejora sobre tu peor titular del puesto (o la formación)", () => {
     expect(imp.gain(P("X", 4, 7))).toBeGreaterThan(1); // mejor que A3 (5)
     expect(imp.gain(P("Y", 3, 1))).toBe(0); // peor que todos tus medios: banquillo
   });
   it("pierdes lo que aporta; el suplente no aporta", () => {
-    expect(imp.loss("A1")).toBeGreaterThan(5); // capitán: cuenta doble
+    expect(imp.loss("A1")).toBeGreaterThan(7); // capitán: cuenta doble (y el que entra no es tan bueno)
+    expect(impact(squad).loss("A1")).toBeLessThan(imp.loss("A1")); // sin capitán, pierdes menos
     expect(imp.loss("D5")).toBe(0);
   });
 });

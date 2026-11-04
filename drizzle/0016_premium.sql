@@ -1,0 +1,1 @@
+ALTER TABLE "leagues" ADD COLUMN "premium" boolean DEFAULT false NOT NULL;

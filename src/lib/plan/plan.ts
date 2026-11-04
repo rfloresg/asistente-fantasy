@@ -55,6 +55,7 @@ export interface PlanInput {
   close?: Date | null; // cierre del mercado antes de la próxima jornada
   lineup?: Lineup | null; // mejor once para la próxima jornada
   positions?: Map<string, number>; // posición de cada jugador (para cubrir huecos con cláusulas de rivales)
+  captain?: boolean; // liga Premium: hay capitán (puntúa doble)
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -99,7 +100,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     return pos ? { id: pid, name, positionId: pos, status, formAvg: s?.formAvg ?? null, startProb: s?.startProb ?? null, xp: s?.xp ?? null } : null;
   };
   const squad = (i.lineup?.all ?? []).map((p) => ({ id: p.id, name: p.name, positionId: p.positionId, status: p.status, formAvg: p.formAvg, startProb: p.startProb, xp: sc(p.id)?.xp ?? p.xp ?? null }));
-  const imp = squad.length ? impact(squad) : null;
+  const imp = squad.length ? impact(squad, i.captain ?? false) : null;
   const gainOf = (pid: string, name: string, pos: number | undefined, status: string) => {
     const lp = imp ? asPlayer(pid, name, pos, status) : null;
     return lp ? imp!.gain(lp) : null;
@@ -352,7 +353,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const holeIds = new Set(l.holes.map((p) => p.id));
     const doubts = l.starters.filter((p) => !holeIds.has(p.id) && (p.status === "doubtful" || (p.startProb !== null && p.startProb < 60)));
     const lines = [
-      `📋 Alinea un ${b(l.formation)} (unos ${l.expected.toLocaleString("es-ES")} pts esperados con el capitán):`,
+      `📋 Alinea un ${b(l.formation)} (unos ${l.expected.toLocaleString("es-ES")} pts esperados${l.captain ? " con el capitán" : ""}):`,
       ...[1, 2, 3, 4].map((pos) => `${POS[pos]}: ${row(pos)}`),
     ];
     if (l.captain) lines.push(`©️ Capitán: ${b(l.captain.name)} (${l.captain.expected.toLocaleString("es-ES")} pts esperados${l.captain.startProb !== null ? `, ${l.captain.startProb} % de ser titular` : ""}).`);

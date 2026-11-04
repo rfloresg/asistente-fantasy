@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "../_ui/Refresh";
 
-export default function LeagueRow({ id, name, plan, group, owner, money, raises }: {
-  id: string; name: string; plan: boolean; group: boolean; owner: boolean; money: boolean; raises: boolean;
+export default function LeagueRow({ id, name, plan, group, owner, money, raises, premium }: {
+  id: string; name: string; plan: boolean; group: boolean; owner: boolean; money: boolean; raises: boolean; premium: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -28,6 +28,10 @@ export default function LeagueRow({ id, name, plan, group, owner, money, raises 
           {busy === "dejar" && <Spinner />}Dejar de seguir
         </button>
       </div>
+      <label className="premium-toggle">
+        <input type="checkbox" checked={premium} disabled={!!busy} onChange={() => act(premium ? "premium-off" : "premium-on")} />
+        <span>Liga Premium <span className="small">(de pago: con capitán, banquillo y más formaciones)</span></span>
+      </label>
       {group && owner && (
         <fieldset className="group-settings">
           <legend className="small">En el grupo de Telegram</legend>

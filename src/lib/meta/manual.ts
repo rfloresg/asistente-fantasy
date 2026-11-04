@@ -133,13 +133,13 @@ export const MANUAL: Tema[] = [
     titulo: "Alineación y capitán",
     reglas: [
       { texto: "Se alinean 11 en una formación permitida antes de que empiece la jornada; cuenta la última guardada." },
-      { texto: "El capitán dobla los puntos de un titular y solo cuenta si juega.", verificar: true },
-      { texto: "Premium: banquillo de 4 (uno por posición, solo sustituye en su posición), entrenador, más formaciones y cesiones." },
+      { texto: "Solo en ligas Premium (de pago) hay capitán: dobla los puntos de un titular y solo cuenta si juega. En las ligas normales no hay capitán.", verificar: true },
+      { texto: "Premium: capitán, banquillo de 4 (uno por posición, solo sustituye en su posición), entrenador, más formaciones, cesiones, premios del Once Ideal y blindaje." },
       { texto: "Máximo 24 jugadores en plantilla.", verificar: true },
     ],
     consejos: [
       "Revisa los onces probables antes de cerrar la alineación: un lesionado o suplente es un cero.",
-      "Capitán a quien tenga más suelo y techo esa jornada: titular seguro, en forma y con rival fácil, mejor si tira los penaltis.",
+      "Si tu liga es Premium, capitán a quien tenga más suelo y techo esa jornada: titular seguro, en forma y con rival fácil, mejor si tira los penaltis.",
       "No cargues muchos jugadores del mismo equipo y la misma línea, salvo Madrid o Barça, que puntúan aunque pierdan.",
       "Ten recambios baratos y estables en las posiciones que menos puntúan para gastar en las que más.",
       "Ojo a las semanas con Copa y Europa: hay más rotaciones.",

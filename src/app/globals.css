@@ -579,3 +579,5 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
 .fx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
 .fx-pts { font-weight: 900; font-stretch: 70%; font-variation-settings: "wdth" 70; font-size: 26px; color: var(--yellow); line-height: 1; }
 .fx-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.premium-toggle { display: flex; gap: 10px; align-items: center; margin-top: 10px; font-size: 14px; cursor: pointer; min-height: 44px; color: var(--ink-2); }
+.premium-toggle input { width: 18px; height: 18px; accent-color: var(--yellow); flex: none; }

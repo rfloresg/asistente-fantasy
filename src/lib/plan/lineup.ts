@@ -22,7 +22,7 @@ export interface Lineup {
   formation: string;
   starters: Pick[];
   captain: Pick | null;
-  expected: number; // puntos esperados del once (capitán doble)
+  expected: number; // puntos esperados del once (con el capitán doble si la liga es Premium)
   out: Pick[]; // fuera del once: los que no pueden jugar o no van a jugar
   holes: Pick[]; // en el once por obligación (no tienes otro en su puesto) pero no van a jugar
   all: Pick[]; // toda la plantilla (sin entrenadores)
@@ -41,7 +41,9 @@ export function expectedPoints(p: LineupPlayer): number {
 export const EMPTY = "vacio-"; // id de los puestos sin jugador
 export const isEmpty = (id: string) => id.startsWith(EMPTY);
 
-export function bestLineup(players: LineupPlayer[]): Lineup | null {
+// captain: solo en ligas Premium hay capitán (puntúa doble). En las normales, el once se elige sin él.
+export function bestLineup(players: LineupPlayer[], opts: { captain?: boolean } = {}): Lineup | null {
+  const withCaptain = opts.captain ?? false;
   const picks: Pick[] = players
     .filter((p) => p.positionId >= 1 && p.positionId <= 4)
     .map((p) => ({ ...p, expected: expectedPoints(p) }))
@@ -58,7 +60,7 @@ export function bestLineup(players: LineupPlayer[]): Lineup | null {
       const have = byPos(pos).slice(0, n);
       return [...have, ...Array.from({ length: n - have.length }, (_, k) => empty(pos, k))];
     });
-    const captain = [...starters].sort((x, y) => y.expected - x.expected)[0] ?? null;
+    const captain = withCaptain ? [...starters].sort((x, y) => y.expected - x.expected)[0] ?? null : null;
     const expected = Math.round((starters.reduce((s, p) => s + p.expected, 0) + (captain?.expected ?? 0)) * 10) / 10;
     if (!best || expected > best.expected) best = { formation: f, starters, captain, expected, out: [], holes: [], all: picks };
   }

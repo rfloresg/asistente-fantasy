@@ -1,12 +1,12 @@
-// Cuánto cambia tu mejor once (puntos esperados por jornada, capitán incluido) si entra o sale un jugador.
+// Cuánto cambia tu mejor once (puntos esperados por jornada; con capitán solo en ligas Premium) si entra o sale un jugador.
 // Es la medida de todas las decisiones del plan: fichar a quien mejora tu once, proteger a quien más perderías
 // y vender a quien no aporta. Función pura.
 import { bestLineup, type LineupPlayer } from "./lineup";
 
 const r1 = (x: number) => Math.round(x * 10) / 10;
-const value = (ps: LineupPlayer[]) => bestLineup(ps)?.expected ?? 0;
-
-export function impact(squad: LineupPlayer[]) {
+// captain: solo en ligas Premium cuenta doble el capitán
+export function impact(squad: LineupPlayer[], captain = false) {
+  const value = (ps: LineupPlayer[]) => bestLineup(ps, { captain })?.expected ?? 0;
   const base = value(squad);
   return {
     base,

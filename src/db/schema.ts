@@ -240,6 +240,8 @@ export const leagues = pgTable("leagues", {
   // Ajustes del grupo (los cambia quien lo activó): enseñar el dinero estimado y avisar de subidas de cláusula
   showMoney: boolean("show_money").notNull().default(false),
   showRaises: boolean("show_raises").notNull().default(false),
+  // Liga Premium (de pago): hay capitán, banquillo y más formaciones. Lo detecta el Espía o lo marca un miembro en Cuenta
+  premium: boolean("premium").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 

@@ -24,12 +24,18 @@ describe("mejor once", () => {
     pl("A1", 4, 10, { startProb: 100 }), pl("A2", 4, 3), pl("A3", 4, 9, { status: "injured" }),
     pl("ENT", 5, 20),
   ];
-  const l = bestLineup(squad)!;
+  const l = bestLineup(squad, { captain: true })!;
   it("elige la formación que más suma y nunca a lesionados ni entrenadores", () => {
     expect(l.formation).toBe("3-5-2");
     expect(l.starters).toHaveLength(11);
     expect(l.starters.map((p) => p.id)).not.toContain("A3");
     expect(l.starters.map((p) => p.id)).not.toContain("ENT");
+  });
+  it("en una liga normal no hay capitán: no cuenta doble", () => {
+    const n = bestLineup(squad)!;
+    expect(n.captain).toBeNull();
+    expect(n.expected).toBeLessThan(l.expected);
+    expect(planMessage("Liga", 1, dailyPlan({ now: new Date(), myTeam: { id: "t", players: [] }, myMoney: 1, rivals: [], market: [], scores: new Map(), lineup: n }))).not.toContain("Capitán");
   });
   it("capitán: el de más puntos esperados", () => {
     expect(l.captain!.id).toBe("A1");
