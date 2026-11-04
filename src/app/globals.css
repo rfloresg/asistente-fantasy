@@ -441,3 +441,17 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
   .landing { padding-top: 28px; }
   .land-section { margin-top: 64px; }
 }
+
+/* Administración: línea de tiempo por usuario */
+.timelines { display: flex; flex-direction: column; gap: 10px; }
+.timeline > summary { cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; list-style: none; }
+.timeline > summary::-webkit-details-marker { display: none; }
+.timeline > summary b { font-size: 17px; }
+.timeline > summary::before { content: "▸"; color: var(--pitch); margin-right: 4px; }
+.timeline[open] > summary::before { content: "▾"; }
+.timeline > summary b { margin-right: auto; }
+.timeline ol { list-style: none; margin: 14px 0 0; padding: 0 0 0 14px; border-left: 1px solid var(--line-strong); display: flex; flex-direction: column; gap: 10px; }
+.timeline li { display: grid; grid-template-columns: 110px 22px 1fr; gap: 6px; align-items: baseline; font-size: 14px; color: var(--ink-2); }
+.timeline .when { color: var(--muted); }
+.timeline q { display: block; margin-top: 2px; color: var(--ink); quotes: "«" "»"; }
+@media (max-width: 760px) { .timeline li { grid-template-columns: 74px 20px 1fr; } }

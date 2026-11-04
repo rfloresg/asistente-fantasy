@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { chatUsage } from "@/db/schema";
+import { logActivity } from "@/lib/actividad";
 import { ask, type ChatTurn } from "@/lib/chat/agent";
 import { currentUser } from "@/lib/session";
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     if ((row?.count ?? 0) > DAILY) {
       return NextResponse.json({ error: `Has llegado a las ${DAILY} preguntas de hoy. Mañana más.` }, { status: 429 });
     }
+    await logActivity(db, user.id, "pregunta", history.at(-1)!.content);
   }
   try {
     return NextResponse.json(await ask(history, { userId: user?.id ?? null }));

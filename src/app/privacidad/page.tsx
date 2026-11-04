@@ -14,7 +14,7 @@ export default function Privacidad() {
         <li><b>Tu Telegram:</b> tu nombre y tu número de usuario. Sirve para que entres sin contraseña y para mandarte el plan por privado.</li>
         <li><b>Tu sesión de LaLiga:</b> el permiso que te da LaLiga al entrar, guardado cifrado. <b>Nunca vemos ni guardamos tu contraseña</b>: la escribes en la página de LaLiga, no aquí.</li>
         <li><b>Tus ligas y tus planes:</b> qué ligas sigues, los planes que te hacemos y los movimientos que marcas como hechos.</li>
-        <li><b>Cuántas preguntas haces al día</b> en Pregunta, para el límite diario. Las preguntas no se guardan.</li>
+        <li><b>Lo que haces en la web</b>: cuándo entras, lo que marcas como hecho y lo que preguntas en Pregunta. Sirve para el límite diario de preguntas y para que el administrador vea si el asistente se entiende y acierta. Se borra a los 30 días.</li>
       </ul>
 
       <h2>Lo que hacemos con tu sesión de LaLiga</h2>
@@ -23,7 +23,7 @@ export default function Privacidad() {
 
       <h2>Quién ve qué</h2>
       <ul>
-        <li><b>Tu plan</b> lo ves tú, en la web y en tu chat privado con el bot. También puede verlo el <b>administrador</b> del servicio (quien lo ha montado), solo para comprobar que el bot funciona y que sus consejos tienen sentido. No lo enseña a nadie de tu liga.</li>
+        <li><b>Tu plan</b> lo ves tú, en la web y en tu chat privado con el bot. También puede verlo el <b>administrador</b> del servicio (quien lo ha montado), junto con lo que haces y preguntas, solo para comprobar que el bot funciona y que sus consejos tienen sentido. No lo enseña a nadie de tu liga.</li>
         <li><b>En el grupo de Telegram</b> el Espía cuenta lo que ya ve cualquiera de la liga en la app: fichajes, ventas, cláusulas y puntos.</li>
         <li><b>El dinero estimado</b> de cada mánager y las <b>subidas de cláusula</b> solo salen en el grupo si quien activó el Espía lo enciende. Son cálculos a partir de la actividad pública, no tu saldo real.</li>
       </ul>

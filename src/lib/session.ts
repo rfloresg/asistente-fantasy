@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
+import { touch } from "@/lib/actividad";
 
 export const USER_COOKIE = "fa_user";
 
@@ -32,6 +33,7 @@ export async function currentUser() {
 export async function requireUser(next = "/") {
   const u = await currentUser();
   if (!u) redirect(`/api/salir?next=${encodeURIComponent(next)}`);
+  if (!u.isAdmin) await touch(await getDb(), u, next).catch(() => {});
   return u;
 }
 

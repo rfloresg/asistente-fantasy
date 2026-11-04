@@ -10,6 +10,7 @@
 //   o LIGA_ID + TELEGRAM_CHAT_ID        (una sola liga)
 
 import "dotenv/config";
+import { pruneActivity } from "../src/lib/actividad";
 import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
 import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
@@ -132,6 +133,7 @@ async function main() {
       }
     }
     if (mode === "resumen") await sendDigest(db).catch((e) => console.error(`parte: ${e}`));
+    if (mode === "resumen") await pruneActivity(db).catch(() => {});
     if (failed) {
       await alertAdmin(db, errors);
       throw new Error(`${failed} liga(s) con error`);

@@ -55,3 +55,20 @@ describe("parte diario", () => {
     expect(t).not.toContain("Todo en orden");
   });
 });
+
+import { activeDays, touch } from "../src/lib/actividad";
+import { eq } from "drizzle-orm";
+
+describe("actividad", () => {
+  it("apunta la visita como mucho cada 30 minutos", async () => {
+    await touch(db, { id: 2, lastSeenAt: null }, "/");
+    const [u] = await db.select().from(s.users).where(eq(s.users.id, 2));
+    await touch(db, u, "/liga"); // hace un momento: no cuenta
+    const visits = (await db.select().from(s.activity)).filter((a) => a.userId === 2 && a.kind === "visita");
+    expect(visits).toHaveLength(1);
+    expect(u.lastSeenAt).not.toBeNull();
+  });
+  it("cuenta días distintos", () => {
+    expect(activeDays([new Date("2026-11-03T10:00:00Z"), new Date("2026-11-03T20:00:00Z"), new Date("2026-11-04T09:00:00Z")])).toBe(2);
+  });
+});

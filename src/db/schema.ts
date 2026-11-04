@@ -206,6 +206,7 @@ export const users = pgTable("users", {
   telegramId: text("telegram_id").unique(), // también es su chat privado con el bot
   isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }), // última vez que abrió la web (se apunta cada 30 min como mucho)
 });
 
 // Sesión de LaLiga de cada usuario: el refresh token, cifrado (SESSION_KEY). Nunca la contraseña.
@@ -267,6 +268,16 @@ export const feedback = pgTable("feedback", {
   userId: integer("user_id"),
   name: text("name").notNull(),
   text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// Lo que hace cada usuario (para Administración): visitas a la web, Hecho, preguntas, Actualizar plan.
+// Se borra a los 30 días.
+export const activity = pgTable("activity", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  kind: text("kind").notNull(), // visita | hecho | pregunta | actualizar
+  detail: text("detail"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 

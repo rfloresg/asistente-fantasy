@@ -4,6 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { espiaPlans } from "@/db/schema";
 import { dispatchPlan } from "@/lib/github";
+import { logActivity } from "@/lib/actividad";
 import { currentUser } from "@/lib/session";
 
 export async function GET(req: Request) {
@@ -17,6 +18,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST() {
+  const user = await currentUser().catch(() => null);
+  if (user && !user.isAdmin) await logActivity(await getDb(), user.id, "actualizar");
   const error = await dispatchPlan();
   return error ? NextResponse.json({ error }, { status: 502 }) : NextResponse.json({ ok: true });
 }
