@@ -23,7 +23,7 @@ export default function Privacidad() {
 
       <h2>Quién ve qué</h2>
       <ul>
-        <li><b>Tu plan</b> solo lo ves tú, en la web y en tu chat privado con el bot.</li>
+        <li><b>Tu plan</b> lo ves tú, en la web y en tu chat privado con el bot. También puede verlo el <b>administrador</b> del servicio (quien lo ha montado), solo para comprobar que el bot funciona y que sus consejos tienen sentido. No lo enseña a nadie de tu liga.</li>
         <li><b>En el grupo de Telegram</b> el Espía cuenta lo que ya ve cualquiera de la liga en la app: fichajes, ventas, cláusulas y puntos.</li>
         <li><b>El dinero estimado</b> de cada mánager y las <b>subidas de cláusula</b> solo salen en el grupo si quien activó el Espía lo enciende. Son cálculos a partir de la actividad pública, no tu saldo real.</li>
       </ul>

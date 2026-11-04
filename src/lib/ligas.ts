@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import { espiaPlans, leagues as leaguesT, memberships } from "@/db/schema";
-import { currentUser, requireUser } from "@/lib/session";
+import { currentUser, requireUser, viewingAs } from "@/lib/session";
 
 export const LIGA_COOKIE = "liga";
 
@@ -24,10 +24,12 @@ export async function leagues(userId: number | null): Promise<{ id: string; name
 
 // strict: sin usuario, a la pantalla de entrar (las páginas). El layout usa strict=false (también pinta /login).
 export async function currentLeague(strict = true) {
-  const user = strict ? await requireUser() : await currentUser().catch(() => null);
+  const real = strict ? await requireUser() : await currentUser().catch(() => null);
+  const viewing = await viewingAs(real);
+  const user = viewing ?? real;
   const all = await leagues(user?.id ?? null);
   const wanted = (await cookies()).get(LIGA_COOKIE)?.value;
-  return { user, all, current: all.find((l) => l.id === wanted) ?? all[0] ?? null };
+  return { user, viewing, all, current: all.find((l) => l.id === wanted) ?? all[0] ?? null };
 }
 
 // Último plan de esa liga para ese usuario (o los de antes de los usuarios)

@@ -291,3 +291,7 @@ ul.reasons li.bad::marker { color: var(--down); }
 .step .primary { display: inline-block; text-decoration: none; margin-top: 12px; }
 .link-btn { background: none; border: 0; font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer; margin: 12px 0 0 14px; padding: 8px 4px; min-height: 44px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Administrador viendo como otro */
+.viewing { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: var(--yellow); color: var(--ink); font-size: 14px; }
+.viewing a { color: var(--ink); font-weight: 700; }

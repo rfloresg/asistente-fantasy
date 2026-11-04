@@ -34,3 +34,16 @@ export async function requireUser(next = "/") {
   if (!u) redirect(`/api/salir?next=${encodeURIComponent(next)}`);
   return u;
 }
+
+// El administrador puede ver la web como otro usuario (para revisar sus planes). Solo para mirar:
+// las acciones (Hecho, Actualizar, Cuenta) siguen siendo suyas, y la web las esconde mientras mira.
+export const VIEW_COOKIE = "ver_como";
+
+export async function viewingAs(real: { isAdmin: boolean } | null) {
+  if (!real?.isAdmin) return null;
+  const id = Number((await cookies()).get(VIEW_COOKIE)?.value);
+  if (!id) return null;
+  const db = await getDb();
+  const [u] = await db.select().from(users).where(eq(users.id, id));
+  return u ?? null;
+}

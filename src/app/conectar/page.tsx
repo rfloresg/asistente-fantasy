@@ -53,6 +53,7 @@ export default async function Conectar() {
             <p className="small" style={{ margin: "0 0 8px" }}>Has entrado como <b>{user.name}</b>.</p>
             <button type="submit" className="chip">Salir</button>
           </form>
+          {user.isAdmin && <p style={{ marginTop: 20 }}><Link href="/admin" className="chip">Administración</Link></p>}
           <p className="small" style={{ marginTop: 20 }}><Link href="/privacidad">Qué datos guardamos</Link></p>
           <DeleteAccount admin={user.isAdmin} />
         </aside>

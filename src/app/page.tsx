@@ -81,7 +81,7 @@ function Pitch({ l }: { l: LineupSnapshot }) {
 }
 
 export default async function Hoy() {
-  const { current, user } = await currentLeague();
+  const { current, user, viewing } = await currentLeague();
   const plan = current ? await latestPlan(current.id, user?.id) : null;
 
   if (!plan) {
@@ -91,8 +91,8 @@ export default async function Hoy() {
       <main>
         <h1>Tu plan de hoy</h1>
         <p className="lead">Aquí verás qué hacer en cada liga: a quién proteger, por quién pujar, a quién vender y tu mejor once.</p>
-        {user && <Welcome userId={user.id} />}
-        {connected && (
+        {user && !viewing && <Welcome userId={user.id} />}
+        {connected && !viewing && (
           <div className="empty">
             <h2>Aún no hay plan</h2>
             <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, pulsa el botón.</p>
@@ -112,7 +112,7 @@ export default async function Hoy() {
 
   return (
     <main>
-      {user && <Welcome userId={user.id} />}
+      {user && !viewing && <Welcome userId={user.id} />}
       <div className="hero">
         <div>
           <h1>{close ? `Antes del ${madrid(close, { weekday: "long" })} a las ${madrid(close, { hour: "2-digit", minute: "2-digit" })}` : "Tu plan de hoy"}</h1>
@@ -126,7 +126,7 @@ export default async function Hoy() {
           <div><dt>Tu dinero</dt><dd className={plan.myMoney < 0 ? "down" : undefined}>{money(plan.myMoney)}</dd></div>
           {me && <div><dt>Puesto</dt><dd>{me.position}.º · {me.points} pts</dd></div>}
         </dl>
-        <Refresh since={since} leagueId={plan.leagueId} />
+        {!viewing && <Refresh since={since} leagueId={plan.leagueId} />}
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default async function Hoy() {
                     <p>{a.detalle ?? plain(a.texto)}</p>
                     {a.pendiente && <p className="pending">{a.pendiente}</p>}
                   </div>
-                  {a.key && current && <DoneButton since={since} leagueId={plan.leagueId} k={a.key} />}
+                  {a.key && current && !viewing && <DoneButton since={since} leagueId={plan.leagueId} k={a.key} />}
                 </li>
               ))}
             </ol>

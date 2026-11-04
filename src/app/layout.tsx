@@ -21,12 +21,12 @@ async function safeLeagues() {
   try {
     return await currentLeague(false);
   } catch {
-    return { all: [], current: null };
+    return { all: [], current: null, viewing: null };
   }
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { all, current } = await safeLeagues();
+  const { all, current, viewing } = await safeLeagues();
   return (
     <html lang="es" className={archivo.variable}>
       <body>
@@ -37,6 +37,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <LeagueSwitch leagues={all} current={current?.id ?? null} />
           </div>
         </header>
+        {viewing && (
+          <div className="viewing" role="status">
+            <span>Estás viendo la web como <b>{viewing.name}</b>. Solo para mirar.</span>
+            <a href="/api/admin/ver">Dejar de ver</a>
+          </div>
+        )}
         {children}
         <InstallSW />
       </body>
