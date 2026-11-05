@@ -116,7 +116,7 @@ export default async function Aciertos() {
                   <td className="c-name"><Link href={`/jugador/${r.playerId}`} className="stretch">{r.name}</Link></td>
                   <td className="c-pos">{LABEL[r.kind]}</td>
                   <td className="c-act">{day(r.at)}{r.followed !== null && <span className="muted"> · {r.followed ? "le hiciste caso" : "no lo hiciste"}</span>}</td>
-                  <td className={`n ${r.change === null || Math.abs(r.change) < 0.05 ? "" : r.change > 0 ? "up" : "down"}`} data-label="Valor">{pc(r.change)}{r.change !== null && <div className="small">en {r.days} día{r.days > 1 ? "s" : ""}</div>}</td>
+                  <td className={`n ${r.change === null || Math.abs(r.change) < 0.05 ? "" : r.change > 0 ? "up" : "down"}`} data-label="Valor">{pc(r.change)}{r.change !== null ? <div className="small">en {r.days} día{r.days > 1 ? "s" : ""}</div> : !r.days && <div className="small">desde mañana</div>}</td>
                   <td className="n" data-label="Mercado">{pc(r.market)}</td>
                   <td className="n" data-label="Pts/jornada">{n1(r.ptsPerWeek)}</td>
                 </tr>

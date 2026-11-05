@@ -113,12 +113,13 @@ export function aciertos(i: {
       const after = i.weeks.filter((w) => w.finished && w.start > plan.createdAt).sort((x, y) => x.week - y.week).slice(0, 2);
       const ptsPerWeek = after.length ? mean(after.map((w) => i.points.get(id)?.get(w.week) ?? 0)) : null;
 
-      // ¿Le hizo caso? Lo dicen las plantillas guardadas en los planes de después
-      const later = plans.slice(idx + 1).map((p) => owner(p, id)).filter((o) => o !== null);
-      const now = owner(plan, id);
+      // ¿Le hizo caso? Lo dicen las plantillas guardadas con este plan y los siguientes. La de cada plan
+      // se refresca cada 30 min, así que la de este mismo plan ya puede recoger lo que hiciste después.
+      // Vender y proteger solo se proponen con jugadores tuyos: si deja de estar en tu equipo, lo vendiste.
+      const later = plans.slice(idx).map((p) => owner(p, id)).filter((o) => o !== null);
       let followed: boolean | null = null;
       if (kind === "fichar") followed = later.length ? later.includes("mio") : null;
-      if (kind === "vender") followed = now === "mio" && later.length ? later.some((o) => o !== "mio") : null;
+      if (kind === "vender") followed = later.length ? later.includes("otro") : null;
       if (kind === "proteger") followed = later.length ? later.at(-1) === "mio" : null;
 
       let ok: boolean | null = null;

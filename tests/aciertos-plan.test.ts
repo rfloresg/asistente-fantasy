@@ -44,3 +44,13 @@ describe("cuánto acertamos", () => {
     expect(valueOn(values.get("a"), "2026-11-01")).toBeNull();
   });
 });
+
+describe("le hiciste caso, con la plantilla del mismo plan ya refrescada", () => {
+  it("vendiste después del plan: el mismo plan ya no lo tiene", () => {
+    const r = aciertos({
+      plans: [{ createdAt: at("2026-11-04"), acciones: [{ tipo: "vender", playerId: "b", jugador: "B" }], lineup: null, liga: liga({}) }],
+      values, points: new Map(), weeks: [], lastDay: "2026-11-05", market: () => 0,
+    });
+    expect(r.recs[0].followed).toBe(true);
+  });
+});
