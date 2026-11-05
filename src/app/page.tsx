@@ -187,7 +187,9 @@ export default async function Hoy() {
         )}
       </div>
 
-      <p className="small" style={{ marginTop: 40 }}>
+      <p style={{ marginTop: 32 }}><Link href="/aciertos" className="chip">Cuánto acertamos →</Link> <span className="small">lo que te dijo el plan y qué pasó después</span></p>
+
+      <p className="small" style={{ marginTop: 16 }}>
         Plan de las {madrid(plan.createdAt, { hour: "2-digit", minute: "2-digit" })} del {madrid(plan.createdAt, { day: "numeric", month: "long" })}
         {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza a las 9:00, a las 18:00 y 4 horas antes del cierre; si mueves algo en LaLiga, pulsa Actualizar plan. El dinero de los rivales es un máximo.
       </p>

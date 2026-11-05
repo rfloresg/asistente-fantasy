@@ -498,6 +498,7 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
   table.cards-m .stretch::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
   table.cards-m .stretch { text-decoration: none; }
   /* Variante de dos columnas (Administración) */
+  table.cards-m.ac td[data-label="Valor"] { grid-column: 1 / span 2; }
   table.cards-m.two tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   table.cards-m.two td.c-name { grid-column: 1 / -1; padding-right: 0; }
   table.cards-m.two td.c-btn { grid-column: 1 / -1; margin-top: 12px; }

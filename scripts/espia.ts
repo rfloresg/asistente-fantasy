@@ -72,7 +72,7 @@ export function parseLeagues(env: NodeJS.ProcessEnv): { leagueId: string; chatId
   return env.LIGA_ID ? [{ leagueId: env.LIGA_ID, chatId: env.TELEGRAM_CHAT_ID }] : [];
 }
 
-interface PlanUser { userId: number | null; chat?: string } // null = modo antiguo (una sola cuenta)
+interface PlanUser { userId: number | null; chat?: string; dinero?: boolean } // null = modo antiguo (una sola cuenta)
 type TokenFor = (userId: number | null) => Promise<string>;
 
 // Ligas a recorrer: las de la tabla leagues (servicio con usuarios) o, si está vacía, ESPIA_LIGAS (modo antiguo)
@@ -81,10 +81,10 @@ async function loadTargets(db: Db) {
   const all = await db.select().from(leagues);
   const rows = all.filter((l) => l.active);
   if (all.length) {
-    const ms = await db.select({ userId: memberships.userId, leagueId: memberships.leagueId, chat: users.telegramId, isAdmin: users.isAdmin })
+    const ms = await db.select({ userId: memberships.userId, leagueId: memberships.leagueId, chat: users.telegramId, isAdmin: users.isAdmin, dinero: memberships.dinero })
       .from(memberships).innerJoin(users, eq(users.id, memberships.userId)).where(eq(memberships.plan, true));
     return rows.map((l) => {
-      const planUsers: PlanUser[] = ms.filter((m) => m.leagueId === l.leagueId).map((m) => ({ userId: m.userId, chat: m.chat ?? (m.isAdmin ? process.env.ESPIA_PLAN_CHAT : undefined) }));
+      const planUsers: PlanUser[] = ms.filter((m) => m.leagueId === l.leagueId).map((m) => ({ userId: m.userId, chat: m.chat ?? (m.isAdmin ? process.env.ESPIA_PLAN_CHAT : undefined), dinero: m.dinero }));
       return {
         leagueId: l.leagueId, name: l.name, chatId: l.groupChatId ?? undefined, reader: l.groupOwnerId ?? planUsers[0]?.userId ?? null, planUsers,
         settings: { money: l.showMoney, raises: l.showRaises },
@@ -543,7 +543,7 @@ async function runPlan(
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida

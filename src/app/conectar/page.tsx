@@ -17,7 +17,7 @@ export default async function Conectar() {
   const user = await requireUser("/conectar");
   const db = await getDb();
   const [session] = await db.select().from(laligaSessions).where(eq(laligaSessions.userId, user.id));
-  const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, group: leagues.groupChatId, owner: leagues.groupOwnerId, money: leagues.showMoney, raises: leagues.showRaises, premium: leagues.premium })
+  const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, dinero: memberships.dinero, group: leagues.groupChatId, owner: leagues.groupOwnerId, money: leagues.showMoney, raises: leagues.showRaises, premium: leagues.premium })
     .from(memberships).innerJoin(leagues, eq(leagues.leagueId, memberships.leagueId)).where(eq(memberships.userId, user.id));
 
   const connected = !!session && !session.lastError;
@@ -65,7 +65,7 @@ export default async function Conectar() {
           <p className="small" style={{ marginTop: -4 }}>Para que el Espía publique en el grupo de una liga, mete el bot en el grupo: se activa solo.</p>
           {mine.length ? (
             <ul className="rule">
-              {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} group={!!l.group} owner={l.owner === user.id} money={l.money} raises={l.raises} premium={l.premium} />)}
+              {mine.map((l) => <LeagueRow key={l.id} id={l.id} name={l.name} plan={l.plan} dinero={l.dinero} group={!!l.group} owner={l.owner === user.id} money={l.money} raises={l.raises} premium={l.premium} />)}
             </ul>
           ) : (
             <p className="muted">Aparecerán cuando conectes.</p>

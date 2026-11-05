@@ -127,6 +127,13 @@
       "when": 1793804753031,
       "tag": "0017_onces_af",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793875421356,
+      "tag": "0018_modo_dinero",
+      "breakpoints": true
     }
   ]
 }

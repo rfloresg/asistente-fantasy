@@ -271,6 +271,7 @@ export const memberships = pgTable(
     userId: integer("user_id").notNull(),
     leagueId: text("league_id").notNull(),
     plan: boolean("plan").notNull().default(true),
+    dinero: boolean("dinero").notNull().default(true), // modo dinero: especular y vender a los que van a bajar
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.leagueId] })],

@@ -20,6 +20,10 @@ export const CONFIG = {
   holdDays: 7, // días que piensas tener al jugador para especular
   specMargin: 0.05, // beneficio mínimo al especular (5 % del valor)
   maxDailyRate: 0.08, // tope de subida/bajada diaria al proyectar
+  // Valor esperado: el cambio de ayer se repite cada día, frenándose un 5 % cada día. Probado sin mirar el futuro
+  // (nov 2026, últimos 60 días): a 7 días falla un 5,6 % frente al 7,0 % de la media de 3 y 7 días, y las compras
+  // para especular ganan un 19 % de media (7 % con pérdida) frente al 15 % (15 % con pérdida).
+  valueDamp: 0.95,
   buy: 70, // nota mínima para fichar
   buyMinForm: 4, // y al menos 4 pts esperados por partido (o de media reciente si no hay xP)
   squadTop: 16, // jugadores más caros de cada equipo para medir lo que vale su plantilla
@@ -28,6 +32,13 @@ export const CONFIG = {
 };
 
 const FINISHED = 7;
+
+// Valor dentro de `days` días si el cambio diario se repite frenándose (CONFIG.valueDamp)
+export function projectValue(v0: number, dailyRate: number, days: number): number {
+  let lr = 0;
+  for (let k = 1; k <= days; k++) lr += Math.log1p(dailyRate) * CONFIG.valueDamp ** k;
+  return v0 * Math.exp(lr);
+}
 
 export interface EnginePlayer {
   id: string;
@@ -230,16 +241,16 @@ export function computeScores(input: EngineInput): PlayerScore[] {
     const minutesAvg = mean(recent.map((w) => weekStat(w).minutes));
     const seasonAvg = mean(season.map((w) => weekStat(w).points));
 
+    const v1 = vals?.get(addDays(asOf, -1));
     const r3 = v3 ? (v0 / v3) ** (1 / 3) - 1 : null;
-    const r7 = v7 ? (v0 / v7) ** (1 / 7) - 1 : null;
-    const rates = [r3, r7].filter((x): x is number => x !== null);
-    const dailyRate = rates.length ? clamp(mean(rates)!, -CONFIG.maxDailyRate, CONFIG.maxDailyRate) : null;
+    const raw = v1 ? v0 / v1 - 1 : r3; // el cambio de ayer (o la media de 3 días si falta)
+    const dailyRate = raw === null ? null : clamp(raw, -CONFIG.maxDailyRate, CONFIG.maxDailyRate);
 
     const x = xpOf.get(pl.id) ?? null;
     const next = x ? x.matches.map((m) => ({ teamId: m.teamId, home: m.home })) : team?.next ?? [];
     const difficulty = x ? 1 / x.calendar : team ? mean(next.map((n) => matchDifficulty(team, teams.get(n.teamId), n.home, pl.positionId))) : null;
 
-    const expected = round10k(v0 * (1 + (dailyRate ?? 0)) ** CONFIG.holdDays);
+    const expected = round10k(projectValue(v0, dailyRate ?? 0, CONFIG.holdDays));
     const spec = expected - v0 * CONFIG.specMargin;
 
     raws.push({

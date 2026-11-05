@@ -1,0 +1,1 @@
+ALTER TABLE "memberships" ADD COLUMN "dinero" boolean DEFAULT true NOT NULL;

@@ -113,6 +113,29 @@ describe("presupuesto tras subir cláusulas", () => {
   });
 });
 
+describe("modo dinero", () => {
+  const m = (id: string, nick: string, price: number): MarketItem => ({ id: `m${id}`, salePrice: price, expirationDate: "", status: "on_sale", playerMaster: { id, nickname: nick, marketValue: price, positionId: 3, playerStatus: "ok" } });
+  const sube = score(50, 2_000_000, { expected: 2_600_000, maxBidSpec: 2_500_000 });
+  const baja = score(55, 6_000_000, { expected: 5_400_000 });
+  const sc = new Map(scores).set("50", sube).set("2", baja);
+  const run = (money?: boolean) => dailyPlan({ now, myTeam, myMoney: 10_000_000, rivals: [], market: [m("50", "Cohete", 2_000_000)], scores: sc, money });
+
+  it("puja para especular si se espera que suba, y dice cuánto", () => {
+    const a = run().find((x) => x.jugador === "Cohete")!;
+    expect(a.tipo).toBe("pujar");
+    expect(a.texto).toContain("para ganar dinero: esperamos que valga 2,6 M en 7 días (+30 % sobre lo que pide)");
+  });
+  it("vende al que va a bajar aunque su nota no sea de vender", () => {
+    const a = run().find((x) => x.tipo === "vender" && x.jugador === "Malo")!;
+    expect(a.texto).toContain("Va a bajar: esperamos que valga 5,4 M en 7 días, 0,6 M menos.");
+  });
+  it("apagado: ni especula ni vende por la bajada", () => {
+    const p = run(false);
+    expect(p.some((x) => x.jugador === "Cohete")).toBe(false);
+    expect(p.find((x) => x.jugador === "Malo")?.texto ?? "").not.toContain("Va a bajar");
+  });
+});
+
 import { actionKey, applyDone, type Accion } from "../src/lib/plan/plan";
 
 describe("botón Hecho", () => {

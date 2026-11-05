@@ -19,6 +19,10 @@ export const PLAN = {
   needClauseOver: 1.3, // para cubrir un hueco se acepta una cláusula de hasta un 30 % sobre el valor
   needNota: 55, // si te falta un titular en un puesto, vale con esta nota (y 60 % de ser titular)
   specMinGain: 100_000, // especular solo si se espera ganar al menos esto (y un 3 %)
+  // Modo dinero (activado salvo que lo quites en Cuenta): pujas para especular y ventas de los que van a bajar
+  maxSpec: 3, // pujas para especular, aparte de las de jugar
+  sellDrop: 0.05, // vender si esperamos que baje un 5 % o más en 7 días...
+  sellDropMin: 150_000, // ... y al menos esto
   bidExtra: 0.05, // puja: valor + 5 %...
   bidExtraWithBids: 0.12, // ... o + 12 % si ya hay pujas
   // Con tu once calculado, se decide por lo que cambia en puntos esperados por jornada (capitán incluido)
@@ -34,6 +38,7 @@ export interface Score {
   value: number;
   maxBidPlay: number;
   maxBidSpec: number | null;
+  expected?: number; // valor esperado en 7 días
   formAvg: number | null;
   startProb: number | null;
   xp?: number | null; // puntos esperados por partido en los próximos (modelo xP)
@@ -57,6 +62,7 @@ export interface PlanInput {
   lineup?: Lineup | null; // mejor once para la próxima jornada
   positions?: Map<string, number>; // posición de cada jugador (para cubrir huecos con cláusulas de rivales)
   captain?: boolean; // liga Premium: hay capitán (puntúa doble)
+  money?: boolean; // modo dinero (por defecto, sí)
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -201,8 +207,11 @@ export function dailyPlan(i: PlanInput): Accion[] {
   const MIN_POS: Record<number, number> = { 1: 1, 2: 3, 3: 3, 4: 1 };
   const left = new Map<number, number>();
   for (const pos of posOf.values()) left.set(pos, (left.get(pos) ?? 0) + 1);
+  const moneyMode = i.money ?? true;
+  const drop = (x: Score | undefined) => (x?.expected !== undefined ? x.value - x.expected : 0);
+  const falls = (x: Score | undefined) => moneyMode && !!x && drop(x) >= Math.max(PLAN.sellDropMin, x.value * PLAN.sellDrop);
   const ventas = mine
-    .filter(({ s }) => s && (s.action === "vender" || s.nota < PLAN.sellNota))
+    .filter(({ s }) => s && (s.action === "vender" || s.nota < PLAN.sellNota || falls(s)))
     .filter(({ p }) => { const l = lossOf(id(p)); return l === null || l < PLAN.sellMaxLoss; }) // si suma a tu once, no
     .filter(({ p }) => {
       const pos = posOf.get(id(p));
@@ -258,31 +267,35 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const need = !!s && needPos.has(m.playerMaster.positionId) && s.nota >= PLAN.needNota && (s.startProb ?? 100) >= 60 && m.salePrice <= s.maxBidPlay;
       return { m, s, g, play: play || need };
     })
-    .filter(({ m, s, play }) => s && (play || (s.maxBidSpec !== null && s.maxBidSpec - m.salePrice >= Math.max(PLAN.specMinGain, m.salePrice * 0.03))))
+    .filter(({ m, s, play }) => s && (play || (moneyMode && s.maxBidSpec !== null && s.maxBidSpec - m.salePrice >= Math.max(PLAN.specMinGain, m.salePrice * 0.03))))
     // primero los de los puestos donde te faltan titulares, luego los que más mejoran tu once (o por nota)
-    .sort((a, c) => Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId))
-      || (a.g !== null && c.g !== null ? c.g - a.g : c.s!.nota - a.s!.nota));
+    // y al final los de especular, por lo que se espera ganar
+    .sort((a, c) => Number(c.play) - Number(a.play)
+      || Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId))
+      || (a.play ? (a.g !== null && c.g !== null ? c.g - a.g : c.s!.nota - a.s!.nota) : (c.s!.maxBidSpec! - c.m.salePrice) - (a.s!.maxBidSpec! - a.m.salePrice)));
   // Primero las pujas que cubren un hueco, luego las cláusulas para huecos y al final el resto
   let nPujas = 0;
+  let nSpec = 0;
   const done = new Set<string>();
   const doPujas = (onlyNeed: boolean) => {
     for (const { m, s, g, play } of pujas) {
-      if (nPujas >= PLAN.maxPerType) break;
       if (done.has(m.id) || (onlyNeed && !needPos.has(m.playerMaster.positionId))) continue;
       const forPlay = play;
+      if (forPlay ? nPujas >= PLAN.maxPerType : nSpec >= PLAN.maxSpec) continue;
       const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
       const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
       const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
       const bid = noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
       if (bid > budget) continue; // ni vendiendo llegas
-      nPujas++;
+      if (forPlay) nPujas++;
+      else nSpec++;
       done.add(m.id);
       const note = cashNote(bid);
       budget -= bid;
       cash -= bid;
       const name = m.playerMaster.nickname;
       const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
-      const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para especular (lo esperado en 7 días da hasta ${M(s!.maxBidSpec!)})`;
+      const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para ganar dinero: esperamos que valga ${M(s!.expected ?? s!.maxBidSpec!)} en 7 días${s!.expected ? ` (${s!.expected >= m.salePrice ? "+" : ""}${Math.round(((s!.expected - m.salePrice) / m.salePrice) * 100)} % sobre lo que pide)` : ""}. Véndelo cuando deje de subir`;
       const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
       out.push({
         tipo: "pujar",
@@ -337,12 +350,13 @@ export function dailyPlan(i: PlanInput): Accion[] {
   for (const { p, s } of ventas) {
     const name = p.playerMaster.nickname;
     const hurt = p.playerMaster.playerStatus === "injured" ? " Está lesionado: véndelo antes de que baje más." : "";
+    const fall = falls(s!) ? ` Va a bajar: esperamos que valga ${M(s!.expected!)} en 7 días, ${M(drop(s!))} menos.` : "";
     out.push({
       tipo: "vender",
       prioridad: 4,
       jugador: name,
       playerId: id(p),
-      titulo: `Vende a ${name}`, detalle: `Nota ${s!.nota}, vale ${M(s!.value)}.${sellWhy(id(p))}${hurt}`, texto: `💰 Pon a la venta a ${b(name)}: nota ${s!.nota}, vale ${M(s!.value)}.${sellWhy(id(p))}${hurt}`,
+      titulo: `Vende a ${name}`, detalle: `Nota ${s!.nota}, vale ${M(s!.value)}.${fall}${sellWhy(id(p))}${hurt}`, texto: `💰 Pon a la venta a ${b(name)}: nota ${s!.nota}, vale ${M(s!.value)}.${fall}${sellWhy(id(p))}${hurt}`,
     });
   }
 

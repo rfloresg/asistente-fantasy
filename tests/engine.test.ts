@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, computeScores, percentiles, teamInfo, type EngineInput, type EngineMatch } from "../src/lib/nota/engine";
+import { addDays, computeScores, percentiles, projectValue, teamInfo, type EngineInput, type EngineMatch } from "../src/lib/nota/engine";
 import { reasons } from "../src/lib/nota/explain";
 
 const asOf = "2026-10-28";
@@ -88,10 +88,12 @@ describe("computeScores", () => {
     expect(by("hurt").action).toBe("vender");
   });
 
-  it("proyecta el valor con el ritmo diario", () => {
+  it("proyecta el valor con el cambio de ayer, frenándose", () => {
     const s = by("star");
     expect(s.dailyRate).toBeCloseTo(0.03, 3);
-    expect(s.expected).toBe(Math.round((s.value * 1.03 ** 7) / 10_000) * 10_000);
+    expect(s.expected).toBe(Math.round(projectValue(s.value, 0.03, 7) / 10_000) * 10_000);
+    expect(s.expected).toBeLessThan(s.value * 1.03 ** 7); // frena
+    expect(s.expected).toBeGreaterThan(s.value * 1.03 ** 5);
     expect(s.maxBidSpec).toBeLessThan(s.expected);
     expect(s.maxBidSpec).toBeGreaterThan(s.value);
   });

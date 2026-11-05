@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Spinner } from "../_ui/Refresh";
 
-export default function LeagueRow({ id, name, plan, group, owner, money, raises, premium }: {
-  id: string; name: string; plan: boolean; group: boolean; owner: boolean; money: boolean; raises: boolean; premium: boolean;
+export default function LeagueRow({ id, name, plan, dinero, group, owner, money, raises, premium }: {
+  id: string; name: string; plan: boolean; dinero: boolean; group: boolean; owner: boolean; money: boolean; raises: boolean; premium: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -28,6 +28,12 @@ export default function LeagueRow({ id, name, plan, group, owner, money, raises,
           {busy === "dejar" && <Spinner />}Dejar de seguir
         </button>
       </div>
+      {plan && (
+        <label className="premium-toggle">
+          <input type="checkbox" checked={dinero} disabled={!!busy} onChange={() => act(dinero ? "dinero-off" : "dinero-on")} />
+          <span>Modo dinero <span className="small">(pujar por los que van a subir y vender a los que van a bajar)</span></span>
+        </label>
+      )}
       <label className="premium-toggle">
         <input type="checkbox" checked={premium} disabled={!!busy} onChange={() => act(premium ? "premium-off" : "premium-on")} />
         <span>Liga Premium <span className="small">(de pago: con capitán, banquillo y más formaciones)</span></span>

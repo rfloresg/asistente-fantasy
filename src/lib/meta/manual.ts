@@ -87,6 +87,7 @@ export const MANUAL: Tema[] = [
       { texto: "El valor sube con las compras masivas y baja con las ventas masivas." },
     ],
     consejos: [
+      "Medido con nuestros datos (nov 2026, 60 días): el cambio de valor de ayer se repite casi siempre al día siguiente (acierta si sube o baja 94 de cada 100 veces) y se va frenando poco a poco. Por eso el plan puja por los que ya suben y vende a los que ya bajan.",
       "Compra pronto a los que empiezan a subir: según AsesoríasFantasy, los 20 que más suben el tercer día de un parón acabaron por encima de ese valor en 79 de 80 casos.",
       "Busca rebotes: jugadores buenos que vuelven de una lesión larga con el valor en mínimos.",
       "Vende antes de que la comunidad lo hunda: una lesión de más de un mes provoca ventas masivas, así que vende rápido aunque sea algo por debajo del valor.",

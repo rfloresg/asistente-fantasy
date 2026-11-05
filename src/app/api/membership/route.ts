@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Entra primero en la web" }, { status: 401 });
   const { leagueId, action } = (await req.json().catch(() => ({}))) as { leagueId?: string; action?: string };
-  const ACTIONS = ["plan-on", "plan-off", "dejar", "money-on", "money-off", "raises-on", "raises-off", "premium-on", "premium-off"];
+  const ACTIONS = ["plan-on", "plan-off", "dejar", "money-on", "money-off", "raises-on", "raises-off", "premium-on", "premium-off", "dinero-on", "dinero-off"];
   if (!leagueId || !ACTIONS.includes(action ?? "")) return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
   const db = await getDb();
   if (action!.startsWith("money") || action!.startsWith("raises")) {
@@ -26,6 +26,10 @@ export async function POST(req: Request) {
     const [m] = await db.select().from(memberships).where(mine);
     if (!m) return NextResponse.json({ error: "No estás en esa liga" }, { status: 403 });
     await db.update(leagues).set({ premium: action === "premium-on" }).where(eq(leagues.leagueId, leagueId));
+    return NextResponse.json({ ok: true });
+  }
+  if (action!.startsWith("dinero")) {
+    await db.update(memberships).set({ dinero: action === "dinero-on" }).where(mine);
     return NextResponse.json({ ok: true });
   }
   if (action === "dejar") {
