@@ -16,7 +16,7 @@ import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin
 import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
-import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
+import { marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { sourcesText } from "../src/lib/onces/combine";
@@ -538,6 +538,7 @@ async function runPlan(
     };
   }), { captain: premium });
   const closeAt = nextMatchday(mts, now)?.close ?? null;
+  const phase = marketPhase(mts, now);
   // Lo que marcaste como hecho en la web en las últimas 48 h, y lo que ya tienes a la venta
   // Las claves de "Hecho" llevan delante el usuario (cada uno marca lo suyo)
   const prefix = doneKeyPrefix(user.userId);
@@ -547,7 +548,7 @@ async function runPlan(
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida

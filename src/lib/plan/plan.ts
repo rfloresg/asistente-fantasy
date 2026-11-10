@@ -7,6 +7,7 @@ import { RAISE_RATIO } from "@/lib/espia/money";
 import { impact, pts } from "./impact";
 import { isEmpty, lineupDisputes, type Lineup, type LineupPlayer } from "./lineup";
 import { sourcesText } from "@/lib/onces/combine";
+import { phaseLine, type MarketPhase, type PhaseKind } from "@/lib/meta/calendario";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -30,6 +31,33 @@ export const PLAN = {
   clauseMinGain: 1.2, // clausular para jugar: algo más, porque se paga al momento y suele ser más caro
   protectMinLoss: 0.5, // proteger: que tu once pierda al menos esto si te lo quitan
   sellMaxLoss: 0.5, // vender: solo si tu once pierde menos que esto
+  onSaleMax: 5, // "ponlos a la venta": como mucho estos nombres
+};
+
+// Cuánto especular según el momento. Medido con los valores de la 26/27 (comprando a los que suben y
+// pagando un 5 % de más): en el parón, comprar al principio o a mitad y vender la víspera de la vuelta
+// ganó un 50 % / 23 % de media (2 % en pérdida); en los últimos 4 días, -3 % (80 % en pérdida); con la
+// jornada en juego, +7 % pero un 16 % en pérdida; tras la jornada y entre semana, +7,5 % (4 % en pérdida).
+export const PHASE_SPEC: Record<PhaseKind, number> = {
+  "paron-inicio": 5,
+  "paron-mitad": 4,
+  "paron-final": 0,
+  "tras-jornada": 3,
+  semana: 3,
+  previa: 2,
+  jornada: 1,
+  cerrado: 0,
+};
+
+// Lo que toca en cada momento, para el aviso del plan (sin cifras del LLM: todo sale de aquí)
+const PHASE_TIPS: Partial<Record<PhaseKind, string>> = {
+  "paron-inicio": "Es el mejor momento para ganar dinero: los que empiezan a subir suelen seguir subiendo todo el parón (en el de septiembre, comprarlos al principio dio un 50 % de media hasta la vuelta). Sin jornada no hay protección automática de cláusulas: blinda o sube la de tus estrellas. Reclama la recompensa diaria, que en los parones suele subir.",
+  "paron-mitad": "Sigue siendo buen momento para especular con los que suben (en el de septiembre, a mitad de parón dio un 23 % de media hasta la vuelta). No vendas a tus titulares porque estén en rojo: en el parón casi todo baja un poco cada día y vuelven a puntuar en cuanto vuelve la liga. Reclama la recompensa diaria.",
+  "paron-final": "Ya no compres para vender antes de la vuelta: con lo que pagas de más no da tiempo (en septiembre, el 80 % de esas compras perdió dinero). Lo que compraste para especular, aguántalo mientras siga subiendo: el plan te dirá cuándo vender. Ficha ya pensando en la jornada y llega al cierre con saldo positivo.",
+  jornada: "Con la jornada en juego, no persigas al que acaba de hacer muchos puntos: es cuando más compras para especular salen mal (1 de cada 6).",
+  "tras-jornada": "Los valores se mueven con los puntos de la jornada: buen momento para vender a los que bajan y especular con los que empiezan a subir.",
+  previa: "Último día de mercado: saldo positivo antes del cierre (si no, no puntúas), once guardado y blindaje a tus estrellas con la cláusula abierta. Nunca uses la venta inmediata salvo para salir de números rojos: te dan solo el 50 % del valor.",
+  cerrado: "El mercado está cerrado hasta que empiece la jornada: solo queda revisar el once.",
 };
 
 export interface Score {
@@ -63,6 +91,8 @@ export interface PlanInput {
   positions?: Map<string, number>; // posición de cada jugador (para cubrir huecos con cláusulas de rivales)
   captain?: boolean; // liga Premium: hay capitán (puntúa doble)
   money?: boolean; // modo dinero (por defecto, sí)
+  phase?: MarketPhase | null; // en qué momento del ciclo estamos (parón, previa...)
+  onSale?: Set<string>; // tus jugadores que ya están a la venta
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -208,6 +238,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
   const left = new Map<number, number>();
   for (const pos of posOf.values()) left.set(pos, (left.get(pos) ?? 0) + 1);
   const moneyMode = i.money ?? true;
+  const phase = i.phase?.kind;
+  const maxSpec = phase ? PHASE_SPEC[phase] : PLAN.maxSpec;
   const drop = (x: Score | undefined) => (x?.expected !== undefined ? x.value - x.expected : 0);
   const falls = (x: Score | undefined) => moneyMode && !!x && drop(x) >= Math.max(PLAN.sellDropMin, x.value * PLAN.sellDrop);
   const ventas = mine
@@ -281,7 +313,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     for (const { m, s, g, play } of pujas) {
       if (done.has(m.id) || (onlyNeed && !needPos.has(m.playerMaster.positionId))) continue;
       const forPlay = play;
-      if (forPlay ? nPujas >= PLAN.maxPerType : nSpec >= PLAN.maxSpec) continue;
+      if (forPlay ? nPujas >= PLAN.maxPerType : nSpec >= maxSpec) continue;
       const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
       const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
       const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
@@ -386,7 +418,39 @@ export function dailyPlan(i: PlanInput): Accion[] {
     out.push({ tipo: "alinear", prioridad: 3, texto: lines.join("\n") });
   }
 
-  return out.sort((a, c) => a.prioridad - c.prioridad);
+  // 7. Ponlos a la venta: los que no alineas, no aportan a tu once y no están bajando. La liga hace una
+  //    oferta automática de entre -10 % y +10 % de su valor y decides tú: aceptas solo si es por encima.
+  if (moneyMode && phase !== "cerrado" && i.lineup) {
+    const selling = new Set(ventas.map(({ p }) => id(p)));
+    const inXi = new Set(i.lineup.starters.map((p) => p.id));
+    const spare = mine
+      .filter(({ p, s }) => s && !inXi.has(id(p)) && !selling.has(id(p)) && !i.onSale?.has(id(p)) && !falls(s))
+      .filter(({ p }) => { const l = lossOf(id(p)); return l !== null && l <= 0; })
+      .sort((a, c) => (c.s?.value ?? 0) - (a.s?.value ?? 0))
+      .slice(0, PLAN.onSaleMax);
+    if (spare.length) {
+      const names = spare.map(({ p }) => p.playerMaster.nickname);
+      out.push({
+        tipo: "aviso",
+        prioridad: 4,
+        titulo: "Pon a la venta a los que no alineas",
+        detalle: `${names.join(", ")}: no entran en tu once. Ponlos a la venta y acepta solo ofertas por encima de su valor (la liga ofrece cada día entre un 10 % menos y un 10 % más). Si no llega ninguna buena, no pasa nada: siguen siendo tuyos.`,
+        texto: `🏷️ Pon a la venta a ${names.map(b).join(", ")}: no entran en tu once. Acepta solo ofertas por encima de su valor (la liga ofrece cada día entre un 10 % menos y un 10 % más); si no llega ninguna buena, siguen siendo tuyos.`,
+      });
+    }
+  }
+
+  // 8. El momento: parón, previa, jornada en juego...
+  const line = phaseLine(i.phase ?? null);
+  const tip = phase ? PHASE_TIPS[phase] : undefined;
+  if (line && tip) {
+    const plain = line.replace(/^\S+\s/, "");
+    out.push({ tipo: "aviso", prioridad: 0, titulo: plain.split(":")[0], detalle: `${plain} ${tip}`, texto: `${line}\n${esc(tip)}` });
+  }
+
+  // Con el mercado cerrado no se puede fichar, vender ni tocar cláusulas: solo el once y los avisos
+  const shown = phase === "cerrado" ? out.filter((a) => a.tipo === "alinear" || a.tipo === "aviso" || a.tipo === "saldo") : out;
+  return shown.sort((a, c) => a.prioridad - c.prioridad);
 }
 
 // Prefijo de las claves de "Hecho" en la base de datos: cada usuario marca lo suyo (null = modo antiguo)

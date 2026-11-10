@@ -136,6 +136,53 @@ describe("modo dinero", () => {
   });
 });
 
+describe("plan según el momento", () => {
+  const m = (id: string, nick: string, price: number): MarketItem => ({ id: `m${id}`, salePrice: price, expirationDate: "", status: "on_sale", playerMaster: { id, nickname: nick, marketValue: price, positionId: 3, playerStatus: "ok" } });
+  const rising = (n: number) => Array.from({ length: n }, (_, k) => m(String(60 + k), `Sube${k}`, 2_000_000));
+  const sc = new Map(scores);
+  for (let k = 0; k < 6; k++) sc.set(String(60 + k), score(50, 2_000_000, { expected: 2_600_000, maxBidSpec: 2_500_000 }));
+  const phase = (kind: string) => ({ kind, week: 13, start: new Date("2026-11-20T21:00:00+01:00"), close: new Date("2026-11-19T21:00:00+01:00"), daysToStart: 9, paronDay: 3, paronDays: 12 }) as never;
+  const run = (kind: string) => dailyPlan({ now, myTeam, myMoney: 30_000_000, rivals: [], market: rising(6), scores: sc, phase: phase(kind) });
+  const specs = (p: ReturnType<typeof run>) => p.filter((a) => a.tipo === "pujar" && a.jugador?.startsWith("Sube")).length;
+
+  it("en el parón se especula más; al final del parón, nada", () => {
+    expect(specs(run("paron-inicio"))).toBe(5);
+    expect(specs(run("semana"))).toBe(3);
+    expect(specs(run("paron-final"))).toBe(0);
+  });
+  it("con el mercado cerrado no se puja ni se vende", () => {
+    const p = run("cerrado");
+    expect(p.some((a) => ["pujar", "vender", "clausulazo", "proteger"].includes(a.tipo))).toBe(false);
+  });
+  it("el aviso del momento va el primero", () => {
+    const p = run("paron-inicio");
+    expect(p[0].tipo).toBe("aviso");
+    expect(p[0].texto).toContain("Parón de selecciones (día 3 de 12)");
+    expect(p[0].texto).toContain("mejor momento para ganar dinero");
+  });
+});
+
+describe("ponlos a la venta", () => {
+  it("los que no entran en tu once y no bajan; no los que ya están a la venta", () => {
+    const team: Team = { id: "me", players: [tp("1", "Titular", 20_000_000), tp("7", "Banquillo", 2_000_000), tp("8", "YaEnVenta", 2_000_000)] };
+    const sc = new Map(scores).set("7", score(60, 2_000_000, { expected: 2_000_000 })).set("8", score(60, 2_000_000, { expected: 2_000_000 }));
+    const lineup = {
+      formation: "1-0-0-0", expected: 6, captain: null, captainId: null, holes: [], out: [],
+      starters: [{ id: "1", name: "Titular", positionId: 4, expected: 6, startProb: 90, status: "ok", nota: 80, value: 18_000_000 }],
+      all: [
+        { id: "1", name: "Titular", positionId: 4, expected: 6, startProb: 90, status: "ok", nota: 80, value: 18_000_000 },
+        { id: "7", name: "Banquillo", positionId: 4, expected: 1, startProb: 20, status: "ok", nota: 60, value: 2_000_000 },
+        { id: "8", name: "YaEnVenta", positionId: 4, expected: 1, startProb: 20, status: "ok", nota: 60, value: 2_000_000 },
+      ],
+    } as never;
+    const p = dailyPlan({ now, myTeam: team, myMoney: 5_000_000, rivals: [], market: [], scores: sc, lineup, onSale: new Set(["8"]) });
+    const a = p.find((x) => x.titulo === "Pon a la venta a los que no alineas")!;
+    expect(a.texto).toContain("Banquillo");
+    expect(a.texto).not.toContain("YaEnVenta");
+    expect(a.texto).not.toContain("Titular");
+  });
+});
+
 import { actionKey, applyDone, type Accion } from "../src/lib/plan/plan";
 
 describe("botón Hecho", () => {

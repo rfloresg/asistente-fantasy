@@ -139,7 +139,7 @@ describe("cláusulas", () => {
   });
 });
 
-import { metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
+import { marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { tema, TEMAS } from "../src/lib/meta/manual";
 
 describe("meta: calendario", () => {
@@ -161,6 +161,36 @@ describe("meta: calendario", () => {
     expect(metaAlerts(n, d("2026-11-03T10:00:00+01:00")).map((a) => a.key)).toEqual(["paron:12"]);
     expect(metaAlerts(n, d("2026-11-20T11:00:00+01:00")).map((a) => a.key)).toEqual(["cierre:12", "paron:12"]);
     expect(metaAlerts(n, d("2026-11-20T09:00:00+01:00")).map((a) => a.key)).toEqual(["paron:12"]);
+  });
+});
+
+describe("meta: fase del mercado", () => {
+  const d = (s: string) => new Date(s);
+  const m = (week: number, s: string) => ({ week, date: d(s) });
+  // J7 normal, parón de 19 días, J8 con un aplazado en diciembre que no debe esconder el parón
+  const mts = [
+    m(7, "2026-09-18T21:00:00+02:00"), m(7, "2026-09-20T21:00:00+02:00"),
+    m(8, "2026-10-09T21:00:00+02:00"), m(8, "2026-10-11T21:00:00+02:00"), m(8, "2026-12-09T20:00:00+01:00"),
+    m(9, "2026-10-16T21:00:00+02:00"), m(9, "2026-10-19T21:00:00+02:00"),
+    m(10, "2026-10-23T21:00:00+02:00"), m(10, "2026-10-26T21:00:00+02:00"),
+  ];
+  const at = (s: string) => marketPhase(mts, d(s));
+  it("el parón se ve aunque haya un aplazado, y por tramos", () => {
+    expect(at("2026-09-22T10:00:00+02:00")).toMatchObject({ kind: "paron-inicio", week: 8, paronDay: 2, paronDays: 19 });
+    expect(at("2026-10-01T10:00:00+02:00")?.kind).toBe("paron-mitad");
+    expect(at("2026-10-07T10:00:00+02:00")?.kind).toBe("paron-final");
+    expect(at("2026-10-08T22:00:00+02:00")?.kind).toBe("cerrado"); // 24 h antes
+  });
+  it("semana normal: tras la jornada, entre semana, previa y jornada en juego", () => {
+    expect(at("2026-10-20T10:00:00+02:00")?.kind).toBe("tras-jornada");
+    expect(at("2026-10-21T10:00:00+02:00")?.kind).toBe("semana");
+    expect(at("2026-10-22T12:00:00+02:00")?.kind).toBe("previa");
+    expect(at("2026-10-24T18:00:00+02:00")?.kind).toBe("jornada");
+  });
+  it("la próxima jornada no se estira por el aplazado", () => {
+    const n = nextMatchday(mts, d("2026-10-12T10:00:00+02:00"))!;
+    expect(n.week).toBe(9);
+    expect(n.paron).toBe(false);
   });
 });
 

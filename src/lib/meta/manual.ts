@@ -4,7 +4,7 @@
 
 export interface Fuente {
   nombre: string;
-  url: string;
+  url?: string; // sin url: datos propios
 }
 
 export interface Tema {
@@ -25,6 +25,11 @@ const F = {
   afClausulas: { nombre: "AsesoríasFantasy: estrategias de clausulazos", url: "https://asesoriasfantasy.com/estrategias-de-clausulazos-en-biwenger-y-fantasy-laliga-2025-26/" },
   afGuia: { nombre: "AsesoríasFantasy: guía LaLiga Fantasy 2026/27", url: "https://asesoriasfantasy.com/guia-fantasy-laliga-2026-27-consejos-trucos-y-estrategias-para-dominar-tu-liga/" },
   comuniate: { nombre: "Comuniate: trucos para una temporada perfecta", url: "https://www.comuniate.com/noticias/3048/trucos-para-lograr-una-temporada-perfecta" },
+  ayudaMercado: { nombre: "Ayuda de LALIGA Fantasy: cómo funciona el mercado", url: "https://laligafantasy.zendesk.com/hc/es/articles/115002401674--C%C3%B3mo-funciona-el-mercado-de-fichajes-de-LALIGA-FANTASY" },
+  ayudaVentaInmediata: { nombre: "Ayuda de LALIGA Fantasy: la venta inmediata", url: "https://laligafantasy.zendesk.com/hc/es/articles/115002390653--Qu%C3%A9-es-la-venta-inmediata-de-un-jugador-de-mi-plantilla" },
+  laligaRecompensa: { nombre: "LaLiga: más recompensa diaria en el parón (marzo 2026)", url: "https://www.laliga.com/en-GB/news/laliga-fantasy-boosts-rewards-during-the-international-break" },
+  comuniateParon: { nombre: "Comuniate: estrategia fantasy en parones internacionales", url: "https://www.comuniate.com/noticias/38319/estrategia-fantasy-en-parones-internacionales-analisis-de-probabilidades-gestion-del-presupuesto-y-control-de-varianza-en-laliga" },
+  datos: { nombre: "Medido por el Asistente con los valores de LaLiga Fantasy 26/27 (agosto-noviembre 2026)" },
 } satisfies Record<string, Fuente>;
 
 export const MANUAL: Tema[] = [
@@ -68,7 +73,10 @@ export const MANUAL: Tema[] = [
     reglas: [
       { texto: "Cada 24 horas salen 12 jugadores nuevos al mercado." },
       { texto: "Las pujas son ciegas: gana la más alta y, si empatan, la primera. La mínima es el valor de mercado." },
-      { texto: "Las ofertas entre mánagers duran 3 días y decide el dueño. La liga hace ofertas automáticas entre un -10 % y un +10 % del valor.", verificar: true },
+      { texto: "Tus jugadores a la venta están en el mercado 3 días como mucho y tú decides: aceptas o rechazas las ofertas de los rivales y la de la liga." },
+      { texto: "La liga hace ofertas automáticas por tus jugadores a la venta: un precio al azar entre un 10 % menos y un 10 % más de su valor." },
+      { texto: "Las pujas y ofertas tienen que ser como mínimo el valor de mercado; si empatan, gana la primera." },
+      { texto: "Venta inmediata: vendes al momento, pero por el 50 % del valor." },
       { texto: "El mercado cierra 24 horas antes de la jornada." },
       { texto: "No hay límite de fichajes: el límite es el saldo y la deuda máxima." },
     ],
@@ -77,8 +85,10 @@ export const MANUAL: Tema[] = [
       "El valor lo mueve la demanda de los mánagers, no solo el rendimiento: ficha antes de que la gente se entere (buena racha, hereda minutos por lesión del titular) y no cuando ya ha subido.",
       "Mira cuánto dinero tienen tus rivales antes de pujar: si nadie puede pagar más, no hace falta sobrepujar.",
       "Las ofertas automáticas de la liga sirven para vender rápido al valor; sale más a cuenta vender a otro mánager si alguien lo quiere.",
+      "Ten a la venta a los que no alineas: como decides tú, solo aceptas si la oferta (de la liga o de un rival) está por encima del valor. No pierdes nada por tenerlos a la venta.",
+      "No uses la venta inmediata salvo para salir de números rojos justo antes de la jornada: pierdes la mitad del valor.",
     ],
-    fuentes: [F.tracker, F.jpValor, F.comuniate],
+    fuentes: [F.ayudaMercado, F.ayudaVentaInmediata, F.tracker, F.jpValor, F.comuniate],
   },
   {
     id: "especular",
@@ -123,11 +133,34 @@ export const MANUAL: Tema[] = [
       { texto: "Sin jornada, el valor solo se mueve por compras y ventas, no por puntos." },
     ],
     consejos: [
-      "Al principio del parón suelen subir los jugadores con bombo o los que heredan minutos; en la última semana se frena o baja porque los especuladores venden.",
-      "Vende solo lo que compraste para especular y no vas a alinear. A un titular con minutos no lo vendas porque esté en rojo: se recompra caro.",
+      "Al principio del parón suben los jugadores con bombo, los que heredan minutos por una lesión y los que ya venían subiendo. Según AsesoríasFantasy, los 20 que más subían el tercer día acabaron por encima de ese valor en 79 de 80 casos.",
+      "Medido en el parón de septiembre de 2026 (19 días): comprar a los que subían pagando un 5 % de más dio un 50 % de media si comprabas en los primeros 4 días y vendías la víspera de la vuelta, y un 23 % si comprabas a mitad. Solo un 2 % de esas compras perdió dinero.",
+      "En los últimos 4 días ya no compensa comprar para vender antes de la vuelta: en septiembre, el 80 % de esas compras perdió dinero. Lo que compraste antes, aguántalo mientras siga subiendo: aguantar hasta pasada la jornada dio todavía más (64 % los comprados al principio).",
+      "En el parón casi todo baja un poco cada día (en septiembre, un 0,8 % de media y solo subía 1 de cada 4). No vendas a un titular con minutos porque esté en rojo: vuelve a puntuar en cuanto vuelve la liga y se recompra caro.",
+      "Vende solo lo que compraste para especular y no vas a alinear, y cuando deje de subir. Ojo al virus FIFA: una estrella que vuelve tocada de su selección baja rápido.",
       "En el parón no hay protección de cláusulas: blinda o sube la cláusula de tus estrellas, o asume el riesgo.",
+      "Reclama la recompensa diaria cada día: en algunos parones LaLiga la sube (en marzo de 2026, de 100.000 € a 500.000 € al día sin Premium).",
     ],
-    fuentes: [F.afParon, F.jpParon, F.jpValor],
+    fuentes: [F.datos, F.afParon, F.comuniateParon, F.jpParon, F.laligaRecompensa],
+  },
+  {
+    id: "momentos",
+    titulo: "Qué hacer en cada momento",
+    reglas: [
+      { texto: "El mercado y las cláusulas cierran 24 horas antes del primer partido de la jornada." },
+      { texto: "Para puntuar hay que empezar la jornada con saldo positivo y el once guardado." },
+      { texto: "El valor se actualiza una vez al día, de madrugada, con las compras, ventas y pujas del día anterior y el rendimiento.", verificar: true },
+    ],
+    consejos: [
+      "Tras la jornada (lunes y martes): los valores se mueven con los puntos. Vende a los que empiezan a bajar y especula con los que empiezan a subir; con nuestros datos, esas compras ganaron un 7,5 % en 3 días y solo un 4 % perdió.",
+      "Entre semana: lo mismo, y prepara el once de la jornada siguiente. Es el momento más tranquilo para pujar por quien te hace falta.",
+      "Último día de mercado (la víspera del cierre): saldo positivo, once guardado, blindaje a tus estrellas con la cláusula abierta y ojo a los clausulazos de última hora. Especula poco: lo que compres tiene que caberte en el saldo.",
+      "Mercado cerrado (las 24 h antes de la jornada): ya solo puedes cambiar el once. Mira los onces probables justo antes del primer partido.",
+      "Con la jornada en juego: no persigas al que acaba de hacer muchos puntos. Con nuestros datos, es cuando más compras para especular salen mal (1 de cada 6).",
+      "Parón: el mejor momento para ganar dinero al principio y a mitad; en los últimos días, prepara la vuelta (mira el tema del parón).",
+      "Lo que más se repite en todos los momentos: el cambio de valor de ayer sigue al día siguiente más de 9 de cada 10 veces. Por eso el plan compra a los que ya suben y vende a los que ya bajan.",
+    ],
+    fuentes: [F.datos, F.tracker, F.ayudaMercado, F.comuniate],
   },
   {
     id: "alineacion",
