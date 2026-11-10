@@ -120,14 +120,19 @@ export function fairBid(i: {
 const pctTxt = (x: number) => `${Math.round(x * 100)} %`;
 
 // "Con +4 % habrías superado 8 de cada 10 fichajes parecidos de tu liga (el que más paga de más: Jonix, +9 %)."
-export function fairBidText(f: FairBid, price?: number): string {
+export function fairBidText(f: FairBid, price?: number, paysBack?: string): string {
   if (f.noRival) return " Ningún rival tiene dinero para superarte: puja el mínimo.";
   const tens = Math.round(f.beats * 10);
   const bold = f.boldest && f.boldest.over > 0.005 ? ` El que más paga de más de los que pueden: ${f.boldest.manager} (+${pctTxt(f.boldest.over)} de media).` : "";
+  const back = paysBack ? ` ${paysBack}` : "";
+  const base = ` Puja justa: con +${pctTxt(f.over)} habrías superado ${tens} de cada 10 fichajes parecidos de tu liga.`;
   if (f.wanted && price) {
-    // Tu tope no llega a lo que se suele pagar en tu liga: decirlo claro
+    // Tu tope no llega a lo que haría falta para asegurarlo
     const M = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
-    return ` Ojo: con tu tope tienes pocas opciones (habrías superado ${tens} de cada 10 fichajes parecidos de tu liga). Para llevártelo con seguridad haría falta unos ${M(f.wanted)} (+${pctTxt(f.wanted / price - 1)}), y por lo que te da no compensa.${bold}`;
+    const sure = `para asegurarlo haría falta unos ${M(f.wanted)} (+${pctTxt(f.wanted / price - 1)}), más de lo que te compensa`;
+    return f.beats >= 0.6
+      ? `${base}${back} No lo subas más: ${sure}.${bold}`
+      : ` Ojo: con tu tope tienes pocas opciones (habrías superado ${tens} de cada 10 fichajes parecidos de tu liga): ${sure}.${back}${bold}`;
   }
-  return ` Puja justa: con +${pctTxt(f.over)} habrías superado ${tens} de cada 10 fichajes parecidos de tu liga.${bold}`;
+  return `${base}${back}${bold}`;
 }

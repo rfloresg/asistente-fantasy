@@ -39,7 +39,9 @@ describe("ofertas recibidas", () => {
   });
   it("si va a bajar, vale aceptar al valor", () => {
     const sc = new Map(scores).set("s", score(5e6, { expected: 4.5e6, xp: 1 }));
-    expect(plan([["s", 5e6]], sc).find((x) => x.playerId === "s")?.texto).toContain("va a bajar");
+    const t = plan([["s", 5e6]], sc).find((x) => x.playerId === "s")?.texto ?? "";
+    expect(t).toContain("+0 % sobre lo que vale, y va a bajar");
+    expect(t).not.toContain(": y");
   });
   it("por uno clave: solo si es muy buena, y como aviso para pensarlo", () => {
     expect(plan([["k", 5.4e6]]).filter((x) => x.playerId === "k").map((x) => x.titulo)).toEqual([]);

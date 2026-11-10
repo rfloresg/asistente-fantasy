@@ -41,7 +41,9 @@ describe("puja justa", () => {
     const capped = fairBid({ price: 5e6, hasBids: true, cap: 5.3e6, history, rivals, now })!;
     expect(capped.bid).toBe(5.3e6);
     expect(capped.wanted).toBeGreaterThan(5.3e6);
-    expect(fairBidText(capped, 5e6)).toContain("con tu tope tienes pocas opciones");
+    const t = fairBidText(capped, 5e6);
+    expect(t).toMatch(/pocas opciones|No lo subas más/);
+    expect(t).toContain("para asegurarlo haría falta");
     expect(fairBid({ price: 5e6, hasBids: false, cap: 8e6, history: history.slice(0, 3), rivals, now })).toBeNull();
     // fichajes de jugadores de otro precio no cuentan
     expect(fairBid({ price: 40e6, hasBids: false, cap: 50e6, history, rivals: rivals.map((r) => ({ ...r, money: 100e6 })), now })).toBeNull();
@@ -71,5 +73,16 @@ describe("tope para jugar según lo que te da", () => {
     expect(playCap(7e6, 7.31e6, null)).toEqual({ cap: 7.31e6, byPoints: false });
     // nunca más de un 50 % sobre el valor
     expect(playCap(2e6, 2.1e6, 3).cap).toBe(3e6);
+  });
+});
+
+describe("texto de la puja con tope", () => {
+  const f = { bid: 5.3e6, over: 0.06, beats: 0.3, n: 8, boldest: null, noRival: false, wanted: 6e6 };
+  it("con pocas opciones lo dice; con 7 de 10, no", () => {
+    expect(fairBidText(f, 5e6)).toContain("pocas opciones (habrías superado 3 de cada 10");
+    const ok = fairBidText({ ...f, beats: 0.7 }, 5e6, "Pagar de más compensa: x.");
+    expect(ok).toContain("habrías superado 7 de cada 10");
+    expect(ok).toContain("No lo subas más");
+    expect(ok).not.toContain("pocas opciones");
   });
 });

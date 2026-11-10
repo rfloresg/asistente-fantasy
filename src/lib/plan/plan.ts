@@ -355,9 +355,9 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para ganar dinero: esperamos que valga ${M(s!.expected ?? s!.maxBidSpec!)} en 7 días${s!.expected ? ` (${s!.expected >= m.salePrice ? "+" : ""}${Math.round(((s!.expected - m.salePrice) / m.salePrice) * 100)} % sobre lo que pide)` : ""}. Véndelo cuando deje de subir`;
       const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
       const paysBack = pc?.byPoints && g !== null && bid > s!.maxBidPlay
-        ? ` En tu liga se paga caro, pero compensa: con +${pts(g)} por jornada te devuelve unos ${M(g * PLAN.pointMoney * PLAN.holdJornadas)} en ${PLAN.holdJornadas} jornadas.`
+        ? `Pagar de más compensa: con +${pts(g)} por jornada te devuelve unos ${M(g * PLAN.pointMoney * PLAN.holdJornadas)} en ${PLAN.holdJornadas} jornadas.`
         : "";
-      const fairTxt = (fair ? fairBidText(fair, m.salePrice) : noRival ? " Ningún rival tiene dinero para superarte." : "") + paysBack;
+      const fairTxt = fair ? fairBidText(fair, m.salePrice, paysBack) : (noRival ? " Ningún rival tiene dinero para superarte." : "") + (paysBack ? ` ${paysBack}` : "");
       out.push({
         tipo: "pujar",
         prioridad: 3,
@@ -460,7 +460,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     const pctTxt = `${over >= 0 ? "+" : ""}${Math.round(over * 100)} %`;
     const many = offs.length > 1 ? ` (la mejor de ${offs.length})` : "";
     if (!key && (over >= PLAN.acceptOver || (falls(s) && over >= PLAN.acceptFalling))) {
-      const why = over >= PLAN.acceptOver ? `${pctTxt} sobre lo que vale` : `y va a bajar: esperamos que valga ${M(s.expected!)} en 7 días`;
+      const why = over >= PLAN.acceptOver ? `${pctTxt} sobre lo que vale` : `${pctTxt} sobre lo que vale, y va a bajar (esperamos que valga ${M(s.expected!)} en 7 días)`;
       out.push({
         tipo: "vender", prioridad: 2, jugador: name, playerId: pid, oferta: true,
         titulo: `Acepta la oferta por ${name}`,
