@@ -26,7 +26,8 @@ import { doneKeyPrefix } from "../src/lib/plan/plan";
 import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
 import { clauseRaises, estimateTeamMoney, netByManager, parseMoney, START_MONEY } from "../src/lib/espia/money";
-import { pack, sendMessage } from "../src/lib/espia/telegram";
+import { pack, sendMessage, type UrlButton } from "../src/lib/espia/telegram";
+import { APP_URL } from "../src/lib/grupo";
 
 const mode = process.argv[2] ?? "eventos";
 const MAX_AGE_H = 48; // actividad más vieja no se avisa
@@ -53,13 +54,16 @@ async function buildCtx(db: Db, standing: Awaited<ReturnType<ReturnType<typeof l
   return { managers, players: playersMap, valueOn: (id, day) => byKey.get(`${id}|${day}`) };
 }
 
-async function send(chatId: string | undefined, messages: string[]) {
+async function send(chatId: string | undefined, messages: string[], buttons: UrlButton[][] = []) {
   if (mode === "preview" || !chatId) {
     for (const m of messages) console.log(`\n${m.replace(/<\/?b>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")}`);
     return;
   }
-  for (const m of messages) await sendMessage(chatId, m);
+  for (const [i, m] of messages.entries()) await sendMessage(chatId, m, i === messages.length - 1 ? buttons : []);
 }
+
+// Debajo del plan privado: abrirlo en la app (en Android abre la app instalada; si no, la web)
+const appButton: UrlButton[][] = [[{ text: "📱 Abrir en la app", url: `${APP_URL}/` }]];
 
 // "018477470:-5110647810,018218984:-100123" -> [{ leagueId, chatId }]
 export function parseLeagues(env: NodeJS.ProcessEnv): { leagueId: string; chatId?: string }[] {
@@ -572,7 +576,7 @@ async function runPlan(
     console.log(`\n== Plan (privado) de ${leagueName}${user.userId !== null ? ` · usuario ${user.userId}` : ""}${chat ? "" : " · sin chat privado no se envía"}`);
     await send(undefined, pack(text.split("\n")));
   } else {
-    await send(chat, pack(text.split("\n")));
+    await send(chat, pack(text.split("\n")), appButton);
   }
   if (mode !== "preview") {
     await db.insert(espiaPlans).values({ userId: user.userId, leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null, closeAt, lineup: lineupSnap, liga: ligaSnap });

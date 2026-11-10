@@ -10,6 +10,9 @@ import { users } from "@/db/schema";
 import { touch } from "@/lib/actividad";
 
 export const USER_COOKIE = "fa_user";
+// Un año; el middleware la renueva cada día que entras, así que solo se entra una vez
+export const USER_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+export const USER_COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: USER_COOKIE_MAX_AGE };
 
 const sign = (v: string) => crypto.createHmac("sha256", process.env.SESSION_KEY ?? "dev").update(v).digest("base64url");
 export const userCookieValue = (userId: number) => `${userId}.${sign(String(userId))}`;

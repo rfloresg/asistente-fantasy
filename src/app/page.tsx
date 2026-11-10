@@ -10,6 +10,7 @@ import { currentLeague, latestPlan } from "@/lib/ligas";
 import type { LineupSnapshot } from "@/lib/plan/snapshot";
 import Refresh, { DoneButton } from "./_ui/Refresh";
 import Welcome from "./_ui/Welcome";
+import InstalarApp from "./_ui/InstalarApp";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,7 @@ export default async function Hoy() {
           <p className="lead">
             {close ? "Esto es lo que te toca hacer antes de que cierre, de lo más urgente a lo que puede esperar." : "Esto es lo que te toca hacer, de lo más urgente a lo que puede esperar."}
           </p>
+          {!viewing && <InstalarApp />}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
           <dl className="stats">

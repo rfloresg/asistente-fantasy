@@ -28,13 +28,22 @@ async function validUser(raw: string | undefined) {
 }
 
 // Páginas y llamadas que no piden entrar: la entrada, el login con Telegram y el bot
-const PUBLIC = ["/login", "/privacidad", "/api/login", "/api/auth/telegram", "/api/auth/bot", "/api/telegram", "/api/salir"];
+const PUBLIC = ["/login", "/privacidad", "/api/login", "/api/auth/telegram", "/api/auth/bot", "/api/auth/codigo", "/api/telegram", "/api/salir"];
 
 export async function middleware(req: NextRequest) {
   if (!process.env.APP_PASSWORD && !process.env.SESSION_KEY) return NextResponse.next(); // local, sin nada configurado
   const { pathname } = req.nextUrl;
   if (PUBLIC.includes(pathname)) return NextResponse.next();
-  if (await validUser(req.cookies.get("fa_user")?.value)) return NextResponse.next();
+  const raw = req.cookies.get("fa_user")?.value;
+  if (await validUser(raw)) {
+    // Sesión deslizante: al abrir una página se renueva otro año (una vez al día basta: lo marca fa_vivo)
+    const res = NextResponse.next();
+    if (!pathname.startsWith("/api/") && !req.cookies.get("fa_vivo")) {
+      res.cookies.set("fa_user", raw!, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+      res.cookies.set("fa_vivo", "1", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 });
+    }
+    return res;
+  }
   if (process.env.APP_PASSWORD && req.cookies.get(COOKIE)?.value === (await expectedCookie())) return NextResponse.next();
   if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Inicia sesión" }, { status: 401 });
   const url = req.nextUrl.clone();

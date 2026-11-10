@@ -2,7 +2,8 @@
 // Todo empieza en el bot de Telegram; la web es para verlo con calma.
 import { getDb } from "@/db";
 import { seats } from "@/lib/plazas";
-import TelegramButton from "./TelegramButton";
+import EntrarTelegram from "../_ui/EntrarTelegram";
+import InstalarApp from "../_ui/InstalarApp";
 
 type Search = Promise<Record<string, string | undefined>>;
 
@@ -34,10 +35,17 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
               <a className="primary" href={botUrl}>{full ? "Apuntarme a la lista" : "Empezar en Telegram"}</a>
               <span className="small">Gratis · 1 minuto · sin contraseñas nuevas</span>
             </div>
+          ) : null}
+          {bot ? (
+            <div className="land-login">
+              <span className="small">¿Ya lo usas?</span>
+              <EntrarTelegram next={next} label="Entrar con Telegram" className="secondary" />
+            </div>
           ) : <p className="bad">Falta TELEGRAM_BOT_USERNAME en Vercel.</p>}
           {q.error === "telegram" && <p className="bad">Telegram no ha confirmado la entrada. Vuelve a probar.</p>}
           {q.borrada && <p className="notice ok">Tu cuenta está borrada. Si vuelves, empiezas de cero.</p>}
-          {q.error === "enlace" && <p className="bad">Ese enlace ha caducado. Escribe /web al bot y te mando otro.</p>}
+          {q.error === "enlace" && <p className="bad">Ese enlace ha caducado. Pulsa «Entrar con Telegram».</p>}
+          <InstalarApp />
           <ul className="trust">
             <li>Tu contraseña la escribes en LaLiga, nunca aquí</li>
             <li>Solo lee: nunca ficha ni vende por ti</li>
@@ -73,13 +81,6 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
       </section>
 
       <section className="land-section land-foot">
-        <details>
-          <summary className="small">¿Ya tienes cuenta y estás en el ordenador? Entra con Telegram</summary>
-          <div style={{ marginTop: 12 }}>
-            {bot && <TelegramButton bot={bot} next={next} />}
-            <p className="small">En el móvil, escribe <code>/web</code> al bot y te da un enlace.</p>
-          </div>
-        </details>
         {process.env.APP_PASSWORD && (
           <details style={{ marginTop: 12 }}>
             <summary className="small">Entrar como administrador</summary>

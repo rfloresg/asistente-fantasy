@@ -15,6 +15,7 @@ import { APP_URL, botLoginUrl } from "@/lib/grupo";
 import { activateGroup, activatedText, telegramLeagues } from "@/lib/grupo-activar";
 import { canJoin, seats } from "@/lib/plazas";
 import { userForTelegram } from "@/lib/users";
+import { approveCode, CODE_PREFIX } from "@/lib/login-code";
 
 type From = { id: number; first_name?: string; last_name?: string; username?: string };
 type Chat = { id: number; type: string; title?: string };
@@ -143,6 +144,13 @@ export async function POST(req: Request) {
       if (cq.data === "opinion" && msg?.chat.type === "private") {
         await tg("answerCallbackQuery", { callback_query_id: cq.id });
         await askOpinion(msg.chat.id);
+      } else if (cq.data?.startsWith("entrar:") && msg?.chat.type === "private") {
+        // "Sí, soy yo": la web o la app que está esperando entra sola
+        const ok = await approveCode(db, cq.data.slice(7), String(cq.from.id), nameOf(cq.from));
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+        await edit(msg.chat.id, msg.message_id, ok
+          ? "✅ <b>¡Dentro!</b> Vuelve a la app (o a la web): ya estás en tu plan. No hace falta repetirlo, se acuerda de ti."
+          : "⌛ Este botón ha caducado. Vuelve a la app y pulsa <b>Entrar con Telegram</b> otra vez.");
       } else if (cq.data === "conectar" && msg?.chat.type === "private") {
         await tg("answerCallbackQuery", { callback_query_id: cq.id });
         await start(db, msg.chat.id, cq.from, true);
@@ -201,6 +209,11 @@ export async function POST(req: Request) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
           await reply(m.chat.id, `❌ ${esc(msg)}`, [[{ text: "🔐 Volver a intentarlo", callback_data: "conectar" }]]);
         }
+      } else if (startArg.startsWith(CODE_PREFIX)) {
+        // Viene del botón "Entrar con Telegram" de la web o la app: confirmar antes, por si alguien le pasó el enlace
+        await reply(m.chat.id,
+          "🔑 <b>¿Entras en el Asistente Fantasy?</b>\nPulsa el botón solo si lo acabas de pedir tú desde la app o la web.",
+          [[{ text: "✅ Sí, soy yo: entrar", callback_data: `entrar:${startArg.slice(CODE_PREFIX.length)}` }]]);
       } else if (cmd === "/web" || startArg === "web") {
         await reply(m.chat.id, "🌐 Tu enlace para entrar en la web. Es solo tuyo y vale 15 minutos.", [[webButton(m.chat.id, m.from)]]);
       } else if (cmd === "/conectar" || startArg === "conectar") {

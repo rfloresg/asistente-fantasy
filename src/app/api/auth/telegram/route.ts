@@ -2,11 +2,10 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { COOKIE, expectedCookie } from "@/middleware";
-import { USER_COOKIE, userCookieValue } from "@/lib/session";
+import { USER_COOKIE, USER_COOKIE_OPTS as COOKIE_OPTS, userCookieValue } from "@/lib/session";
 import { verifyTelegramLogin } from "@/lib/telegram-auth";
 import { userForTelegram } from "@/lib/users";
 
-const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: 60 * 60 * 24 * 90 };
 
 export async function GET(req: Request) {
   const url = new URL(req.url);

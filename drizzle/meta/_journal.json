@@ -134,6 +134,13 @@
       "when": 1793875421356,
       "tag": "0018_modo_dinero",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794306070868,
+      "tag": "0019_entrar_con_codigo",
+      "breakpoints": true
     }
   ]
 }

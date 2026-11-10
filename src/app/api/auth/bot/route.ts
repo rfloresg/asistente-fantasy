@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { checkBotLogin } from "@/lib/grupo";
 import { userForTelegram } from "@/lib/users";
 import { COOKIE, expectedCookie } from "@/middleware";
-import { USER_COOKIE, userCookieValue } from "@/lib/session";
+import { USER_COOKIE, USER_COOKIE_OPTS, userCookieValue } from "@/lib/session";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -17,6 +17,6 @@ export async function GET(req: Request) {
   const isAdminNow = !!process.env.APP_PASSWORD && (req.headers.get("cookie") ?? "").includes(`${COOKIE}=${await expectedCookie()}`);
   const user = await userForTelegram(db, g("tg"), g("n"), isAdminNow);
   const res = NextResponse.redirect(new URL(next, url), 303);
-  res.cookies.set(USER_COOKIE, userCookieValue(user.id), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 90 });
+  res.cookies.set(USER_COOKIE, userCookieValue(user.id), USER_COOKIE_OPTS);
   return res;
 }

@@ -6,11 +6,16 @@ const api = (method: string) => {
   return `https://api.telegram.org/bot${token}/${method}`;
 };
 
-export async function sendMessage(chatId: string, html: string) {
+export type UrlButton = { text: string; url: string };
+
+export async function sendMessage(chatId: string, html: string, buttons: UrlButton[][] = []) {
   const res = await fetch(api("sendMessage"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: html, parse_mode: "HTML", disable_web_page_preview: true }),
+    body: JSON.stringify({
+      chat_id: chatId, text: html, parse_mode: "HTML", disable_web_page_preview: true,
+      ...(buttons.length ? { reply_markup: { inline_keyboard: buttons } } : {}),
+    }),
   });
   const body = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
   if (!body.ok) throw new Error(`Telegram: ${body.description ?? res.status}`);

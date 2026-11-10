@@ -307,6 +307,16 @@ export const activity = pgTable("activity", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
+// Entrar en la web o en la app con un toque: la página crea un código, el bot lo confirma y la página
+// (que va preguntando) recibe la sesión. Caduca a los 10 minutos y sirve una sola vez.
+export const loginCodes = pgTable("login_codes", {
+  code: text("code").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  telegramId: text("telegram_id"),
+  name: text("name"),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+});
+
 export const ingestRuns = pgTable("ingest_runs", {
   id: serial("id").primaryKey(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
