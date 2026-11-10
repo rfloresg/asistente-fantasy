@@ -613,3 +613,64 @@ h1 .gold { color: var(--yellow); text-shadow: var(--glow-gold); }
 .dl-card { margin-top: 18px; padding: 20px; }
 .dl-card h2 { margin: 0 0 10px; }
 .dl-card .primary { display: inline-block; text-decoration: none; }
+
+/* ---------- Tema claro (Cuenta → Tema). Mismas variables; lo que estaba fijo para la noche, aquí. ---------- */
+html[data-theme="claro"] {
+  color-scheme: light;
+  --bg: #F4F6F2;
+  --bg-2: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: #EEF2EC;
+  --surface-solid: #FFFFFF;
+  --ink: #0D1A11;
+  --ink-2: #33423A;
+  --muted: #5D6B62;
+  --line: rgba(13, 26, 17, .10);
+  --line-strong: rgba(13, 26, 17, .22);
+  --pitch: #0B8A4A;          /* verde que se lee sobre blanco */
+  --pitch-deep: #DDF3E6;
+  --yellow: #9A6300;         /* dorado oscuro */
+  --azul: #2F5FD0;
+  --roja: #D12C21;
+  --roja-t: #C0271D;
+  --verde: #0B8A4A;
+  --ambar: #9A6300;
+  --ambar-t: #9A6300;
+  --up: #0B8A4A;
+  --down: #C0271D;
+  --glow-green: 0 2px 10px rgba(11, 138, 74, .18);
+  --glow-gold: 0 2px 10px rgba(154, 99, 0, .18);
+}
+html[data-theme="claro"] body {
+  background:
+    radial-gradient(70% 40% at 50% -10%, rgba(11, 138, 74, .07), transparent 70%),
+    linear-gradient(180deg, #F7F9F5 0%, #F1F4EF 100%);
+  background-attachment: fixed;
+}
+html[data-theme="claro"] body::before { display: none; }
+html[data-theme="claro"] a { text-decoration-color: rgba(13, 26, 17, .3); }
+html[data-theme="claro"] .top { background: rgba(247, 249, 245, .88); }
+html[data-theme="claro"] .card,
+html[data-theme="claro"] .wrap,
+html[data-theme="claro"] .empty { box-shadow: 0 1px 2px rgba(13, 26, 17, .05), 0 6px 20px rgba(13, 26, 17, .05); }
+html[data-theme="claro"] tbody tr:hover td { background: rgba(13, 26, 17, .03); }
+/* Botones verdes: texto blanco sobre el verde oscuro */
+html[data-theme="claro"] .primary, html[data-theme="claro"] .primary:hover,
+html[data-theme="claro"] .filters button, html[data-theme="claro"] .ask button,
+html[data-theme="claro"] .seg a[aria-current="page"], html[data-theme="claro"] .msg.user .bubble,
+html[data-theme="claro"] .done-btn .chip:hover, html[data-theme="claro"] .upload::after,
+html[data-theme="claro"] .toast { color: #fff; }
+html[data-theme="claro"] .primary:hover { box-shadow: 0 4px 16px rgba(11, 138, 74, .3); }
+/* El campo de la alineación sigue siendo de noche: dentro, colores de noche */
+html[data-theme="claro"] .pitch { --ink: #F2F6EF; --ink-2: #C9D3CB; --muted: #A9B6AD; --pitch: #3DEB8C; --yellow: #F5C02A; }
+html[data-theme="claro"] .player:hover { color: #fff; }
+@media (max-width: 760px) {
+  html[data-theme="claro"] .top { background: rgba(247, 249, 245, .97); }
+  html[data-theme="claro"] .nav { background: rgba(255, 255, 255, .94); box-shadow: 0 8px 30px rgba(13, 26, 17, .15); }
+  html[data-theme="claro"] .nav a[aria-current="page"] { background: rgba(11, 138, 74, .12); }
+}
+/* Selector de tema en Cuenta */
+.seg.tema { display: inline-flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.seg.tema button { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; min-height: 44px; }
+.seg.tema button[aria-pressed="true"] { background: var(--pitch); color: #fff; }
+html:not([data-theme="claro"]) .seg.tema button[aria-pressed="true"] { color: #04110A; }

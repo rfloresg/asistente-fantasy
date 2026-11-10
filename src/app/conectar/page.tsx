@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session";
 import Link from "next/link";
 import Connect from "./Connect";
 import DeleteAccount from "./DeleteAccount";
+import { currentTheme } from "@/lib/tema";
 import LeagueRow from "./LeagueRow";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ const madrid = (d: Date) => d.toLocaleString("es-ES", { timeZone: "Europe/Madrid
 
 export default async function Conectar() {
   const user = await requireUser("/conectar");
+  const theme = await currentTheme();
   const db = await getDb();
   const [session] = await db.select().from(laligaSessions).where(eq(laligaSessions.userId, user.id));
   const mine = await db.select({ id: leagues.leagueId, name: leagues.name, plan: memberships.plan, dinero: memberships.dinero, group: leagues.groupChatId, owner: leagues.groupOwnerId, money: leagues.showMoney, raises: leagues.showRaises, premium: leagues.premium })
@@ -75,6 +77,11 @@ export default async function Conectar() {
             <button type="submit" className="chip">Salir</button>
           </form>
           {user.isAdmin && <p style={{ marginTop: 20 }}><Link href="/admin" className="chip">Administración</Link></p>}
+          <h2 style={{ marginTop: 28 }}>Tema</h2>
+          <form action="/api/tema" method="post" className="seg tema" aria-label="Tema de la app">
+            <button type="submit" name="tema" value="oscuro" aria-pressed={theme === "oscuro"}>🌙 Oscuro</button>
+            <button type="submit" name="tema" value="claro" aria-pressed={theme === "claro"}>☀️ Claro</button>
+          </form>
           <p className="small" style={{ marginTop: 20 }}><Link href="/privacidad">Qué datos guardamos</Link></p>
           <DeleteAccount admin={user.isAdmin} />
         </aside>

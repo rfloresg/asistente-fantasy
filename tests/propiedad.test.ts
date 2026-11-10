@@ -24,9 +24,16 @@ describe("de quién es y qué hacer", () => {
   });
   it("libre: la nota decide, y se ve si está en venta", () => {
     expect(advice(ownerOf(liga, "30"), "fichar", [], "30")).toMatchObject({ label: "En venta · Fichar", bid: true });
-    expect(advice(ownerOf(liga, "40"), "fichar", [], "40").label).toBe("Fichar");
+    // libre pero hoy no está en tu mercado: aún no se puede fichar
+    expect(advice(ownerOf(liga, "40"), "fichar", [], "40")).toMatchObject({ label: "Buen fichaje si sale", bid: false });
     expect(advice(ownerOf(liga, "40"), "mantener", [], "40").label).toBe("Sin prisa");
     expect(advice(ownerOf(liga, "40"), "vender", [], "40").label).toBe("No fichar"); // no es tuyo: no se vende, no se ficha
+  });
+  it("lo vende un rival en tu mercado: se puede fichar", () => {
+    const l = { ...liga, market: [...(liga.market ?? []), { id: "20", price: 1 }] };
+    const owner = ownerOf(l, "20");
+    if (owner?.kind === "rival") expect(advice(owner, "fichar", [], "20").label).toMatch(/^Lo vende .* · Fichar$/);
+    else expect(owner?.kind).toBe("rival");
   });
   it("sin datos de la liga, como antes", () => {
     expect(ownerOf({ ...liga, owners: undefined }, "10")).toBeNull();

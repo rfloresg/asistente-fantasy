@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { currentTheme } from "@/lib/tema";
 import { currentLeague } from "@/lib/ligas";
 import { LeagueSwitch, Nav } from "./_ui/Nav";
 import InstallSW from "./_ui/InstallSW";
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Fantasy", statusBarStyle: "black-translucent" },
 };
 
-export const viewport: Viewport = { themeColor: "#060A07", width: "device-width", initialScale: 1 };
+export async function generateViewport(): Promise<Viewport> {
+  // La barra del móvil del color del tema
+  return { themeColor: (await currentTheme()) === "claro" ? "#F4F6F2" : "#060A07", width: "device-width", initialScale: 1 };
+}
 
 async function safeLeagues() {
   try {
@@ -27,9 +31,9 @@ async function safeLeagues() {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { all, current, viewing } = await safeLeagues();
+  const [{ all, current, viewing }, theme] = await Promise.all([safeLeagues(), currentTheme()]);
   return (
-    <html lang="es" className={`${archivo.variable} ${mono.variable}`}>
+    <html lang="es" data-theme={theme} className={`${archivo.variable} ${mono.variable}`}>
       <body>
         <header className="top">
           <div className="top-in">

@@ -1,10 +1,10 @@
-// Mercado: todos los jugadores con su Nota Fantasy del día.
+// Mercado: por defecto, lo que está hoy a la venta en tu liga; con el filtro, todos los jugadores.
 
 import Link from "next/link";
 import AutoForm from "../_ui/AutoForm";
 import { money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
-import { advice, myPlayerIds, ownerOf } from "@/lib/propiedad";
+import { advice, marketIds, myPlayerIds, ownerOf } from "@/lib/propiedad";
 import { lastRun, market, type Order } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -14,30 +14,38 @@ type Search = Promise<Record<string, string | undefined>>;
 export default async function Mercado({ searchParams }: { searchParams: Search }) {
   const q = await searchParams;
   const pos = Number(q.pos) || undefined;
-  const action = q.accion || undefined;
   const order = (["nota", "forma", "tendencia", "valor"].includes(q.orden ?? "") ? q.orden : "nota") as Order;
   const maxValue = Number(q.max) ? Number(q.max) * 1e6 : undefined;
 
   const { current, user } = await currentLeague();
   const plan = current ? await latestPlan(current.id, user?.id) : null;
   const mine = myPlayerIds(plan?.liga); // null = sin datos de tu liga
+  const onMarket = marketIds(plan?.liga);
+  // Al entrar, lo que de verdad puedes fichar hoy; "todos" para ver la clasificación completa
+  const action = q.accion === "todos" ? undefined : q.accion || (onMarket ? "enventa" : undefined);
   // "¿Qué buscas?": con los datos de tu liga, mira si el jugador es tuyo
   const base = { pos, order, maxValue };
   const filter =
     action === "mios" || action === "vender" ? (mine ? { ...base, ids: mine } : { ...base, action: action === "vender" ? "vender" : undefined })
     : action === "fichar" ? { ...base, action: "fichar", excludeIds: mine ?? undefined }
     : action === "nofichar" ? { ...base, action: "vender", excludeIds: mine ?? undefined }
+    : action === "enventa" && onMarket ? { ...base, ids: onMarket }
     : base;
   const [run, { day, rows: all }] = await Promise.all([lastRun(), market(filter, action === "mios" || action === "vender" ? 40 : 60)]);
   const withAdvice = all.map((r) => ({ ...r, adv: advice(ownerOf(plan?.liga, String(r.id)), r.s.action, plan?.acciones ?? [], String(r.id)) }));
   const rows = action === "vender" && mine ? withAdvice.filter((r) => r.adv.label.includes("Vender")) : withAdvice;
   const empty =
-    action === "vender" ? "Ninguno de tus jugadores está para vender hoy." : action === "mios" && !mine ? "Aún no sé qué jugadores tienes: llega con tu próximo plan." : "Nadie con esos filtros.";
+    action === "enventa" ? "Hoy no hay nadie a la venta con esos filtros."
+    : action === "vender" ? "Ninguno de tus jugadores está para vender hoy." : action === "mios" && !mine ? "Aún no sé qué jugadores tienes: llega con tu próximo plan." : "Nadie con esos filtros.";
 
   return (
     <main>
       <h1>Mercado</h1>
-      <p className="lead">Todos los jugadores con su nota de hoy{plan?.liga?.owners ? ` y de quién son en ${plan.leagueName}` : ""}. Filtra por puesto, consejo o precio.</p>
+      <p className="lead">
+        {action === "enventa"
+          ? `Lo que está a la venta hoy en ${plan?.leagueName ?? "tu liga"}, con su nota. Para ver a todos los jugadores de LaLiga, cambia el filtro a «Todos los jugadores».`
+          : `Todos los jugadores de LaLiga con su nota de hoy${plan?.liga?.owners ? ` y de quién son en ${plan.leagueName}` : ""}. Solo puedes fichar a los que salen a la venta en tu liga.`}
+      </p>
       <p className="muted">
         {run ? `Datos: ${fmtDate(run.startedAt)} · ${run.ok ? "correctos" : "con fallos"}` : "Aún no hay datos de los jugadores."}
         {day ? ` · Notas del ${new Date(`${day}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : " · Aún sin notas de hoy."}
@@ -50,8 +58,9 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
             <option key={p} value={p}>{POS[p]}</option>
           ))}
         </select>
-        <select name="accion" defaultValue={q.accion ?? ""} aria-label="Qué buscas">
-          <option value="">Todos los jugadores</option>
+        <select name="accion" defaultValue={q.accion ?? (onMarket ? "enventa" : "todos")} aria-label="Qué buscas">
+          {onMarket && <option value="enventa">A la venta hoy en tu liga</option>}
+          <option value="todos">Todos los jugadores</option>
           <option value="fichar">Para fichar</option>
           <option value="mios">Mis jugadores</option>
           <option value="vender">Mis jugadores para vender</option>
