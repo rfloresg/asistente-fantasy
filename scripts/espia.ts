@@ -13,12 +13,14 @@ import "dotenv/config";
 import { pruneActivity } from "../src/lib/actividad";
 import { premiumOf } from "../src/lib/espia/premium";
 import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
-import { and, desc, eq, gte, inArray, max, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
 import { marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
+import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
+import { BID_REMINDER_MIN, bidReminderText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
 import { sourcesText } from "../src/lib/onces/combine";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken, getUserAccessToken, SessionExpired } from "../src/lib/laliga/auth";
@@ -235,6 +237,7 @@ async function runLeague(
             await db.insert(espiaEvents).values({ leagueId, activityId: keyOf(u), createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
           }
         }
+        await bidReminders(db, liga, leagueId, planUsers, seen).catch((e) => console.error(`${leagueName}, aviso de pujas: ${e}`));
         await refreshLiga(db, liga, leagueId, standing, teams, acts, ctx);
       }
 
@@ -378,10 +381,66 @@ async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standin
         console.log(`  Tipo ${t} (no cuenta): ${JSON.stringify(ex)}`);
       }
     }
-    return { byTeam, mine };
+    return { byTeam, mine, history: all };
   } catch (e) {
     console.log(`Dinero: ${String(e instanceof Error ? e.message : e)}`);
     return undefined;
+  }
+}
+
+// Hora y media antes de que se renueve el mercado de la liga: a quien le queden pujas del último plan
+async function bidReminders(db: Db, liga: Liga, leagueId: string, planUsers: PlanUser[], seen: Set<string>) {
+  const now = new Date();
+  const market = await liga.market();
+  const refresh = marketRefresh(market, now);
+  if (!refresh || refresh.getTime() - now.getTime() > BID_REMINDER_MIN * 60e3) return;
+  for (const u of planUsers) {
+    const key = `pujas:${refresh.toISOString()}:${u.userId ?? "yo"}`;
+    if (!u.chat || seen.has(key)) continue;
+    const who = u.userId == null ? isNull(espiaPlans.userId) : eq(espiaPlans.userId, u.userId);
+    const [plan] = await db.select({ acciones: espiaPlans.acciones }).from(espiaPlans)
+      .where(and(eq(espiaPlans.leagueId, leagueId), who)).orderBy(desc(espiaPlans.createdAt)).limit(1);
+    if (!plan) continue;
+    const prefix = doneKeyPrefix(u.userId);
+    const done = new Set((await db.select({ key: espiaDone.key }).from(espiaDone)
+      .where(and(eq(espiaDone.leagueId, leagueId), gte(espiaDone.createdAt, new Date(now.getTime() - 48 * 3600e3))))).map((r) => r.key)
+      .filter((k) => (prefix ? k.startsWith(prefix) : !/^u\d+:/.test(k))).map((k) => k.slice(prefix.length)));
+    const pend = pendingBids(plan.acciones, market, done);
+    await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: now, sentAt: pend.length ? now : null }).onConflictDoNothing();
+    seen.add(key);
+    if (pend.length && mode !== "preview") await sendMessage(u.chat, bidReminderText(refresh, now, pend, esc), appButton).catch(() => {});
+  }
+}
+
+// Fichajes del mercado de la liga (90 días) con lo que se pagó sobre el valor de ese día: para la puja justa
+async function leagueBuys(db: Db, standing: Awaited<ReturnType<Liga["standing"]>>, acts: Activity[], now: Date): Promise<PastBuy[]> {
+  const since = now.getTime() - FAIR.days * 86400e3;
+  const buys = acts.filter((a) => a.activityTypeId === 1 && a.playerMasterId != null && Date.parse(a.createdAt) >= since);
+  if (!buys.length) return [];
+  const ids = [...new Set(buys.map((a) => String(a.playerMasterId)))];
+  const [vals, pls] = await Promise.all([
+    db.select({ playerId: playerValues.playerId, day: playerValues.day, value: playerValues.value }).from(playerValues)
+      .where(and(inArray(playerValues.playerId, ids), gte(playerValues.day, new Date(since - 2 * 86400e3).toISOString().slice(0, 10)))),
+    db.select({ id: players.id, positionId: players.positionId }).from(players).where(inArray(players.id, ids)),
+  ]);
+  const byKey = new Map(vals.map((v) => [`${v.playerId}|${v.day}`, v.value]));
+  const pos = new Map(pls.map((p) => [p.id, p.positionId]));
+  const team = new Map<string, { teamId: string; manager: string }>();
+  for (const st of standing) {
+    for (const u of [st.team.manager?.id, st.team.managerId]) {
+      if (u != null) team.set(String(u), { teamId: String(st.team.id), manager: st.team.manager?.managerName ?? "?" });
+    }
+  }
+  return pastBuys(buys, (id, day) => byKey.get(`${id}|${day}`), (id) => pos.get(id) ?? null, (u) => team.get(u));
+}
+
+function printBuys(h: PastBuy[]) {
+  const by = new Map<string, number[]>();
+  for (const b of h) { if (!by.has(b.manager)) by.set(b.manager, []); by.get(b.manager)!.push(b.over); }
+  console.log(`\n  Puja justa: ${h.length} fichajes del mercado en ${FAIR.days} días`);
+  for (const [m, xs] of [...by].sort((a, b) => b[1].length - a[1].length)) {
+    const s = [...xs].sort((a, b) => a - b);
+    console.log(`  - ${m}: ${xs.length} fichajes, paga de más ${(s[s.length >> 1] * 100).toFixed(1)} % de mediana (máx. ${(s.at(-1)! * 100).toFixed(1)} %)`);
   }
 }
 
@@ -539,6 +598,9 @@ async function runPlan(
   }), { captain: premium });
   const closeAt = nextMatchday(mts, now)?.close ?? null;
   const phase = marketPhase(mts, now);
+  const bidHistory = await leagueBuys(db, standing, money.history, now);
+  const refreshAt = marketRefresh(market, now);
+  if (mode === "preview") printBuys(bidHistory);
   // Lo que marcaste como hecho en la web en las últimas 48 h, y lo que ya tienes a la venta
   // Las claves de "Hecho" llevan delante el usuario (cada uno marca lo suyo)
   const prefix = doneKeyPrefix(user.userId);
@@ -548,7 +610,7 @@ async function runPlan(
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe, bidHistory, marketRefresh: refreshAt }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida

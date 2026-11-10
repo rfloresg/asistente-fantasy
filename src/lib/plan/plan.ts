@@ -8,6 +8,8 @@ import { impact, pts } from "./impact";
 import { isEmpty, lineupDisputes, type Lineup, type LineupPlayer } from "./lineup";
 import { sourcesText } from "@/lib/onces/combine";
 import { phaseLine, type MarketPhase, type PhaseKind } from "@/lib/meta/calendario";
+import { fairBid, fairBidText, type PastBuy } from "./puja-justa";
+import { hourText } from "./mercado-hora";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -93,6 +95,8 @@ export interface PlanInput {
   money?: boolean; // modo dinero (por defecto, sí)
   phase?: MarketPhase | null; // en qué momento del ciclo estamos (parón, previa...)
   onSale?: Set<string>; // tus jugadores que ya están a la venta
+  bidHistory?: PastBuy[]; // fichajes del mercado de tu liga con lo que se pagó de más (puja justa)
+  marketRefresh?: Date | null; // cuándo se renueva el mercado de tu liga (y se resuelven las pujas)
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -316,8 +320,10 @@ export function dailyPlan(i: PlanInput): Accion[] {
       if (forPlay ? nPujas >= PLAN.maxPerType : nSpec >= maxSpec) continue;
       const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
       const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
-      const noRival = known && richest < m.salePrice; // nadie más puede pagarlo
-      const bid = noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
+      // Puja justa con lo que suelen pagar de más tus rivales; sin historial suficiente, como siempre
+      const fair = i.bidHistory ? fairBid({ price: m.salePrice, hasBids: !!m.numberOfBids, cap, history: i.bidHistory, rivals: i.rivals, now: i.now, round }) : null;
+      const noRival = fair ? fair.noRival : known && richest < m.salePrice; // nadie más puede pagarlo
+      const bid = fair ? fair.bid : noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
       if (bid > budget) continue; // ni vendiendo llegas
       if (forPlay) nPujas++;
       else nSpec++;
@@ -329,12 +335,13 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
       const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para ganar dinero: esperamos que valga ${M(s!.expected ?? s!.maxBidSpec!)} en 7 días${s!.expected ? ` (${s!.expected >= m.salePrice ? "+" : ""}${Math.round(((s!.expected - m.salePrice) / m.salePrice) * 100)} % sobre lo que pide)` : ""}. Véndelo cuando deje de subir`;
       const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
+      const fairTxt = fair ? fairBidText(fair) : noRival ? " Ningún rival tiene dinero para superarte." : "";
       out.push({
         tipo: "pujar",
         prioridad: 3,
         jugador: name,
         playerId: String(m.playerMaster.id),
-        titulo: `Puja ${M(bid)} por ${name}`, detalle: `${why[0].toUpperCase()}${why.slice(1)}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`, texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${noRival ? " Ningún rival tiene dinero para superarte." : ""}${note}`,
+        titulo: `Puja ${M(bid)} por ${name}`, detalle: `${why[0].toUpperCase()}${why.slice(1)}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${fairTxt}${note}`, texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${esc(fairTxt)}${note}`,
       });
     }
   };
@@ -438,6 +445,12 @@ export function dailyPlan(i: PlanInput): Accion[] {
         texto: `🏷️ Pon a la venta a ${names.map(b).join(", ")}: no entran en tu once. Acepta solo ofertas por encima de su valor (la liga ofrece cada día entre un 10 % menos y un 10 % más); si no llega ninguna buena, siguen siendo tuyos.`,
       });
     }
+  }
+
+  // 7b. A qué hora se resuelven las pujas (cada liga renueva su mercado a su hora)
+  if (i.marketRefresh && out.some((a) => a.tipo === "pujar")) {
+    const h = hourText(i.marketRefresh);
+    out.push({ tipo: "aviso", prioridad: 2, titulo: `Puja antes de las ${h}`, detalle: `Tu mercado se renueva a las ${h} y entonces se resuelven las pujas. Te aviso hora y media antes si te queda alguna.`, texto: `⏳ Tu mercado se renueva a las ${b(h)}: haz las pujas antes. Te aviso hora y media antes si te queda alguna.` });
   }
 
   // 8. El momento: parón, previa, jornada en juego...
