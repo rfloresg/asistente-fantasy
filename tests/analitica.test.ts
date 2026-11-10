@@ -51,12 +51,12 @@ describe("Analítica Fantasy (respuesta real, J12 Atlético - Barça)", () => {
 });
 
 describe("juntar fuentes", () => {
-  it("media de las probabilidades y titular si pasa del 50 %", () => {
-    expect(combine([{ source: "Futbol Fantasy", starter: true, prob: 80 }, { source: "Analítica Fantasy", starter: true, prob: 70 }])).toMatchObject({ prob: 75, starter: true, dispute: false });
+  it("manda Futbol Fantasy, aunque venga segunda", () => {
+    expect(combine([{ source: "Analítica Fantasy", starter: true, prob: 70 }, { source: "Futbol Fantasy", starter: true, prob: 80 }])).toMatchObject({ prob: 80, starter: true, dispute: false });
   });
   it("avisa cuando no coinciden", () => {
     const c = combine([{ source: "Futbol Fantasy", starter: true, prob: 75 }, { source: "Analítica Fantasy", starter: false, prob: 30, info: "Duda" }])!;
-    expect(c).toMatchObject({ dispute: true, prob: 53, info: "Duda" });
+    expect(c).toMatchObject({ dispute: true, prob: 75, starter: true, info: "Duda" });
   });
   it("con una sola fuente, esa", () => {
     expect(combine([{ source: "Analítica Fantasy", starter: false, prob: null }])).toMatchObject({ prob: 20, starter: false, dispute: false });

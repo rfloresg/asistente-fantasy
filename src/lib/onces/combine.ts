@@ -1,5 +1,8 @@
 // Junta los onces probables de varias fuentes en una sola probabilidad de ser titular, y avisa si no
 // coinciden (una lo pone titular y otra no, o sus probabilidades se separan 40 puntos o más). Función pura.
+// Manda Futbol Fantasy y Analítica Fantasy cubre lo que le falte: con las jornadas 11 y 12 (495 jugadores
+// en las dos), la media acertaba menos (85 %) que Futbol Fantasy sola (86 %) y su probabilidad era peor
+// (error 0,121 frente a 0,109); la de Analítica, la peor (0,164). Revisar con `npm run aciertos`.
 
 export interface LineupSource {
   source: "Futbol Fantasy" | "Analítica Fantasy";
@@ -38,14 +41,16 @@ export function strongDispute(sources: { prob: number }[] | undefined): boolean 
 export const sourcesText = (sources: { source: string; starter: boolean; prob: number }[]) =>
   sources.map((s) => `${s.source}: ${s.starter ? "titular" : "suplente"} ${s.prob} %`).join(" · ");
 
+export const PRIMARY: LineupSource["source"] = "Futbol Fantasy";
+
 export function combine(sources: LineupSource[]): Combined | null {
   if (!sources.length) return null;
   const ps = sources.map(probOf);
-  const prob = Math.round(ps.reduce((a, b) => a + b, 0) / ps.length);
+  const main = Math.max(0, sources.findIndex((s) => s.source === PRIMARY));
   const dispute = disputed(sources.map((s, i) => ({ starter: s.starter, prob: ps[i] })));
   return {
-    starter: prob >= 50,
-    prob,
+    starter: sources[main].starter,
+    prob: Math.round(ps[main]),
     sources: sources.map((s, i) => ({ source: s.source, starter: s.starter, prob: ps[i] })),
     dispute,
     info: sources.find((s) => s.info)?.info ?? null,

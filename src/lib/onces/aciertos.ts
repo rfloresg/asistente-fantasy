@@ -2,7 +2,7 @@
 // pasó: titular = jugó más de 45 minutos (la API no dice quién salió de inicio; un cambio al descanso
 // cuenta como suplente). Solo cuenta la predicción hecha en los 4 días antes del partido. Función pura.
 
-import { combine, strongDispute, type LineupSource } from "./combine";
+import { combine, type LineupSource } from "./combine";
 
 export interface Pred {
   playerId: string;
@@ -31,7 +31,7 @@ export interface AccuracyReport {
   weeks: number[];
   alone: Record<string, Score>; // cada fuente con todo lo que predijo
   common: Record<string, Score>; // las dos y la media, solo con los jugadores que predijeron las dos
-  disputes: { n: number; right: Record<string, number> }; // cuando no coinciden (30 puntos o más), quién acertó
+  disputes: { n: number; right: Record<string, number> }; // cuando una dice titular y la otra no, quién acertó
 }
 
 const WINDOW_MS = 4 * 86400e3;
@@ -77,7 +77,7 @@ export function lineupAccuracy(i: {
   for (const m of i.matches) if (m.state === 7) { matchOf.set(`${m.localId}:${m.week}`, m); matchOf.set(`${m.visitorId}:${m.week}`, m); }
 
   const alone = Object.fromEntries(names.map((n) => [n, empty()])) as Record<string, Acc>;
-  const common = Object.fromEntries([...names, "Media"].map((n) => [n, empty()])) as Record<string, Acc>;
+  const common = Object.fromEntries([...names, "Combinadas (la que usamos)"].map((n) => [n, empty()])) as Record<string, Acc>;
   const disputes = { n: 0, right: Object.fromEntries(names.map((n) => [n, 0])) as Record<string, number> };
   const weeks = new Set<number>();
 
@@ -97,8 +97,8 @@ export function lineupAccuracy(i: {
       if (preds.length < names.length) continue;
       const mix = combine(preds.map(([source, p]) => ({ source, starter: p.starter, prob: p.prob })))!;
       for (const [n, p] of preds) add(common[n], p.starter, p.prob, started);
-      add(common.Media, mix.starter, mix.prob, started);
-      if (strongDispute(mix.sources)) {
+      add(common["Combinadas (la que usamos)"], mix.starter, mix.prob, started);
+      if (new Set(preds.map(([, p]) => p.starter)).size > 1) {
         disputes.n++;
         for (const [n, p] of preds) if (p.starter === started) disputes.right[n]++;
       }

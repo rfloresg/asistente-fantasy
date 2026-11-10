@@ -28,8 +28,8 @@ describe("aciertos de los onces", () => {
     expect(r.alone["Futbol Fantasy"]).toMatchObject({ n: 3, hits: 2, starters: 2, startersHit: 1 });
     expect(r.alone["Analítica Fantasy"]).toMatchObject({ n: 2, hits: 2 });
     expect(r.common["Futbol Fantasy"].n).toBe(2);
-    expect(r.common.Media.n).toBe(2);
-    // b: 70 frente a 20 es un desacuerdo, y acertó Analítica
+    expect(r.common["Combinadas (la que usamos)"].n).toBe(2);
+    // b: una lo da titular y la otra no, y acertó Analítica
     expect(r.disputes).toEqual({ n: 1, right: { "Futbol Fantasy": 0, "Analítica Fantasy": 1 } });
   });
 
