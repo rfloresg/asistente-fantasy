@@ -34,7 +34,19 @@ export const PLAN = {
   protectMinLoss: 0.5, // proteger: que tu once pierda al menos esto si te lo quitan
   sellMaxLoss: 0.5, // vender: solo si tu once pierde menos que esto
   onSaleMax: 5, // "ponlos a la venta": como mucho estos nombres
+  // Tope para jugar según lo que te da: cada punto son 100.000 € al acabar la jornada. Compensa pagar de
+  // más lo que el jugador te devuelve en puntos en unas cuantas jornadas (y no más de un 50 % sobre su valor).
+  pointMoney: 100_000,
+  holdJornadas: 8,
+  maxOverValue: 0.5,
 };
+
+// Lo que compensa pagar para jugar: el tope de la nota o, si mejora tu once, su valor + lo que te devuelve
+// en puntos en PLAN.holdJornadas jornadas
+export function playCap(price: number, notaCap: number, gain: number | null): { cap: number; byPoints: boolean } {
+  const byGain = gain !== null && gain > 0 ? Math.min(price * (1 + PLAN.maxOverValue), price + gain * PLAN.pointMoney * PLAN.holdJornadas) : 0;
+  return byGain > notaCap ? { cap: Math.round(byGain / 10_000) * 10_000, byPoints: true } : { cap: notaCap, byPoints: false };
+}
 
 // Cuánto especular según el momento. Medido con los valores de la 26/27 (comprando a los que suben y
 // pagando un 5 % de más): en el parón, comprar al principio o a mitad y vender la víspera de la vuelta
@@ -318,7 +330,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
       if (done.has(m.id) || (onlyNeed && !needPos.has(m.playerMaster.positionId))) continue;
       const forPlay = play;
       if (forPlay ? nPujas >= PLAN.maxPerType : nSpec >= maxSpec) continue;
-      const cap = forPlay ? s!.maxBidPlay : s!.maxBidSpec!;
+      const pc = forPlay ? playCap(m.salePrice, s!.maxBidPlay, g) : null;
+      const cap = pc ? pc.cap : s!.maxBidSpec!;
       const extra = m.numberOfBids ? PLAN.bidExtraWithBids : PLAN.bidExtra;
       // Puja justa con lo que suelen pagar de más tus rivales; sin historial suficiente, como siempre
       const fair = i.bidHistory ? fairBid({ price: m.salePrice, hasBids: !!m.numberOfBids, cap, history: i.bidHistory, rivals: i.rivals, now: i.now, round }) : null;
@@ -336,7 +349,10 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
       const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para ganar dinero: esperamos que valga ${M(s!.expected ?? s!.maxBidSpec!)} en 7 días${s!.expected ? ` (${s!.expected >= m.salePrice ? "+" : ""}${Math.round(((s!.expected - m.salePrice) / m.salePrice) * 100)} % sobre lo que pide)` : ""}. Véndelo cuando deje de subir`;
       const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
-      const fairTxt = fair ? fairBidText(fair, m.salePrice) : noRival ? " Ningún rival tiene dinero para superarte." : "";
+      const paysBack = pc?.byPoints && g !== null && bid > s!.maxBidPlay
+        ? ` En tu liga se paga caro, pero compensa: con +${pts(g)} por jornada te devuelve unos ${M(g * PLAN.pointMoney * PLAN.holdJornadas)} en ${PLAN.holdJornadas} jornadas.`
+        : "";
+      const fairTxt = (fair ? fairBidText(fair, m.salePrice) : noRival ? " Ningún rival tiene dinero para superarte." : "") + paysBack;
       out.push({
         tipo: "pujar",
         prioridad: 3,

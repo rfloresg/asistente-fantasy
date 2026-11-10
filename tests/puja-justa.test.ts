@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fairBid, fairBidText, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
+import { playCap } from "../src/lib/plan/plan";
 
 const now = new Date("2026-11-10T12:00:00+01:00");
 const buy = (buyer: string, manager: string, over: number, value = 5_000_000, daysAgo = 10): PastBuy =>
@@ -58,5 +59,17 @@ describe("fichajes de la liga", () => {
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ buyer: "t2", manager: "Ana", position: 3 });
     expect(r[0].over).toBeCloseTo(0.04, 5);
+  });
+});
+
+describe("tope para jugar según lo que te da", () => {
+  it("compensa pagar de más lo que devuelve en puntos (100.000 € por punto, 8 jornadas)", () => {
+    // +1,8 pts por jornada = 1,44 M en 8 jornadas
+    expect(playCap(7e6, 7.31e6, 1.8)).toEqual({ cap: 8_440_000, byPoints: true });
+    // si aporta poco, manda el tope de la nota
+    expect(playCap(7e6, 7.31e6, 0.2)).toEqual({ cap: 7.31e6, byPoints: false });
+    expect(playCap(7e6, 7.31e6, null)).toEqual({ cap: 7.31e6, byPoints: false });
+    // nunca más de un 50 % sobre el valor
+    expect(playCap(2e6, 2.1e6, 3).cap).toBe(3e6);
   });
 });
