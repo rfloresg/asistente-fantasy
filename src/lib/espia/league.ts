@@ -33,7 +33,17 @@ export interface MarketItem {
   status: string;
   numberOfBids?: number;
   playerMaster: { id: string; nickname: string; marketValue: number; positionId: number; playerStatus: string };
-  sellerTeam?: { manager?: { managerName?: string } } | null;
+  sellerTeam?: { id?: string | number; manager?: { managerName?: string } } | null;
+  discr?: string; // "marketPlayerTeam" = lo vende un mánager
+  numberOfOffers?: number; // ofertas recibidas (solo se ven en los tuyos)
+  playerTeam?: { playerTeamId?: string | number } | null;
+}
+
+export interface Offer {
+  id: string | number;
+  money: number;
+  status?: string; // "pending" = sin responder
+  expirationDate?: string;
 }
 
 export interface TeamPlayer {
@@ -53,6 +63,13 @@ export interface Team {
 const list = <T>(d: unknown): T[] =>
   Array.isArray(d) ? d : ((d as { elements?: T[] })?.elements ?? (d as { leagues?: T[] })?.leagues ?? []);
 
+// La respuesta de ofertas: una lista, una lista dentro de "elements"/"offers"/"data", o una sola oferta
+export function parseOffers(d: unknown): Offer[] {
+  const o = d as { elements?: unknown; offers?: unknown; data?: unknown; money?: unknown } | null;
+  const arr = Array.isArray(d) ? d : Array.isArray(o?.elements) ? o.elements : Array.isArray(o?.offers) ? o.offers : Array.isArray(o?.data) ? o.data : o && typeof o.money === "number" ? [o] : [];
+  return (arr as Offer[]).filter((x) => x && typeof x.money === "number" && x.money > 0);
+}
+
 export function leagueClient(token: string, leagueId: string) {
   const get = async <T>(p: string): Promise<T> => {
     const res = await fetch(`${BASE}${p}${p.includes("?") ? "&" : "?"}x-lang=es`, {
@@ -67,6 +84,8 @@ export function leagueClient(token: string, leagueId: string) {
     activity: async (page = 0) => list<Activity>(await get(`${CMP}/leagues/${leagueId}/activity/${page}`)),
     market: async () => list<MarketItem>(await get(`${CMP}/league/${leagueId}/market`)),
     team: (teamId: string) => get<Team>(`${CMP}/leagues/${leagueId}/teams/${teamId}`),
+    // Ofertas recibidas por un jugador tuyo a la venta (de la liga y de otros mánagers)
+    offers: async (playerTeamId: string) => parseOffers(await get(`${CMP}/league/${leagueId}/playerTeam/${playerTeamId}/offer`)),
     // Solo funciona con tu equipo: los rivales dan 403 (devuelve null)
     money: async (teamId: string): Promise<unknown | null> => {
       try {

@@ -39,6 +39,9 @@ export const PLAN = {
   pointMoney: 100_000,
   holdJornadas: 8,
   maxOverValue: 0.5,
+  acceptOver: 0.03, // ofertas: aceptar si pasan un 3 % del valor y el jugador no es clave en tu once...
+  acceptFalling: 0, // ... o, si va a bajar, si no son menos de lo que vale hoy
+  tempting: 0.15, // por uno clave, avisar solo si la oferta pasa un 15 %
 };
 
 // Lo que compensa pagar para jugar: el tope de la nota o, si mejora tu once, su valor + lo que te devuelve
@@ -109,6 +112,7 @@ export interface PlanInput {
   onSale?: Set<string>; // tus jugadores que ya están a la venta
   bidHistory?: PastBuy[]; // fichajes del mercado de tu liga con lo que se pagó de más (puja justa)
   marketRefresh?: Date | null; // cuándo se renueva el mercado de tu liga (y se resuelven las pujas)
+  offers?: Map<string, { money: number; expirationDate?: string }[]>; // ofertas pendientes por tus jugadores a la venta
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -124,6 +128,7 @@ export interface Accion {
   key?: string; // estable entre planes, para el botón "Hecho"
   hecho?: boolean; // marcado como hecho y no se puede comprobar (o ya comprobado)
   pendiente?: string; // marcado como hecho, pero LaLiga sigue igual
+  oferta?: boolean; // "acepta la oferta": el jugador ya está a la venta, eso no lo da por hecho
 }
 
 const M = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
@@ -442,6 +447,36 @@ export function dailyPlan(i: PlanInput): Accion[] {
     out.push({ tipo: "alinear", prioridad: 3, texto: lines.join("\n") });
   }
 
+  // 6b. Ofertas que te han hecho por tus jugadores a la venta (de la liga o de otro mánager): decides tú
+  for (const [pid, offs] of i.offers ?? []) {
+    const p = i.myTeam.players.find((x) => id(x) === pid);
+    const s = sc(pid);
+    if (!p || !s || !offs.length) continue;
+    const best = offs.reduce((a, c) => (c.money > a.money ? c : a));
+    const over = best.money / s.value - 1;
+    const name = p.playerMaster.nickname;
+    const l = lossOf(pid);
+    const key = l !== null && l >= PLAN.protectMinLoss;
+    const pctTxt = `${over >= 0 ? "+" : ""}${Math.round(over * 100)} %`;
+    const many = offs.length > 1 ? ` (la mejor de ${offs.length})` : "";
+    if (!key && (over >= PLAN.acceptOver || (falls(s) && over >= PLAN.acceptFalling))) {
+      const why = over >= PLAN.acceptOver ? `${pctTxt} sobre lo que vale` : `y va a bajar: esperamos que valga ${M(s.expected!)} en 7 días`;
+      out.push({
+        tipo: "vender", prioridad: 2, jugador: name, playerId: pid, oferta: true,
+        titulo: `Acepta la oferta por ${name}`,
+        detalle: `Te ofrecen ${M(best.money)}${many}, ${why}.${l !== null ? (l <= 0 ? " No entra en tu once." : ` Tu once pierde solo ${pts(l)} por jornada.`) : ""}`,
+        texto: `✅ Acepta la oferta de ${M(best.money)} por ${b(name)}${many}: ${why}.`,
+      });
+    } else if (key && over >= PLAN.tempting) {
+      out.push({
+        tipo: "aviso", prioridad: 3, jugador: name, playerId: pid,
+        titulo: `Te ofrecen ${M(best.money)} por ${name}`,
+        detalle: `Es un ${pctTxt} sobre lo que vale, pero es clave en tu once (pierdes ${pts(l!)} por jornada). Acéptala solo si con ese dinero fichas a alguien igual o mejor.`,
+        texto: `🤔 Te ofrecen ${M(best.money)} por ${b(name)} (${pctTxt} sobre lo que vale), pero es clave en tu once (pierdes ${pts(l!)} por jornada). Acéptala solo si con ese dinero fichas a alguien igual o mejor.`,
+      });
+    }
+  }
+
   // 7. Ponlos a la venta: los que no alineas, no aportan a tu once y no están bajando. La liga hace una
   //    oferta automática de entre -10 % y +10 % de su valor y decides tú: aceptas solo si es por encima.
   if (moneyMode && phase !== "cerrado" && i.lineup) {
@@ -478,8 +513,11 @@ export function dailyPlan(i: PlanInput): Accion[] {
     out.push({ tipo: "aviso", prioridad: 0, titulo: plain.split(":")[0], detalle: `${plain} ${tip}`, texto: `${line}\n${esc(tip)}` });
   }
 
+  // Si hay una oferta que aceptar por un jugador, sobra el "ponlo a la venta"
+  const accepting = new Set(out.filter((a) => a.oferta).map((a) => a.playerId));
+  const deduped = out.filter((a) => a.oferta || a.tipo !== "vender" || !accepting.has(a.playerId));
   // Con el mercado cerrado no se puede fichar, vender ni tocar cláusulas: solo el once y los avisos
-  const shown = phase === "cerrado" ? out.filter((a) => a.tipo === "alinear" || a.tipo === "aviso" || a.tipo === "saldo") : out;
+  const shown = phase === "cerrado" ? deduped.filter((a) => a.tipo === "alinear" || a.tipo === "aviso" || a.tipo === "saldo") : deduped;
   return shown.sort((a, c) => a.prioridad - c.prioridad);
 }
 
@@ -499,7 +537,7 @@ export function applyDone(acciones: Accion[], done: Set<string>, onSaleByMe: Set
   return acciones.map((a) => {
     if (a.tipo === "alinear") return a;
     const key = actionKey(a);
-    if (a.tipo === "vender" && a.playerId && onSaleByMe.has(a.playerId)) return { ...a, key, hecho: true, detalle: "Ya está a la venta." };
+    if (a.tipo === "vender" && !a.oferta && a.playerId && onSaleByMe.has(a.playerId)) return { ...a, key, hecho: true, detalle: "Ya está a la venta." };
     if (!done.has(key)) return { ...a, key };
     if (UNVERIFIABLE.has(a.tipo)) return { ...a, key, hecho: true };
     return { ...a, key, pendiente: "Lo marcaste como hecho, pero en LaLiga sigue igual." };

@@ -25,7 +25,7 @@ import { sourcesText } from "../src/lib/onces/combine";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken, getUserAccessToken, SessionExpired } from "../src/lib/laliga/auth";
 import { doneKeyPrefix } from "../src/lib/plan/plan";
-import { leagueClient, myLeagues, type Activity } from "../src/lib/espia/league";
+import { leagueClient, myLeagues, type Activity, type MarketItem } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
 import { clauseRaises, estimateTeamMoney, netByManager, parseMoney, START_MONEY } from "../src/lib/espia/money";
 import { pack, sendMessage, type UrlButton } from "../src/lib/espia/telegram";
@@ -388,6 +388,24 @@ async function estimateLeagueMoney(db: Db, liga: Liga, leagueId: string, standin
   }
 }
 
+// Ofertas pendientes por tus jugadores a la venta (si la API falla, el plan sale sin ellas)
+async function myOffers(liga: Liga, market: MarketItem[], myTeamId: string, myName?: string) {
+  const out = new Map<string, { money: number; expirationDate?: string }[]>();
+  const mine = market.filter((m) => (m.numberOfOffers ?? 0) > 0 && m.playerTeam?.playerTeamId != null
+    && (String(m.sellerTeam?.id ?? "") === myTeamId || (!!myName && m.sellerTeam?.manager?.managerName === myName)));
+  for (const m of mine) {
+    try {
+      const offs = (await liga.offers(String(m.playerTeam!.playerTeamId))).filter((o) => !o.status || o.status === "pending");
+      if (offs.length) out.set(String(m.playerMaster.id), offs.map((o) => ({ money: o.money, expirationDate: o.expirationDate })));
+      if (mode === "preview") console.log(`  Ofertas por ${m.playerMaster.nickname}: ${offs.map((o) => `${(o.money / 1e6).toFixed(2)} M`).join(", ") || "ninguna pendiente"}`);
+    } catch (e) {
+      console.log(`  Ofertas por ${m.playerMaster.nickname}: ${String(e instanceof Error ? e.message : e)}`);
+    }
+    await sleep(150);
+  }
+  return out;
+}
+
 // Hora y media antes de que se renueve el mercado de la liga: a quien le queden pujas del último plan
 async function bidReminders(db: Db, liga: Liga, leagueId: string, planUsers: PlanUser[], seen: Set<string>) {
   const now = new Date();
@@ -600,6 +618,7 @@ async function runPlan(
   const phase = marketPhase(mts, now);
   const bidHistory = await leagueBuys(db, standing, money.history, now);
   const refreshAt = marketRefresh(market, now);
+  const offers = await myOffers(liga, market, money.mine.teamId, myTeam.manager?.managerName);
   if (mode === "preview") printBuys(bidHistory);
   // Lo que marcaste como hecho en la web en las últimas 48 h, y lo que ya tienes a la venta
   // Las claves de "Hecho" llevan delante el usuario (cada uno marca lo suyo)
@@ -610,7 +629,7 @@ async function runPlan(
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe, bidHistory, marketRefresh: refreshAt }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe, bidHistory, marketRefresh: refreshAt, offers }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida
