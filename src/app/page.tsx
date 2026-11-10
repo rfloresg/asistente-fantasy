@@ -59,7 +59,7 @@ function Pitch({ l }: { l: LineupSnapshot }) {
                   <span className="disc">{p.nota ?? "–"}</span>
                   {p.id === l.captainId && <span className="arm" aria-hidden="true">C</span>}
                   <span className="name">{p.name}</span>
-                  {pct && <span className="pct">{pct}</span>}
+                  {pct && <span className="pct" title="Probabilidad de ser titular">{pct}</span>}
                 </Link>
               );
             })}

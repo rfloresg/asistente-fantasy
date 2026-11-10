@@ -299,8 +299,13 @@ ul.reasons li.bad::marker { color: var(--down); }
   .player .name { font-size: 11px; }
   .bar { grid-template-columns: 110px 1fr 40px; font-size: 14px; }
 }
-.player .pct { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--roja-t); margin-top: -3px; }
-.player.doubt .pct { color: var(--ambar); }
+/* % de ser titular de los dudosos: etiqueta que se ve de un vistazo */
+.player .pct {
+  font-family: var(--mono); font-size: 12px; font-weight: 800; line-height: 1; letter-spacing: 0;
+  padding: 4px 8px; border-radius: 999px; margin-top: 1px; white-space: nowrap;
+  background: var(--roja); color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+}
+.player.doubt .pct { background: var(--ambar); color: #1A1200; }
 .when { flex: 0 0 92px; padding-top: 2px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 @media (max-width: 760px) {
   .hide-m { display: none; }
@@ -662,7 +667,7 @@ html[data-theme="claro"] .done-btn .chip:hover, html[data-theme="claro"] .upload
 html[data-theme="claro"] .toast { color: #fff; }
 html[data-theme="claro"] .primary:hover { box-shadow: 0 4px 16px rgba(11, 138, 74, .3); }
 /* El campo de la alineación sigue siendo de noche: dentro, colores de noche */
-html[data-theme="claro"] .pitch { --ink: #F2F6EF; --ink-2: #C9D3CB; --muted: #A9B6AD; --pitch: #3DEB8C; --yellow: #F5C02A; }
+html[data-theme="claro"] .pitch { --ink: #F2F6EF; --ink-2: #C9D3CB; --muted: #A9B6AD; --pitch: #3DEB8C; --yellow: #F5C02A; --ambar: #F5C02A; --ambar-t: #F5C02A; --roja: #FF4D4D; --roja-t: #FF6B66; }
 html[data-theme="claro"] .player:hover { color: #fff; }
 @media (max-width: 760px) {
   html[data-theme="claro"] .top { background: rgba(247, 249, 245, .97); }
