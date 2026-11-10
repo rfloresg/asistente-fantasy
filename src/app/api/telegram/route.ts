@@ -43,6 +43,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const bot = () => process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "") ?? "";
 const addToGroup = (): Button => ({ text: "🕵️ Meter el Espía en el grupo de mi liga", url: `https://t.me/${bot()}?startgroup=espia` });
 const webButton = (chatId: number, from?: From): Button => ({ text: "🌐 Ver mi plan en la web", url: botLoginUrl(String(chatId), nameOf(from), "/") });
+const appButton: Button = { text: "📱 Descargar la app", url: `${APP_URL}/descargar` };
 
 const opinionButton: Button = { text: "💬 Dar mi opinión", callback_data: "opinion" };
 const OPINION_ASK = "💬 Cuéntame qué tal: qué falla, qué no se entiende o qué echas de menos. Escríbelo respondiendo a este mensaje.";
@@ -92,7 +93,7 @@ async function start(db: Db, chatId: number, from?: From, force = false) {
   if (mine) {
     const ligas = mine.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna";
     await reply(chatId, `✅ Ya estás conectado. Tus ligas: ${ligas}.\n\nTe mando el plan aquí a las 9:00 y a las 18:00.`, [
-      [addToGroup()], [webButton(chatId, from)], [opinionButton], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
+      [addToGroup()], [appButton], [webButton(chatId, from)], [opinionButton], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
     ]);
     return;
   }
@@ -204,7 +205,7 @@ export async function POST(req: Request) {
           const ligas = out.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna (¿estás en alguna liga?)";
           await reply(m.chat.id,
             `✅ <b>¡Conectado!</b> Tus ligas: ${ligas}.\n\n📋 Tu primer plan <b>te llega aquí en un minuto</b>. Luego, cada día a las 9:00 y a las 18:00.\n\n🕵️ <b>Último paso (opcional):</b> pulsa el botón, elige el grupo de tu liga y el Espía se activa solo.`,
-            [[addToGroup()], [webButton(m.chat.id, m.from)], [opinionButton]]);
+            [[addToGroup()], [appButton], [webButton(m.chat.id, m.from)], [opinionButton]]);
         } catch (e) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
           await reply(m.chat.id, `❌ ${esc(msg)}`, [[{ text: "🔐 Volver a intentarlo", callback_data: "conectar" }]]);
@@ -214,6 +215,8 @@ export async function POST(req: Request) {
         await reply(m.chat.id,
           "🔑 <b>¿Entras en el Asistente Fantasy?</b>\nPulsa el botón solo si lo acabas de pedir tú desde la app o la web.",
           [[{ text: "✅ Sí, soy yo: entrar", callback_data: `entrar:${startArg.slice(CODE_PREFIX.length)}` }]]);
+      } else if (cmd === "/app" || startArg === "app") {
+        await reply(m.chat.id, "📱 <b>La app</b>\nEn Android, descárgala e instálala. En iPhone, añádela a la pantalla de inicio desde Safari. Luego pulsa <b>Entrar con Telegram</b> una vez y listo.", [[appButton]]);
       } else if (cmd === "/web" || startArg === "web") {
         await reply(m.chat.id, "🌐 Tu enlace para entrar en la web. Es solo tuyo y vale 15 minutos.", [[webButton(m.chat.id, m.from)]]);
       } else if (cmd === "/conectar" || startArg === "conectar") {

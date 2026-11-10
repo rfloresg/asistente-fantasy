@@ -1,0 +1,19 @@
+{
+  "name": "asistente-fantasy-movil",
+  "private": true,
+  "version": "1.0.0",
+  "description": "App de Android: abre la web del Asistente Fantasy a pantalla completa",
+  "scripts": {
+    "sync": "cap sync android",
+    "iconos": "capacitor-assets generate --android --iconBackgroundColor '#060A07' --iconBackgroundColorDark '#060A07' --splashBackgroundColor '#060A07' --splashBackgroundColorDark '#060A07'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.10"
+  }
+}

@@ -7,13 +7,15 @@ import { useEffect, useState } from "react";
 
 type Kind = "prompt" | "ios" | "android" | null;
 
+// Dentro de la app (la de Android lleva "AsistenteFantasyApp" en el navegador) o ya instalada: nada
+export const inApp = () => /AsistenteFantasyApp/.test(navigator.userAgent)
+  || window.matchMedia("(display-mode: standalone)").matches || !!(navigator as { standalone?: boolean }).standalone;
+
 function detect(): Kind {
-  const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone;
-  if (standalone) return null;
+  if (inApp()) return null;
+  if (/android/i.test(navigator.userAgent)) return "android"; // Android: la app de verdad (el .apk)
   if (window.__installPrompt) return "prompt";
-  const ua = navigator.userAgent;
-  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
-  if (/android/i.test(ua)) return "android";
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) return "ios";
   return null; // ordenador sin aviso de instalación: nada
 }
 
@@ -27,6 +29,17 @@ export default function InstalarApp({ compact = false }: { compact?: boolean }) 
     return () => window.removeEventListener("fa-install", update);
   }, []);
   if (!kind) return null;
+
+  if (kind === "android") {
+    return (
+      <div className={`install${compact ? " compact" : ""}`}>
+        <a className="install-btn" href="/descargar">
+          <Image src="/icons/icon-192.png" alt="" width={28} height={28} />
+          <span><b>Descarga la app</b>{!compact && <span className="small"> · tu plan a un toque, sin buscar la web</span>}</span>
+        </a>
+      </div>
+    );
+  }
 
   const click = async () => {
     if (kind === "prompt" && window.__installPrompt) {
@@ -47,12 +60,6 @@ export default function InstalarApp({ compact = false }: { compact?: boolean }) 
           <li>Abre esta página en <b>Safari</b> y pulsa <b>Compartir</b> (el cuadrado con la flecha hacia arriba, abajo).</li>
           <li>Baja y pulsa <b>Añadir a pantalla de inicio</b>. Te aparece el icono AF.</li>
           <li>Ábrela desde el icono y pulsa <b>Entrar con Telegram</b> una vez: ya se acuerda de ti.</li>
-        </ol>
-      )}
-      {open && kind === "android" && (
-        <ol className="install-steps">
-          <li>Pulsa el menú <b>⋮</b> de Chrome, arriba a la derecha.</li>
-          <li>Pulsa <b>Instalar app</b> (o <b>Añadir a pantalla de inicio</b>). Te aparece el icono AF.</li>
         </ol>
       )}
     </div>

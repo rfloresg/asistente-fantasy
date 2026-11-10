@@ -1,0 +1,14 @@
+{
+  "appId": "com.rfloresg.asistentefantasy",
+  "appName": "Fantasy",
+  "webDir": "www",
+  "server": {
+    "url": "https://asistente-fantasy.vercel.app",
+    "androidScheme": "https",
+    "errorPath": "sin-conexion.html"
+  },
+  "android": {
+    "appendUserAgent": "AsistenteFantasyApp",
+    "backgroundColor": "#060A07"
+  }
+}
