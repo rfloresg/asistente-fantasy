@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 .data/
 liga-probe/
+
+# llave de firma de la app de Android (va en los secretos de GitHub, nunca aquí)
+*.jks
+*.keystore
