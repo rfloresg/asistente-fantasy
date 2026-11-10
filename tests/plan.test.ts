@@ -162,6 +162,15 @@ describe("plan según el momento", () => {
   });
 });
 
+describe("especular sin vender a nadie", () => {
+  it("si no te llega el dinero que tienes, no especula", () => {
+    const m: MarketItem = { id: "x", salePrice: 2_000_000, expirationDate: "", status: "on_sale", playerMaster: { id: "50", nickname: "Cohete", marketValue: 2_000_000, positionId: 3, playerStatus: "ok" } };
+    const sc = new Map(scores).set("50", score(50, 2_000_000, { expected: 2_600_000, maxBidSpec: 2_500_000 }));
+    const p = dailyPlan({ now, myTeam, myMoney: 1_500_000, rivals: [], market: [m], scores: sc });
+    expect(p.some((a) => a.jugador === "Cohete")).toBe(false);
+  });
+});
+
 describe("ponlos a la venta", () => {
   it("los que no entran en tu once y no bajan; no los que ya están a la venta", () => {
     const team: Team = { id: "me", players: [tp("1", "Titular", 20_000_000), tp("7", "Banquillo", 2_000_000), tp("8", "YaEnVenta", 2_000_000)] };

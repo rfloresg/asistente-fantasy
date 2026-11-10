@@ -325,6 +325,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const noRival = fair ? fair.noRival : known && richest < m.salePrice; // nadie más puede pagarlo
       const bid = fair ? fair.bid : noRival ? m.salePrice : Math.min(cap, round(m.salePrice * (1 + extra)));
       if (bid > budget) continue; // ni vendiendo llegas
+      if (!forPlay && bid > cash) continue; // para especular, solo con el dinero que ya tienes: no se vende a nadie por esto
       if (forPlay) nPujas++;
       else nSpec++;
       done.add(m.id);
