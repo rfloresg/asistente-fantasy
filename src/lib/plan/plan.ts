@@ -336,7 +336,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
       const need = needPos.has(m.playerMaster.positionId) ? ` Te falta un titular en su puesto.` : "";
       const why = forPlay ? `para jugar: ${g !== null ? gainTxt(g, String(m.playerMaster.id)) : `nota ${s!.nota}`}` : `para ganar dinero: esperamos que valga ${M(s!.expected ?? s!.maxBidSpec!)} en 7 días${s!.expected ? ` (${s!.expected >= m.salePrice ? "+" : ""}${Math.round(((s!.expected - m.salePrice) / m.salePrice) * 100)} % sobre lo que pide)` : ""}. Véndelo cuando deje de subir`;
       const bids = m.numberOfBids ? ` Ya tiene ${m.numberOfBids} puja${m.numberOfBids > 1 ? "s" : ""}.` : "";
-      const fairTxt = fair ? fairBidText(fair) : noRival ? " Ningún rival tiene dinero para superarte." : "";
+      const fairTxt = fair ? fairBidText(fair, m.salePrice) : noRival ? " Ningún rival tiene dinero para superarte." : "";
       out.push({
         tipo: "pujar",
         prioridad: 3,
@@ -450,8 +450,8 @@ export function dailyPlan(i: PlanInput): Accion[] {
 
   // 7b. A qué hora se resuelven las pujas (cada liga renueva su mercado a su hora)
   if (i.marketRefresh && out.some((a) => a.tipo === "pujar")) {
-    const h = hourText(i.marketRefresh);
-    out.push({ tipo: "aviso", prioridad: 2, titulo: `Puja antes de las ${h}`, detalle: `Tu mercado se renueva a las ${h} y entonces se resuelven las pujas. Te aviso hora y media antes si te queda alguna.`, texto: `⏳ Tu mercado se renueva a las ${b(h)}: haz las pujas antes. Te aviso hora y media antes si te queda alguna.` });
+    const h = hourText(i.marketRefresh, i.now);
+    out.push({ tipo: "aviso", prioridad: 2, titulo: `Las pujas se resuelven ${h}`, detalle: `Tu mercado se renueva ${h} y entonces se resuelven las pujas. Te aviso hora y media antes si te queda alguna.`, texto: `⏳ Tu mercado se renueva ${b(h)}: haz las pujas antes. Te aviso hora y media antes si te queda alguna.` });
   }
 
   // 8. El momento: parón, previa, jornada en juego...

@@ -15,7 +15,14 @@ export function marketRefresh(market: Pick<MarketItem, "expirationDate" | "selle
   return ts.length ? new Date(Math.min(...ts)) : null;
 }
 
-export const hourText = (d: Date) => d.toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" });
+const madridDay = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+// "hoy a las 19:03", "mañana a las 13:14" o "el jueves a las 13:14"
+export function hourText(d: Date, now: Date): string {
+  const h = d.toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" });
+  if (madridDay(d) === madridDay(now)) return `hoy a las ${h}`;
+  const tomorrow = madridDay(new Date(now.getTime() + 86400e3)) === madridDay(d);
+  return tomorrow ? `mañana a las ${h}` : `el ${d.toLocaleDateString("es-ES", { timeZone: "Europe/Madrid", weekday: "long" })} a las ${h}`;
+}
 
 interface BidAction { tipo: string; playerId?: string; jugador?: string; titulo?: string; hecho?: boolean; key?: string }
 
@@ -29,5 +36,5 @@ export function bidReminderText(refresh: Date, now: Date, pend: BidAction[], esc
   const min = Math.max(1, Math.round((refresh.getTime() - now.getTime()) / 60000));
   const left = min >= 60 ? `${Math.floor(min / 60)} h${min % 60 >= 10 ? ` ${min % 60} min` : ""}` : `${min} min`;
   const list = pend.map((a) => `• ${esc(a.titulo ?? a.jugador ?? "")}`).join("\n");
-  return `⏳ <b>Tu mercado se renueva a las ${hourText(refresh)}</b> (en ${left}) y entonces se resuelven las pujas. Te quedan por hacer:\n${list}\n\nSi ya las has hecho, márcalas como hechas en la app.`;
+  return `⏳ <b>Tu mercado se renueva ${hourText(refresh, now)}</b> (en ${left}) y entonces se resuelven las pujas. Te quedan por hacer:\n${list}\n\nSi ya las has hecho, márcalas como hechas en la app.`;
 }

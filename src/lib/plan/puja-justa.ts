@@ -19,6 +19,7 @@ export interface FairBid {
   n: number; // cuántos fichajes parecidos
   boldest: { manager: string; over: number } | null; // el rival (de los que pueden pagarlo) que más paga de más
   noRival: boolean;
+  wanted?: number; // la puja justa si no la cortara tu tope
 }
 
 export const FAIR = {
@@ -100,6 +101,7 @@ export function fairBid(i: {
   // Nadie puede pujar más de lo que tiene: basta con superar al más rico de los que pueden
   const richest = known ? Math.max(...able.map((r) => r.money ?? Infinity)) : Infinity;
   if (richest < bid) bid = Math.max(i.price, round(richest + 10_000));
+  const wanted = bid;
   bid = Math.min(bid, Math.max(i.price, i.cap));
   over = bid / i.price - 1;
 
@@ -112,15 +114,20 @@ export function fairBid(i: {
     .map(([manager, xs]) => ({ manager, over: quantile(xs, 0.5) }))
     .sort((a, b) => b.over - a.over)[0] ?? null;
 
-  return { bid, over, beats: overs.filter((x) => x < over).length / overs.length, n: pool.length, boldest, noRival: false };
+  return { bid, over, beats: overs.filter((x) => x < over).length / overs.length, n: pool.length, boldest, noRival: false, ...(wanted > bid ? { wanted } : {}) };
 }
 
 const pctTxt = (x: number) => `${Math.round(x * 100)} %`;
 
 // "Con +4 % habrías superado 8 de cada 10 fichajes parecidos de tu liga (el que más paga de más: Jonix, +9 %)."
-export function fairBidText(f: FairBid): string {
+export function fairBidText(f: FairBid, price?: number): string {
   if (f.noRival) return " Ningún rival tiene dinero para superarte: puja el mínimo.";
   const tens = Math.round(f.beats * 10);
   const bold = f.boldest && f.boldest.over > 0.005 ? ` El que más paga de más de los que pueden: ${f.boldest.manager} (+${pctTxt(f.boldest.over)} de media).` : "";
+  if (f.wanted && price) {
+    // Tu tope no llega a lo que se suele pagar en tu liga: decirlo claro
+    const M = (x: number) => `${(x / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 2 })} M`;
+    return ` Ojo: con tu tope tienes pocas opciones (habrías superado ${tens} de cada 10 fichajes parecidos de tu liga). Para llevártelo con seguridad haría falta unos ${M(f.wanted)} (+${pctTxt(f.wanted / price - 1)}), y por lo que te da no compensa.${bold}`;
+  }
   return ` Puja justa: con +${pctTxt(f.over)} habrías superado ${tens} de cada 10 fichajes parecidos de tu liga.${bold}`;
 }

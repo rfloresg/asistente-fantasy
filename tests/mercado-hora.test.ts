@@ -26,8 +26,18 @@ describe("hora del mercado", () => {
     const p = pendingBids(acc, market, new Set(["pujar:2"]));
     expect(p.map((a) => a.playerId)).toEqual(["1"]);
     const t = bidReminderText(new Date("2026-11-10T19:00:00+01:00"), now, p, (s) => s);
-    expect(t).toContain("se renueva a las 19:00");
+    expect(t).toContain("se renueva hoy a las 19:00");
     expect(t).toContain("(en 1 h 15 min)");
     expect(t).toContain("• Puja 2 M por Uno");
+  });
+});
+
+describe("día de la renovación", () => {
+  it("hoy, mañana u otro día", async () => {
+    const { hourText } = await import("../src/lib/plan/mercado-hora");
+    const n = new Date("2026-11-10T13:38:00+01:00");
+    expect(hourText(new Date("2026-11-10T19:03:00+01:00"), n)).toBe("hoy a las 19:03");
+    expect(hourText(new Date("2026-11-11T13:14:00+01:00"), n)).toBe("mañana a las 13:14");
+    expect(hourText(new Date("2026-11-12T13:14:00+01:00"), n)).toBe("el jueves a las 13:14");
   });
 });

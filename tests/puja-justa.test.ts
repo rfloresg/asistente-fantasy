@@ -37,7 +37,10 @@ describe("puja justa", () => {
     expect(f.bid).toBe(5_210_000);
   });
   it("nunca por encima de tu tope; sin historial suficiente, nada", () => {
-    expect(fairBid({ price: 5e6, hasBids: true, cap: 5.3e6, history, rivals, now })!.bid).toBe(5.3e6);
+    const capped = fairBid({ price: 5e6, hasBids: true, cap: 5.3e6, history, rivals, now })!;
+    expect(capped.bid).toBe(5.3e6);
+    expect(capped.wanted).toBeGreaterThan(5.3e6);
+    expect(fairBidText(capped, 5e6)).toContain("con tu tope tienes pocas opciones");
     expect(fairBid({ price: 5e6, hasBids: false, cap: 8e6, history: history.slice(0, 3), rivals, now })).toBeNull();
     // fichajes de jugadores de otro precio no cuentan
     expect(fairBid({ price: 40e6, hasBids: false, cap: 50e6, history, rivals: rivals.map((r) => ({ ...r, money: 100e6 })), now })).toBeNull();
