@@ -45,9 +45,6 @@ jobs:
       - run: npm ci
         if: steps.llave.outputs.ok == 'true'
         working-directory: movil
-      - run: npx cap sync android
-        if: steps.llave.outputs.ok == 'true'
-        working-directory: movil
       - name: Configuración de Firebase (avisos)
         if: steps.llave.outputs.ok == 'true'
         env:
@@ -60,6 +57,13 @@ jobs:
           else
             echo "$GOOGLE_SERVICES_JSON" | base64 -d > movil/android/app/google-services.json
           fi
+          # La web solo activa los avisos nativos si la app lleva Firebase: sin él, Android cierra la app
+          if [ -s movil/android/app/google-services.json ]; then
+            node -e "const f='movil/capacitor.config.json';const c=require('./'+f);c.android.appendUserAgent='AsistenteFantasyApp FantasyPush';require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
+          fi
+      - run: npx cap sync android
+        if: steps.llave.outputs.ok == 'true'
+        working-directory: movil
       - name: Fabricar el .apk firmado
         if: steps.llave.outputs.ok == 'true'
         working-directory: movil/android

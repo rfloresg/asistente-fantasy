@@ -4,7 +4,7 @@
 // desde la web (iPhone y Android), Web Push. En iPhone solo funciona con la app añadida a la pantalla de inicio.
 import { useCallback, useEffect, useState } from "react";
 
-type State = "loading" | "unsupported" | "needs-install" | "off" | "on" | "denied" | "busy" | "error";
+type State = "loading" | "unsupported" | "needs-install" | "needs-update" | "off" | "on" | "denied" | "busy" | "error";
 
 interface PushPlugin {
   checkPermissions(): Promise<{ receive: string }>;
@@ -13,9 +13,12 @@ interface PushPlugin {
   addListener(ev: string, cb: (x: { value?: string; notification?: { data?: { url?: string } } }) => void): Promise<{ remove(): void }>;
 }
 
+// Solo si la app de Android lleva Firebase dentro (lo marca al fabricarse con "FantasyPush" en el navegador):
+// pedir el token sin Firebase hace que Android cierre la app
+const inNativeApp = () => !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 const nativePush = (): PushPlugin | null => {
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, unknown> } }).Capacitor;
-  return cap?.isNativePlatform?.() && cap.Plugins?.PushNotifications ? (cap.Plugins.PushNotifications as PushPlugin) : null;
+  const cap = (window as unknown as { Capacitor?: { Plugins?: Record<string, unknown> } }).Capacitor;
+  return inNativeApp() && /FantasyPush/.test(navigator.userAgent) && cap?.Plugins?.PushNotifications ? (cap.Plugins.PushNotifications as PushPlugin) : null;
 };
 
 const save = (body: object) => fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -27,7 +30,10 @@ const keyBytes = (b64: string) => {
 };
 
 // Registra el token de Firebase (se guarda cada vez: si cambia, queda al día) y abre la ruta al tocar un aviso
+let registered = false; // una vez por arranque de la app: repetirlo en cada pantalla no hace falta
 async function nativeRegister(p: PushPlugin) {
+  if (registered) return;
+  registered = true;
   await p.addListener("registration", (t) => { if (t.value) save({ kind: "fcm", token: t.value }); });
   await p.addListener("pushNotificationActionPerformed", (a) => {
     const url = a.notification?.data?.url;
@@ -43,6 +49,7 @@ export default function ActivarAvisos({ vapidKey, compact = false }: { vapidKey:
   useEffect(() => {
     (async () => {
       const p = nativePush();
+      if (!p && inNativeApp()) { setState("needs-update"); return; }
       if (p) {
         const perm = await p.checkPermissions().catch(() => ({ receive: "prompt" }));
         if (perm.receive === "granted") { await nativeRegister(p).catch(() => {}); setState("on"); }
@@ -107,6 +114,7 @@ export default function ActivarAvisos({ vapidKey, compact = false }: { vapidKey:
 
   if (state === "loading" || state === "unsupported") return null;
   if (compact && state !== "off" && state !== "needs-install") return null; // en Hoy, solo para invitar a activarlas
+  if (state === "needs-update") return <p className="small">🔔 Para recibir avisos, actualiza la app: cuando haya versión nueva te saldrá arriba el botón «Actualizar».</p>;
 
   return (
     <div className={`avisos${compact ? " compact" : ""}`}>
