@@ -339,3 +339,14 @@ export const ingestRuns = pgTable("ingest_runs", {
   errors: integer("errors").notNull().default(0),
   note: text("note"),
 });
+
+// Lista de seguimiento: jugadores marcados con ⭐. El Espía avisa si salen al mercado o se libera su cláusula.
+export const watchlist = pgTable(
+  "watchlist",
+  {
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    playerId: text("player_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.playerId] })],
+);

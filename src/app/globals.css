@@ -693,3 +693,7 @@ html:not([data-theme="claro"]) .seg.tema button[aria-pressed="true"] { color: #0
 .actualizar .primary { padding: 8px 16px; min-height: 0; text-decoration: none; }
 .actualizar .small { flex-basis: 100%; margin: 0; }
 @media (max-width: 760px) { .actualizar { margin: 10px 16px 0; } }
+
+/* ⭐ Seguir jugador */
+.seguir { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; }
+.seguir .seguir-on { border-color: var(--yellow); color: var(--yellow); }

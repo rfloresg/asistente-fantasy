@@ -15,9 +15,12 @@ import { premiumOf } from "../src/lib/espia/premium";
 import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
 import { and, desc, eq, gte, inArray, isNull, max, ne, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
-import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
+import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users, watchlist } from "../src/db/schema";
 import { blocks, marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage, type Accion } from "../src/lib/plan/plan";
+import { watchEvents } from "../src/lib/seguir";
+import { lastMinute, lastMinuteText } from "../src/lib/plan/ultima-hora";
+import { myIds, playersNow } from "../src/lib/plan/squad-db";
 import { FRIENDS_WINDOW_H, friendClaims, type FriendPlan } from "../src/lib/plan/amigos";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
@@ -243,6 +246,8 @@ async function runLeague(
           }
         }
         await bidReminders(db, liga, leagueId, planUsers, seen).catch((e) => console.error(`${leagueName}, aviso de pujas: ${e}`));
+        await lastMinuteAlerts(db, leagueId, leagueName, planUsers, seen).catch((e) => console.error(`${leagueName}, última hora: ${e}`));
+        await watchAlerts(db, liga, leagueId, leagueName, planUsers, teams, seen).catch((e) => console.error(`${leagueName}, seguidos: ${e}`));
         await refreshLiga(db, liga, leagueId, standing, teams, acts, ctx);
       }
 
@@ -682,6 +687,67 @@ async function runPlan(
   }
   await weekSummary(db, liga, leagueId, leagueName, user, standing, money.mine.teamId, myTeam, mts, now)
     .catch((e) => console.error(`${leagueName}, tu semana: ${e instanceof Error ? e.message : e}`));
+}
+
+// ⭐ Lista de seguimiento: avisa si un jugador que sigues sale al mercado de esta liga o se libera su cláusula
+async function watchAlerts(db: Db, liga: Liga, leagueId: string, leagueName: string, planUsers: PlanUser[], teams: Awaited<ReturnType<Liga["team"]>>[], seen: Set<string>) {
+  const ids = planUsers.flatMap((u) => (u.userId == null ? [] : [u.userId]));
+  if (!ids.length) return;
+  const rows = await db.select().from(watchlist).where(inArray(watchlist.userId, ids));
+  if (!rows.length) return;
+  const market = await liga.market();
+  const now = new Date();
+  for (const u of planUsers) {
+    const watch = new Set(rows.filter((r) => r.userId === u.userId).map((r) => r.playerId));
+    if (!watch.size || u.userId == null) continue;
+    const [plan] = await db.select({ liga: espiaPlans.liga }).from(espiaPlans)
+      .where(and(eq(espiaPlans.leagueId, leagueId), eq(espiaPlans.userId, u.userId))).orderBy(desc(espiaPlans.createdAt)).limit(1);
+    if (!plan?.liga) continue;
+    const evs = watchEvents(watch, market, teams, plan.liga.myTeamId, now.getTime() - MAX_AGE_H * 3600e3, now.getTime())
+      .map((e) => ({ ...e, ev: `seguir:${u.userId}:${e.playerId}:${e.key}` }))
+      .filter((e) => !seen.has(e.ev));
+    if (!evs.length) continue;
+    const text = `⭐ <b>Jugadores que sigues</b> (${esc(leagueName)})\n${evs.map((e) => e.text.replace(/^⭐ /, "• ")).join("\n")}`;
+    if (mode === "preview") { console.log(text); continue; }
+    if (u.chat) await sendMessage(u.chat, text, appButton).catch(() => {});
+    await pushToUser(db, u.userId, { title: `⭐ ${evs[0].short}`, body: evs.length > 1 ? `Y ${evs.length - 1} aviso${evs.length > 2 ? "s" : ""} más en ${leagueName}` : leagueName, url: "/mercado?accion=siguiendo", tag: `seguir:${leagueId}` }).catch(() => 0);
+    await db.insert(espiaEvents).values(evs.map((e) => ({ leagueId, activityId: e.ev, createdAt: now, sentAt: now }))).onConflictDoNothing();
+  }
+}
+
+// Última hora: titulares del once del último plan que se lesionan o dejan de ser titulares probables antes de su partido
+async function lastMinuteAlerts(db: Db, leagueId: string, leagueName: string, planUsers: PlanUser[], seen: Set<string>) {
+  const now = new Date();
+  const mts = await db.select({ date: matches.date, localId: matches.localId, visitorId: matches.visitorId }).from(matches)
+    .where(gte(matches.date, new Date(now.getTime() - 3 * 3600e3)));
+  const nextOf = new Map<string, Date>(); // equipo → su próximo partido (o el que está en juego)
+  for (const m of [...mts].sort((a, b) => a.date.getTime() - b.date.getTime())) {
+    for (const t of [m.localId, m.visitorId]) if (!nextOf.has(t)) nextOf.set(t, m.date);
+  }
+  const [lg] = await db.select({ premium: leagues.premium }).from(leagues).where(eq(leagues.leagueId, leagueId));
+  for (const u of planUsers) {
+    if (u.userId == null) continue;
+    const [plan] = await db.select({ lineup: espiaPlans.lineup, liga: espiaPlans.liga }).from(espiaPlans)
+      .where(and(eq(espiaPlans.leagueId, leagueId), eq(espiaPlans.userId, u.userId))).orderBy(desc(espiaPlans.createdAt)).limit(1);
+    if (!plan?.lineup || !plan.liga?.owners) continue;
+    const { players: now_ } = await playersNow(db, plan.liga, myIds(plan.liga));
+    const squad = [...now_.values()];
+    const team = new Map(squad.map((p) => [p.id, p.teamId]));
+    const alerts = lastMinute(plan.lineup, squad, (pid) => nextOf.get(team.get(pid) ?? "") ?? null, now, lg?.premium ?? false)
+      .map((a) => ({ ...a, ev: `ultima:${u.userId}:${a.key}:${(nextOf.get(team.get(a.id) ?? "") ?? now).toISOString().slice(0, 10)}` }))
+      .filter((a) => !seen.has(a.ev));
+    if (!alerts.length) continue;
+    const text = lastMinuteText(leagueName, alerts);
+    if (mode === "preview") { console.log(text); continue; }
+    if (u.chat) await sendMessage(u.chat, text, appButton).catch(() => {});
+    const first = alerts[0];
+    await pushToUser(db, u.userId, {
+      title: `🚨 Última hora: ${first.name}`,
+      body: `${first.reason}.${first.sub ? ` Mete a ${first.sub.name}.` : ""}${alerts.length > 1 ? ` Y ${alerts.length - 1} más.` : ""}`,
+      url: "/", tag: `ultima:${leagueId}`,
+    }).catch(() => 0);
+    await db.insert(espiaEvents).values(alerts.map((a) => ({ leagueId, activityId: a.ev, createdAt: now, sentAt: now }))).onConflictDoNothing();
+  }
 }
 
 // Lo que buscan los amigos de esta liga que usan la app (su último plan de las últimas horas)

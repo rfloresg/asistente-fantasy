@@ -6,6 +6,7 @@ import { money, n1, notaClass, pct, POS, STATUS, fmtDate } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import { advice, marketIds, myPlayerIds, ownerOf } from "@/lib/propiedad";
 import { lastRun, market, type Order } from "@/lib/queries";
+import { followed } from "@/lib/seguir-db";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +31,14 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
     : action === "fichar" ? { ...base, action: "fichar", excludeIds: mine ?? undefined }
     : action === "nofichar" ? { ...base, action: "vender", excludeIds: mine ?? undefined }
     : action === "enventa" && onMarket ? { ...base, ids: onMarket }
+    : action === "siguiendo" ? { ...base, ids: user ? await followed(user.id) : [] }
     : base;
   const [run, { day, rows: all }] = await Promise.all([lastRun(), market(filter, action === "mios" || action === "vender" ? 40 : 60)]);
   const withAdvice = all.map((r) => ({ ...r, adv: advice(ownerOf(plan?.liga, String(r.id)), r.s.action, plan?.acciones ?? [], String(r.id)) }));
   const rows = action === "vender" && mine ? withAdvice.filter((r) => r.adv.label.includes("Vender")) : withAdvice;
   const empty =
-    action === "enventa" ? "Hoy no hay nadie a la venta con esos filtros."
+    action === "siguiendo" ? "Aún no sigues a nadie: entra en la ficha de un jugador y pulsa ☆ Seguir. Te avisaremos si sale al mercado de tu liga o se libera su cláusula."
+    : action === "enventa" ? "Hoy no hay nadie a la venta con esos filtros."
     : action === "vender" ? "Ninguno de tus jugadores está para vender hoy." : action === "mios" && !mine ? "Aún no sé qué jugadores tienes: llega con tu próximo plan." : "Nadie con esos filtros.";
 
   return (
@@ -63,6 +66,7 @@ export default async function Mercado({ searchParams }: { searchParams: Search }
           <option value="todos">Todos los jugadores</option>
           <option value="fichar">Para fichar</option>
           <option value="mios">Mis jugadores</option>
+          {user && <option value="siguiendo">⭐ Los que sigo</option>}
           <option value="vender">Mis jugadores para vender</option>
           <option value="nofichar">Mejor no fichar</option>
         </select>

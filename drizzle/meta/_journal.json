@@ -148,6 +148,13 @@
       "when": 1794480700459,
       "tag": "0020_avisos_movil",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794494911575,
+      "tag": "0021_seguir",
+      "breakpoints": true
     }
   ]
 }

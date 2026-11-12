@@ -8,6 +8,8 @@ import { money, n1, notaClass, pct, POS, STATUS } from "@/lib/format";
 import { currentLeague, latestPlan } from "@/lib/ligas";
 import { advice, ownerOf } from "@/lib/propiedad";
 import { playerCard, teamNames } from "@/lib/queries";
+import { isFollowing } from "@/lib/seguir-db";
+import { Seguir } from "@/app/_ui/Seguir";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
   const [card, names, plan] = await Promise.all([playerCard(id), teamNames(), current ? latestPlan(current.id, user?.id) : null]);
   if (!card) notFound();
   const { player: p, team, score: s, values, weeks } = card;
+  const following = user ? await isFollowing(user.id, id) : false;
   const why = s ? reasons(s, p.status, (tid) => names.get(tid) ?? tid) : [];
 
   return (
@@ -59,6 +62,7 @@ export default async function Player({ params }: { params: Promise<{ id: string 
             {team} · {POS[p.positionId]} · {p.points} pts ({n1(p.averagePoints)} de media)
             {STATUS[p.status] && <> · <span className="bad">{STATUS[p.status]}</span></>}
           </div>
+          {user && <Seguir playerId={id} on={following} />}
         </div>
       </div>
 
