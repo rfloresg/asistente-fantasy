@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import ActualizarApp from "./_ui/ActualizarApp";
 import { currentTheme } from "@/lib/tema";
 import { currentLeague } from "@/lib/ligas";
 import { LeagueSwitch, Nav } from "./_ui/Nav";
@@ -42,6 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <LeagueSwitch leagues={all} current={current?.id ?? null} />
           </div>
         </header>
+        <ActualizarApp />
         {viewing && (
           <div className="viewing" role="status">
             <span>Estás viendo la web como <b>{viewing.name}</b>. Solo para mirar.</span>
