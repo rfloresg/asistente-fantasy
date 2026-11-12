@@ -10,6 +10,7 @@ import { sourcesText } from "@/lib/onces/combine";
 import { phaseLine, type MarketPhase, type PhaseKind } from "@/lib/meta/calendario";
 import { fairBid, fairBidText, type PastBuy } from "./puja-justa";
 import { hourText } from "./mercado-hora";
+import { friendNote } from "./amigos";
 
 export const PLAN = {
   maxPerType: 3, // acciones de cada tipo, como mucho
@@ -113,6 +114,7 @@ export interface PlanInput {
   bidHistory?: PastBuy[]; // fichajes del mercado de tu liga con lo que se pagó de más (puja justa)
   marketRefresh?: Date | null; // cuándo se renueva el mercado de tu liga (y se resuelven las pujas)
   offers?: Map<string, { money: number; expirationDate?: string }[]>; // ofertas pendientes por tus jugadores a la venta
+  friends?: Map<string, string>; // jugadores a por los que ya va un amigo de tu liga que usa la app (y su nombre)
 }
 
 export type Tipo = "saldo" | "proteger" | "alinear" | "clausulazo" | "pujar" | "vender" | "aviso";
@@ -280,14 +282,19 @@ export function dailyPlan(i: PlanInput): Accion[] {
   let cash = Math.max(0, i.myMoney - reserved); // lo que tienes ya, sin vender y tras subir cláusulas
   const cashNote = (x: number) => (x > cash ? ` Para pagarlo tendrás que vender antes (tienes ${M(Math.max(0, cash))} libres).` : "");
 
+  // Lo que ya busca un amigo de tu liga que usa la app: va al final de la cola y, si sale, con aviso
+  const claimed = (pid: string) => i.friends?.has(pid) ?? false;
+  const friendTxt = (pid: string) => (i.friends?.has(pid) ? friendNote(i.friends.get(pid)!) : "");
+
   // 3. Clausulazos: jugadores de rivales con nota de fichar y cláusula que compensa. Se pagan al momento.
   const clausulazos = i.rivals
     .flatMap((r) => r.team.players.map((p) => ({ r, p, s: sc(id(p)), g: gainOf(id(p), p.playerMaster.nickname, i.positions?.get(id(p)), p.playerMaster.playerStatus) })))
     .filter(({ p, s, g }) => s && clauseOpen(p, i.now) && s.action !== "vender"
       && (g !== null ? g >= PLAN.clauseMinGain : s.nota >= PLAN.buyNota)
       && p.buyoutClause! <= Math.max(s.maxBidPlay, s.maxBidSpec ?? 0))
-    // con tu once: los que más puntos dan por millón; si no, por nota
-    .sort((a, c) => (a.g !== null && c.g !== null ? c.g / c.p.buyoutClause! - a.g / a.p.buyoutClause! : c.s!.nota - a.s!.nota));
+    // lo que ya busca un amigo, al final; luego, con tu once, los que más puntos dan por millón; si no, por nota
+    .sort((a, c) => Number(claimed(id(a.p))) - Number(claimed(id(c.p)))
+      || (a.g !== null && c.g !== null ? c.g / c.p.buyoutClause! - a.g / a.p.buyoutClause! : c.s!.nota - a.s!.nota));
   let nClaus = 0;
   for (const { r, p, s, g } of clausulazos) {
     if (nClaus >= PLAN.maxPerType) break;
@@ -303,7 +310,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
       prioridad: 2,
       jugador: name,
       playerId: id(p),
-      titulo: `Clausula a ${name}`, detalle: `Es de ${r.manager} y cuesta ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor).${g !== null ? ` ${gainTxt(g, id(p))[0].toUpperCase()}${gainTxt(g, id(p)).slice(1)}.` : ""} Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`, texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor).${g !== null ? ` ${gainTxt(g, id(p))[0].toUpperCase()}${gainTxt(g, id(p)).slice(1)}.` : ""} Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.`,
+      titulo: `Clausula a ${name}`, detalle: `Es de ${r.manager} y cuesta ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor).${g !== null ? ` ${gainTxt(g, id(p))[0].toUpperCase()}${gainTxt(g, id(p)).slice(1)}.` : ""} Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.${friendTxt(id(p))}`, texto: `💣 Clausula a ${b(name)} de ${b(r.manager)} por ${M(clause)} (${over >= 0 ? "+" : ""}${over} % sobre su valor).${g !== null ? ` ${gainTxt(g, id(p))[0].toUpperCase()}${gainTxt(g, id(p)).slice(1)}.` : ""} Nota ${s!.nota}; lo máximo que pagaría es ${M(Math.max(s!.maxBidPlay, s!.maxBidSpec ?? 0))}.${esc(friendTxt(id(p)))}`,
     });
   }
 
@@ -324,6 +331,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
     // primero los de los puestos donde te faltan titulares, luego los que más mejoran tu once (o por nota)
     // y al final los de especular, por lo que se espera ganar
     .sort((a, c) => Number(c.play) - Number(a.play)
+      || Number(claimed(String(a.m.playerMaster.id))) - Number(claimed(String(c.m.playerMaster.id)))
       || Number(needPos.has(c.m.playerMaster.positionId)) - Number(needPos.has(a.m.playerMaster.positionId))
       || (a.play ? (a.g !== null && c.g !== null ? c.g - a.g : c.s!.nota - a.s!.nota) : (c.s!.maxBidSpec! - c.m.salePrice) - (a.s!.maxBidSpec! - a.m.salePrice)));
   // Primero las pujas que cubren un hueco, luego las cláusulas para huecos y al final el resto
@@ -363,7 +371,7 @@ export function dailyPlan(i: PlanInput): Accion[] {
         prioridad: 3,
         jugador: name,
         playerId: String(m.playerMaster.id),
-        titulo: `Puja ${M(bid)} por ${name}`, detalle: `${why[0].toUpperCase()}${why.slice(1)}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${fairTxt}${note}`, texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${esc(fairTxt)}${note}`,
+        titulo: `Puja ${M(bid)} por ${name}`, detalle: `${why[0].toUpperCase()}${why.slice(1)}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${fairTxt}${note}${friendTxt(String(m.playerMaster.id))}`, texto: `🛒 Puja ${M(bid)} por ${b(name)} ${why}.${need} Sale por ${M(m.salePrice)}; tu tope: ${M(cap)}.${bids}${esc(fairTxt)}${note}${esc(friendTxt(String(m.playerMaster.id)))}`,
       });
     }
   };

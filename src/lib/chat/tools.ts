@@ -3,9 +3,10 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { disputed, sourcesText } from "../onces/combine";
-import { and, desc, eq, isNull, max, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, max, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { espiaPlans, players, playerScores, teams } from "@/db/schema";
+import { espiaPlans, leagues, players, playerScores, teams } from "@/db/schema";
+import { whatIf, type WhatIfPlayer } from "@/lib/plan/ysi";
 import { CONFIG } from "@/lib/nota/engine";
 import { reasons } from "@/lib/nota/explain";
 import { norm } from "@/lib/onces/match";
@@ -63,6 +64,19 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Último plan del día de quien pregunta en cada liga: qué vender, a quién proteger (subir cláusula o blindar), por quién pujar y cuánto, y clausulazos. Úsala cuando pregunte qué hacer hoy o qué movimientos hacer.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "y_si",
+    description:
+      "Simula un cambio en tu plantilla: vender unos jugadores y fichar otros (ids de buscar_jugador). Devuelve los puntos esperados por jornada de tu mejor once antes y después, quién entra y sale del once, tu dinero después y cómo cambia el valor esperado en 7 días. Úsala para preguntas tipo «¿y si vendo a X y ficho a Y?».",
+    input_schema: {
+      type: "object",
+      properties: {
+        vender: { type: "array", items: { type: "string" }, maxItems: 10, description: "ids de tus jugadores que vendes" },
+        fichar: { type: "array", items: { type: "string" }, maxItems: 10, description: "ids de los jugadores que fichas" },
+        liga: { type: "string", description: "nombre de la liga, si juega en varias" },
+      },
+    },
   },
   {
     name: "meta",
@@ -244,10 +258,64 @@ async function variosJugadores({ ids }: Input, own: Own) {
   };
 }
 
+// "¿Y si…?" con la plantilla del último plan de quien pregunta y las cifras de hoy
+async function ySi(i: Input, userId: number | null) {
+  if (userId === null) return { error: "Hace falta tu cuenta para saber tu plantilla" };
+  const db = await getDb();
+  const plans = await db.select().from(espiaPlans).where(eq(espiaPlans.userId, userId)).orderBy(desc(espiaPlans.createdAt)).limit(20);
+  const want = norm(String(i.liga ?? ""));
+  const plan = plans.find((p) => p.liga?.owners && (!want || norm(p.leagueName).includes(want)));
+  if (!plan?.liga?.owners) return { error: "Aún no tengo tu plantilla: sale con tu próximo plan" };
+  const liga = plan.liga;
+  const ids = (x: unknown) => (Array.isArray(x) ? x.map(String) : []);
+  const sell = ids(i.vender), buy = ids(i.fichar);
+  const mine = Object.entries(liga.owners!).filter(([, t]) => t === liga.myTeamId).map(([id]) => id);
+  const all = [...new Set([...mine, ...sell, ...buy])];
+  const [{ d }] = await db.select({ d: max(playerScores.day) }).from(playerScores);
+  const ps = await db.select().from(players).where(inArray(players.id, all));
+  const sc = d ? await db.select().from(playerScores).where(and(eq(playerScores.day, d), inArray(playerScores.playerId, all))) : [];
+  const byP = new Map(ps.map((p) => [p.id, p])), byS = new Map(sc.map((s) => [s.playerId, s]));
+  const [lg] = await db.select({ premium: leagues.premium }).from(leagues).where(eq(leagues.leagueId, plan.leagueId));
+  const unknown = all.filter((id) => !byP.has(id));
+  const wp = (id: string): WhatIfPlayer | null => {
+    const p = byP.get(id), s = byS.get(id);
+    if (!p) return null;
+    const owner = ownerOf(liga, id);
+    return {
+      id, name: p.nickname, positionId: p.positionId, status: p.status,
+      formAvg: s?.formAvg ?? null, startProb: s?.startProb ?? null, xp: s?.xpNext?.[0]?.pts ?? null,
+      value: s?.value ?? p.marketValue, expected: s?.expected ?? null,
+      price: liga.market?.find((m) => m.id === id)?.price ?? null,
+      owner: owner?.kind === "rival" ? owner.manager : null,
+    };
+  };
+  const squad = mine.map(wp).filter((x): x is WhatIfPlayer => !!x);
+  const r = whatIf(squad, sell, buy.map(wp).filter((x): x is WhatIfPlayer => !!x), plan.myMoney, lg?.premium ?? false);
+  const sign = (x: number) => (x > 0 ? "+" : "") + n1(x);
+  return {
+    liga: plan.leagueName,
+    datos_de: d,
+    vendes: sell.map((id) => byP.get(id)?.nickname ?? id),
+    fichas: buy.map((id) => byP.get(id)?.nickname ?? id),
+    once_antes: `${n1(r.before)} pts por jornada${r.formationBefore ? ` (${r.formationBefore})` : ""}`,
+    once_despues: `${n1(r.after)} pts por jornada${r.formationAfter ? ` (${r.formationAfter})` : ""}`,
+    cambio_pts_por_jornada: sign(r.diff),
+    entran_al_once: r.entran,
+    salen_del_once: r.salen,
+    dinero_antes: money(r.moneyBefore),
+    dinero_despues: money(r.moneyAfter),
+    cambio_valor_esperado_7_dias: (r.valueDiff7d > 0 ? "+" : "") + money(r.valueDiff7d),
+    avisos: [...r.avisos, ...unknown.map((id) => `no encuentro el jugador ${id}`)],
+    nota: "Vender se cuenta a su valor de hoy y fichar al precio del mercado de tu liga (o a su valor si no está en venta).",
+  };
+}
+
 export async function runTool(name: string, input: Input, userId: number | null = null): Promise<unknown> {
   switch (name) {
     case "plan_del_dia":
       return planDelDia(userId);
+    case "y_si":
+      return ySi(input, userId);
     case "meta":
       return tema(String(input.tema ?? "todo"));
     case "buscar_jugador":

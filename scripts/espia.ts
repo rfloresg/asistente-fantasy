@@ -13,11 +13,12 @@ import "dotenv/config";
 import { pruneActivity } from "../src/lib/actividad";
 import { premiumOf } from "../src/lib/espia/premium";
 import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin";
-import { and, desc, eq, gte, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, max, ne, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
 import { blocks, marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
-import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
+import { applyDone, dailyPlan, planMessage, type Accion } from "../src/lib/plan/plan";
+import { FRIENDS_WINDOW_H, friendClaims, type FriendPlan } from "../src/lib/plan/amigos";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
 import { BID_REMINDER_MIN, bidReminderText, hourText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
@@ -639,8 +640,9 @@ async function runPlan(
   const done = new Set(doneRows.filter((k) => (prefix ? k.startsWith(prefix) : !/^u\d+:/.test(k))).map((k) => k.slice(prefix.length)));
   const myName = myTeam.manager?.managerName;
   const onSaleByMe = new Set(market.filter((m) => m.status === "on_sale" && myName && m.sellerTeam?.manager?.managerName === myName).map((m) => String(m.playerMaster.id)));
+  const friends = await loadFriendClaims(db, leagueId, user.userId, now);
   const acciones = applyDone(
-    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe, bidHistory, marketRefresh: refreshAt, offers }),
+    dailyPlan({ now, myTeam, myMoney: money.mine.money, rivals, market, scores, close: closeAt, lineup, positions, captain: premium, money: user.dinero ?? true, phase, onSale: onSaleByMe, bidHistory, marketRefresh: refreshAt, offers, friends }),
     done, onSaleByMe,
   );
   // Lo marcado como hecho que ya no sale en el plan estaba hecho de verdad: se olvida
@@ -680,6 +682,18 @@ async function runPlan(
   }
   await weekSummary(db, liga, leagueId, leagueName, user, standing, money.mine.teamId, myTeam, mts, now)
     .catch((e) => console.error(`${leagueName}, tu semana: ${e instanceof Error ? e.message : e}`));
+}
+
+// Lo que buscan los amigos de esta liga que usan la app (su último plan de las últimas horas)
+async function loadFriendClaims(db: Db, leagueId: string, userId: number | null, now: Date) {
+  if (userId == null) return undefined;
+  const rows = await db.select({ userId: espiaPlans.userId, name: users.name, acciones: espiaPlans.acciones, createdAt: espiaPlans.createdAt })
+    .from(espiaPlans).innerJoin(users, eq(users.id, espiaPlans.userId))
+    .where(and(eq(espiaPlans.leagueId, leagueId), ne(espiaPlans.userId, userId), gte(espiaPlans.createdAt, new Date(now.getTime() - FRIENDS_WINDOW_H * 3600e3))))
+    .orderBy(desc(espiaPlans.createdAt));
+  const latest = new Map<number, FriendPlan>();
+  for (const r of rows) if (r.userId != null && !latest.has(r.userId)) latest.set(r.userId, { name: r.name, acciones: (r.acciones ?? []) as Accion[] });
+  return latest.size ? friendClaims([...latest.values()]) : undefined;
 }
 
 // "Tu semana": una vez por jornada terminada (entre 6 h y 4 días después del último partido)
