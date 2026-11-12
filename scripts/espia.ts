@@ -40,6 +40,7 @@ import { pack, sendMessage, type UrlButton } from "../src/lib/espia/telegram";
 import { APP_URL } from "../src/lib/grupo";
 
 const mode = process.argv[2] ?? "eventos";
+const PLAN_GAP_MIN = 90; // no repetir el plan si ya se hizo hace menos de esto
 const MAX_AGE_H = 48; // actividad más vieja no se avisa
 const REMINDER_H = 4; // recordatorio privado: horas antes del cierre del mercado
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -580,6 +581,15 @@ async function runPlan(
   standing: Awaited<ReturnType<Liga["standing"]>>, money: Awaited<ReturnType<typeof estimateLeagueMoney>>,
   acts: Activity[], ctx: Ctx, user: PlanUser, header?: string,
 ) {
+  // Dos disparos seguidos (el externo y uno de GitHub con retraso) no mandan el plan dos veces
+  if (mode === "plan" && !process.env.FORCE && user.userId != null) {
+    const [last] = await db.select({ at: espiaPlans.createdAt }).from(espiaPlans)
+      .where(and(eq(espiaPlans.leagueId, leagueId), eq(espiaPlans.userId, user.userId))).orderBy(desc(espiaPlans.createdAt)).limit(1);
+    if (last && Date.now() - last.at.getTime() < PLAN_GAP_MIN * 60e3) {
+      console.log(`${leagueName}: plan del usuario ${user.userId} hecho hace menos de ${PLAN_GAP_MIN} min, no se repite`);
+      return;
+    }
+  }
   if (!money?.mine) {
     console.log(`${leagueName}: sin el dinero del usuario ${user.userId ?? "principal"} no hay plan`);
     return;

@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: "eventos, resumen o plan"
+        description: "eventos, resumen, plan o manana (resumen y plan)"
         default: "eventos"
 
 # Una pasada cada vez: la sesión de LaLiga se renueva en cada uso y dos a la vez la romperían
@@ -23,6 +23,9 @@ concurrency:
 
 jobs:
   espia:
+    # Con el disparador externo (cron-job.org, a su hora) activado, las pasadas programadas de GitHub,
+    # que llegan con horas de retraso, no hacen nada. Variable del repositorio CRON_EXTERNO = 1
+    if: github.event_name != 'schedule' || vars.CRON_EXTERNO != '1'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -56,11 +59,11 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       - name: Resumen diario
-        if: github.event.schedule == '0 8 * * *' || github.event.inputs.modo == 'resumen'
+        if: github.event.schedule == '0 8 * * *' || github.event.inputs.modo == 'resumen' || github.event.inputs.modo == 'manana'
         run: npm run espia resumen
       - name: Plan del día (privado)
-        if: github.event.schedule == '0 8 * * *' || github.event.schedule == '0 17 * * *' || github.event.inputs.modo == 'plan'
+        if: github.event.schedule == '0 8 * * *' || github.event.schedule == '0 17 * * *' || github.event.inputs.modo == 'plan' || github.event.inputs.modo == 'manana'
         run: npm run espia plan
       - name: Avisos de actividad
-        if: github.event.schedule != '0 8 * * *' && github.event.schedule != '0 17 * * *' && github.event.inputs.modo != 'resumen' && github.event.inputs.modo != 'plan'
+        if: github.event.schedule != '0 8 * * *' && github.event.schedule != '0 17 * * *' && github.event.inputs.modo != 'resumen' && github.event.inputs.modo != 'plan' && github.event.inputs.modo != 'manana'
         run: npm run espia
