@@ -8,6 +8,8 @@ import Link from "next/link";
 import Connect from "./Connect";
 import DeleteAccount from "./DeleteAccount";
 import { currentTheme } from "@/lib/tema";
+import ActivarAvisos from "../_ui/ActivarAvisos";
+import { vapidPublicKey } from "@/lib/push";
 import LeagueRow from "./LeagueRow";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,8 @@ export default async function Conectar() {
             <button type="submit" className="chip">Salir</button>
           </form>
           {user.isAdmin && <p style={{ marginTop: 20 }}><Link href="/admin" className="chip">Administración</Link></p>}
+          <h2 style={{ marginTop: 28 }}>Avisos en el móvil</h2>
+          <ActivarAvisos vapidKey={vapidPublicKey()} />
           <h2 style={{ marginTop: 28 }}>Tema</h2>
           <form action="/api/tema" method="post" className="seg tema" aria-label="Tema de la app">
             <button type="submit" name="tema" value="oscuro" aria-pressed={theme === "oscuro"}>🌙 Oscuro</button>

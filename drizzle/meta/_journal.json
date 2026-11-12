@@ -141,6 +141,13 @@
       "when": 1794306070868,
       "tag": "0019_entrar_con_codigo",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794480700459,
+      "tag": "0020_avisos_movil",
+      "breakpoints": true
     }
   ]
 }

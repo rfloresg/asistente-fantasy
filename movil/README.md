@@ -30,3 +30,30 @@ Luego, Actions → **App Android** → Run workflow. En unos minutos está en `/
 ## Probar en local
 
 `npm ci`, `npx cap sync android` y abrir `android/` con Android Studio.
+
+## Avisos en el móvil (una sola vez)
+
+Dos vías: **Web Push** (la app instalada desde la web, iPhone y Android) y **Firebase** (esta app de Android).
+Sin estas llaves todo funciona igual, solo que no llegan avisos al móvil.
+
+### 1. Web Push (llaves VAPID)
+
+En la carpeta del proyecto:
+
+```powershell
+npx web-push generate-vapid-keys
+```
+
+Salen dos llaves (Public Key y Private Key). Guárdalas:
+
+- **Vercel** → Settings → Environment Variables: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = la pública, `VAPID_PRIVATE_KEY` = la privada. Luego Redeploy.
+- **GitHub** → Settings → Secrets → Actions: `VAPID_PUBLIC_KEY` = la pública, `VAPID_PRIVATE_KEY` = la privada.
+
+### 2. Firebase (app de Android)
+
+1. https://console.firebase.google.com → Crear proyecto (gratis, sin Analytics).
+2. Añadir app → Android → nombre del paquete `com.rfloresg.asistentefantasy` → Registrar → **Descargar google-services.json**.
+3. En GitHub, secreto `GOOGLE_SERVICES_JSON` = el contenido del archivo (ábrelo con el Bloc de notas y copia todo).
+4. Firebase → ⚙️ Configuración del proyecto → Cuentas de servicio → **Generar nueva clave privada** (descarga un .json).
+5. Ese .json, en GitHub como secreto `FCM_SERVICE_ACCOUNT` y en Vercel como variable `FCM_SERVICE_ACCOUNT` (todo el contenido). Es una llave: no la subas a Git ni la mandes por chat.
+6. Actions → **App Android** → Run workflow, para fabricar la app con los avisos. Hay que instalar la nueva versión encima.

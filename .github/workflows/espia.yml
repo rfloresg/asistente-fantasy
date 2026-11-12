@@ -35,6 +35,11 @@ jobs:
       LIGA_ID: ${{ secrets.LIGA_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # Avisos al móvil (opcionales: sin ellas no se mandan)
+      VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+      VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+      FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
+      APP_URL: ${{ vars.APP_URL || 'https://asistente-fantasy.vercel.app' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

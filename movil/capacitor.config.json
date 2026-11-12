@@ -7,6 +7,9 @@
     "androidScheme": "https",
     "errorPath": "sin-conexion.html"
   },
+  "plugins": {
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  },
   "android": {
     "appendUserAgent": "AsistenteFantasyApp",
     "backgroundColor": "#060A07"

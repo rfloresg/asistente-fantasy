@@ -20,8 +20,9 @@ import { blocks, marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/c
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
-import { BID_REMINDER_MIN, bidReminderText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
-import { weekSummaryText, type WeekInput } from "../src/lib/semana";
+import { BID_REMINDER_MIN, bidReminderText, hourText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { weekSummaryPush, weekSummaryText, type WeekInput } from "../src/lib/semana";
+import { planPush, pushToUser } from "../src/lib/push";
 import { loadAciertos } from "../src/lib/aciertos-db";
 import { madridDay, valueOn } from "../src/lib/aciertos";
 import { sourcesText } from "../src/lib/onces/combine";
@@ -417,7 +418,7 @@ async function bidReminders(db: Db, liga: Liga, leagueId: string, planUsers: Pla
   if (!refresh || refresh.getTime() - now.getTime() > BID_REMINDER_MIN * 60e3) return;
   for (const u of planUsers) {
     const key = `pujas:${refresh.toISOString()}:${u.userId ?? "yo"}`;
-    if (!u.chat || seen.has(key)) continue;
+    if ((!u.chat && u.userId == null) || seen.has(key)) continue;
     const who = u.userId == null ? isNull(espiaPlans.userId) : eq(espiaPlans.userId, u.userId);
     const [plan] = await db.select({ acciones: espiaPlans.acciones }).from(espiaPlans)
       .where(and(eq(espiaPlans.leagueId, leagueId), who)).orderBy(desc(espiaPlans.createdAt)).limit(1);
@@ -429,7 +430,14 @@ async function bidReminders(db: Db, liga: Liga, leagueId: string, planUsers: Pla
     const pend = pendingBids(plan.acciones, market, done);
     await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: now, sentAt: pend.length ? now : null }).onConflictDoNothing();
     seen.add(key);
-    if (pend.length && mode !== "preview") await sendMessage(u.chat, bidReminderText(refresh, now, pend, esc), appButton).catch(() => {});
+    if (pend.length && mode !== "preview" && u.chat) await sendMessage(u.chat, bidReminderText(refresh, now, pend, esc), appButton).catch(() => {});
+    if (pend.length && mode !== "preview" && u.userId != null) {
+      await pushToUser(db, u.userId, {
+        title: `⏳ Tu mercado se renueva ${hourText(refresh, now)}`,
+        body: `Te quedan por hacer: ${pend.map((a) => a.titulo ?? a.jugador).join(" · ")}`,
+        url: "/", tag: `pujas:${leagueId}`,
+      }).catch(() => 0);
+    }
   }
 }
 
@@ -663,6 +671,9 @@ async function runPlan(
   } else {
     await send(chat, pack(text.split("\n")), appButton);
   }
+  if (mode !== "preview" && user.userId != null) {
+    await pushToUser(db, user.userId, planPush(leagueName, acciones)).catch((e) => console.error(`aviso al móvil: ${e}`));
+  }
   if (mode !== "preview") {
     await db.insert(espiaPlans).values({ userId: user.userId, leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null, closeAt, lineup: lineupSnap, liga: ligaSnap });
     console.log(`${leagueName}: plan con ${acciones.length} acciones`);
@@ -718,11 +729,15 @@ async function weekSummary(
   };
   const text = weekSummaryText(input);
   if (!text) return;
-  if (mode === "preview" || !user.chat) {
+  if (mode === "preview") {
     console.log(`\n== Tu semana (${leagueName}${user.userId !== null ? ` · usuario ${user.userId}` : ""})\n${text.replace(/<\/?b>/g, "")}`);
     return;
   }
-  await sendMessage(user.chat, text, [[{ text: "📈 Cuánto acertamos", url: `${APP_URL}/aciertos` }]]);
+  if (user.chat) await sendMessage(user.chat, text, [[{ text: "📈 Cuánto acertamos", url: `${APP_URL}/aciertos` }]]);
+  const short = weekSummaryPush(input);
+  if (user.userId != null && short) {
+    await pushToUser(db, user.userId, { title: `📅 Tu jornada ${last.week} en ${leagueName}`, body: short, url: "/aciertos", tag: `semana:${leagueId}` }).catch(() => 0);
+  }
   await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: now, sentAt: now }).onConflictDoNothing();
 }
 

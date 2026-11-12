@@ -679,3 +679,9 @@ html[data-theme="claro"] .player:hover { color: #fff; }
 .seg.tema button { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; min-height: 44px; }
 .seg.tema button[aria-pressed="true"] { background: var(--pitch); color: #fff; }
 html:not([data-theme="claro"]) .seg.tema button[aria-pressed="true"] { color: #04110A; }
+/* Avisos en el móvil */
+.avisos { margin-top: 12px; }
+.avisos .small { margin: 0 0 10px; max-width: 52ch; }
+.avisos-on p { margin: 0 0 8px; }
+.avisos-on .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.avisos .install-btn[disabled] { opacity: .6; }

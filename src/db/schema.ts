@@ -307,6 +307,19 @@ export const activity = pgTable("activity", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
+// Dispositivos con notificaciones activadas: "web" (Web Push: app instalada desde la web, iPhone y Android)
+// o "fcm" (app de Android, por Firebase). endpoint = la dirección de Web Push o el token de Firebase.
+export const pushDevices = pgTable("push_devices", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh"),
+  auth: text("auth"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  lastOkAt: timestamp("last_ok_at", { withTimezone: true }),
+});
+
 // Entrar en la web o en la app con un toque: la página crea un código, el bot lo confirma y la página
 // (que va preguntando) recibe la sesión. Caduca a los 10 minutos y sirve una sola vez.
 export const loginCodes = pgTable("login_codes", {

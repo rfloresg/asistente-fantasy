@@ -48,6 +48,18 @@ jobs:
       - run: npx cap sync android
         if: steps.llave.outputs.ok == 'true'
         working-directory: movil
+      - name: Configuración de Firebase (avisos)
+        if: steps.llave.outputs.ok == 'true'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::warning::Sin GOOGLE_SERVICES_JSON: la app sale sin avisos (mira movil/README.md)"
+          elif echo "$GOOGLE_SERVICES_JSON" | head -c 1 | grep -q '{'; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > movil/android/app/google-services.json
+          else
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > movil/android/app/google-services.json
+          fi
       - name: Fabricar el .apk firmado
         if: steps.llave.outputs.ok == 'true'
         working-directory: movil/android
