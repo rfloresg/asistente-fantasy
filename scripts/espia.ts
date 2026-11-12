@@ -16,16 +16,19 @@ import { adminChat, digestKey, digestText, gatherDigest } from "../src/lib/admin
 import { and, desc, eq, gte, inArray, isNull, max, sql } from "drizzle-orm";
 import { getConn, type Db } from "../src/db";
 import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaState, leagues, matches, memberships, players, playerScores, playerValues, users } from "../src/db/schema";
-import { marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
+import { blocks, marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage } from "../src/lib/plan/plan";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
 import { BID_REMINDER_MIN, bidReminderText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { weekSummaryText, type WeekInput } from "../src/lib/semana";
+import { loadAciertos } from "../src/lib/aciertos-db";
+import { madridDay, valueOn } from "../src/lib/aciertos";
 import { sourcesText } from "../src/lib/onces/combine";
 import type { LigaSnapshot, LineupSnapshot } from "../src/lib/plan/snapshot";
 import { getAccessToken, getUserAccessToken, SessionExpired } from "../src/lib/laliga/auth";
 import { doneKeyPrefix } from "../src/lib/plan/plan";
-import { leagueClient, myLeagues, type Activity, type MarketItem } from "../src/lib/espia/league";
+import { leagueClient, myLeagues, type Activity, type MarketItem, type Standing } from "../src/lib/espia/league";
 import { activityMessage, clauseUnlocks, dailySummary, esc, unlockMessage, type Ctx } from "../src/lib/espia/messages";
 import { clauseRaises, estimateTeamMoney, netByManager, parseMoney, START_MONEY } from "../src/lib/espia/money";
 import { pack, sendMessage, type UrlButton } from "../src/lib/espia/telegram";
@@ -579,7 +582,7 @@ async function runPlan(
     ? await db.select().from(playerScores).where(and(eq(playerScores.day, d), inArray(playerScores.playerId, ids)))
     : [];
   const scores = new Map(rows.map((r) => [r.playerId, r]));
-  const mts = await db.select({ week: matches.week, date: matches.date }).from(matches);
+  const mts = await db.select({ week: matches.week, date: matches.date, state: matches.state }).from(matches);
   const now = new Date();
   const rivals = teams
     .filter((t) => String(t.id) !== money.mine!.teamId)
@@ -664,6 +667,63 @@ async function runPlan(
     await db.insert(espiaPlans).values({ userId: user.userId, leagueId, leagueName, createdAt: now, myMoney: money.mine.money, acciones, scoreDay: d ?? null, closeAt, lineup: lineupSnap, liga: ligaSnap });
     console.log(`${leagueName}: plan con ${acciones.length} acciones`);
   }
+  await weekSummary(db, liga, leagueId, leagueName, user, standing, money.mine.teamId, myTeam, mts, now)
+    .catch((e) => console.error(`${leagueName}, tu semana: ${e instanceof Error ? e.message : e}`));
+}
+
+// "Tu semana": una vez por jornada terminada (entre 6 h y 4 días después del último partido)
+async function weekSummary(
+  db: Db, liga: Liga, leagueId: string, leagueName: string, user: PlanUser,
+  standing: Awaited<ReturnType<Liga["standing"]>>, myTeamId: string, myTeam: { players: { playerMaster: { id: string | number } }[] } | undefined,
+  mts: { week: number; date: Date; state?: number | null }[], now: Date,
+) {
+  // Jornada terminada: todos los partidos de su bloque principal acabados (los aplazados no cuentan)
+  const done = blocks(mts).filter((b) => mts.filter((m) => m.week === b.week && m.date.getTime() <= b.end).every((m) => m.state === 7));
+  const last = done.filter((b) => b.end + 6 * 3600e3 < now.getTime() && b.end > now.getTime() - 4 * 86400e3).at(-1);
+  if (!last) return;
+  const key = `semana:${last.week}:${user.userId ?? "yo"}`;
+  const [seen] = await db.select({ k: espiaEvents.activityId }).from(espiaEvents).where(and(eq(espiaEvents.leagueId, leagueId), eq(espiaEvents.activityId, key)));
+  if (seen) return;
+
+  const ws = await liga.weekStanding(last.week).catch(() => [] as Standing[]);
+  const mineW = ws.find((s) => String(s.team.id) === myTeamId);
+  const bestW = [...ws].sort((a, b) => b.points - a.points)[0];
+  const mine = standing.find((s) => String(s.team.id) === myTeamId);
+
+  // Valor de tu plantilla hoy y hace 7 días
+  let squad: { now: number; weekAgo: number } | null = null;
+  const ids = (myTeam?.players ?? []).map((p) => String(p.playerMaster.id));
+  if (ids.length) {
+    const today = madridDay(now);
+    const ago = madridDay(new Date(now.getTime() - 7 * 86400e3));
+    const vals = await db.select({ p: playerValues.playerId, d: playerValues.day, v: playerValues.value }).from(playerValues)
+      .where(and(inArray(playerValues.playerId, ids), gte(playerValues.day, madridDay(new Date(now.getTime() - 9 * 86400e3)))));
+    const by = new Map<string, Map<string, number>>();
+    for (const r of vals) { if (!by.has(r.p)) by.set(r.p, new Map()); by.get(r.p)!.set(r.d, r.v); }
+    const sum = (day: string) => ids.reduce((t, id) => t + (valueOn(by.get(id), day) ?? 0), 0);
+    squad = { now: sum(today), weekAgo: sum(ago) };
+  }
+
+  const ac = await loadAciertos(leagueId, user.userId, db).catch(() => null);
+  const since = now.getTime() - 9 * 86400e3;
+  const input: WeekInput = {
+    league: leagueName,
+    week: last.week,
+    my: { points: mineW?.points ?? null, weekPosition: mineW?.position ?? null, position: mine?.position ?? null, previousPosition: mine?.previousPosition ?? null },
+    best: bestW ? { manager: bestW.team.manager?.managerName ?? "?", points: bestW.points } : null,
+    managers: standing.length,
+    squad,
+    xi: ac?.xi.find((x) => x.week === last.week) ?? null,
+    recs: (ac?.recs ?? []).filter((r) => r.at.getTime() >= since && r.change !== null),
+  };
+  const text = weekSummaryText(input);
+  if (!text) return;
+  if (mode === "preview" || !user.chat) {
+    console.log(`\n== Tu semana (${leagueName}${user.userId !== null ? ` · usuario ${user.userId}` : ""})\n${text.replace(/<\/?b>/g, "")}`);
+    return;
+  }
+  await sendMessage(user.chat, text, [[{ text: "📈 Cuánto acertamos", url: `${APP_URL}/aciertos` }]]);
+  await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: now, sentAt: now }).onConflictDoNothing();
 }
 
 if (process.argv[1]?.endsWith("espia.ts")) main().catch((e) => {

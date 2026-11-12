@@ -1,12 +1,12 @@
 // Datos para "Cuánto acertamos": los planes de un usuario en una liga y lo que pasó después.
 
 import { and, eq, gte, isNull, max, or } from "drizzle-orm";
-import { getDb } from "@/db";
+import { getDb, type Db } from "@/db";
 import { espiaPlans, matches, playerValues, playerWeeks } from "@/db/schema";
 import { aciertos, madridDay, marketChange, type WeekRow } from "./aciertos";
 
-export async function loadAciertos(leagueId: string, userId: number | null) {
-  const db = await getDb();
+export async function loadAciertos(leagueId: string, userId: number | null, conn?: Db) {
+  const db = conn ?? (await getDb());
   // Como latestPlan: los planes de antes de los usuarios cuentan como del primero que los usa
   const who = userId == null ? isNull(espiaPlans.userId) : or(eq(espiaPlans.userId, userId), isNull(espiaPlans.userId));
   const plans = await db.select({ createdAt: espiaPlans.createdAt, acciones: espiaPlans.acciones, lineup: espiaPlans.lineup, liga: espiaPlans.liga })

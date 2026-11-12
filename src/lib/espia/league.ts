@@ -81,6 +81,8 @@ export function leagueClient(token: string, leagueId: string) {
   };
   return {
     standing: async () => list<Standing>(await get(`${CMP}/leagues/${leagueId}/standing`)),
+    // Clasificación de una jornada (puntos de esa jornada)
+    weekStanding: async (week: number) => list<Standing>(await get(`${CMP}/leagues/${leagueId}/standing/${week}`)),
     activity: async (page = 0) => list<Activity>(await get(`${CMP}/leagues/${leagueId}/activity/${page}`)),
     market: async () => list<MarketItem>(await get(`${CMP}/league/${leagueId}/market`)),
     team: (teamId: string) => get<Team>(`${CMP}/leagues/${leagueId}/teams/${teamId}`),
