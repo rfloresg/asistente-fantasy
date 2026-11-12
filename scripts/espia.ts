@@ -76,7 +76,7 @@ async function send(chatId: string | undefined, messages: string[], buttons: Url
 // Debajo del plan privado: abrirlo en la app (en Android abre la app instalada; si no, la web)
 const appButton: UrlButton[][] = [[{ text: "📱 Abrir en la app", url: `${APP_URL}/` }]];
 
-// "018477470:-5110647810,018218984:-100123" -> [{ leagueId, chatId }]
+// "012345678:-1001234567890,087654321:-100123" -> [{ leagueId, chatId }]
 export function parseLeagues(env: NodeJS.ProcessEnv): { leagueId: string; chatId?: string }[] {
   if (env.ESPIA_LIGAS?.trim()) {
     return env.ESPIA_LIGAS.split(",").map((pair) => {

@@ -1,5 +1,5 @@
 // Borra todo lo guardado de una liga (planes, avisos vistos, cláusulas, resúmenes).
-// Uso: npm run liga:olvidar 018477470
+// Uso: npm run liga:olvidar 012345678
 // Antes quítala de ESPIA_LIGAS (en .env y en el secreto de GitHub), o volverá a aparecer.
 
 import "dotenv/config";
