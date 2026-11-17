@@ -24,7 +24,7 @@ import { myIds, playersNow } from "../src/lib/plan/squad-db";
 import { FRIENDS_WINDOW_H, friendClaims, type FriendPlan } from "../src/lib/plan/amigos";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
-import { BID_REMINDER_MIN, bidReminderText, hourText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { BID_REMINDER_MIN, MARKET_PLAN, bidReminderText, hourText, marketPlanHeader, marketPlanSlot, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
 import { weekSummaryPush, weekSummaryText, type WeekInput } from "../src/lib/semana";
 import { planPush, pushToUser } from "../src/lib/push";
 import { loadAciertos } from "../src/lib/aciertos-db";
@@ -246,6 +246,8 @@ async function runLeague(
             await db.insert(espiaEvents).values({ leagueId, activityId: keyOf(u), createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
           }
         }
+        // Plan al ritmo del mercado: nada más renovarse y 12 h después (y a quien lleve más de 26 h sin plan)
+        await marketPlans(db, liga, leagueId, leagueName, planUsers, seen, runPlans).catch((e) => console.error(`${leagueName}, plan del mercado: ${e}`));
         await bidReminders(db, liga, leagueId, planUsers, seen).catch((e) => console.error(`${leagueName}, aviso de pujas: ${e}`));
         await lastMinuteAlerts(db, leagueId, leagueName, planUsers, seen).catch((e) => console.error(`${leagueName}, última hora: ${e}`));
         await watchAlerts(db, liga, leagueId, leagueName, planUsers, teams, seen).catch((e) => console.error(`${leagueName}, seguidos: ${e}`));
@@ -415,6 +417,34 @@ async function myOffers(liga: Liga, market: MarketItem[], myTeamId: string, myNa
     await sleep(150);
   }
   return out;
+}
+
+async function marketPlans(
+  db: Db, liga: Liga, leagueId: string, leagueName: string, planUsers: PlanUser[], seen: Set<string>,
+  runPlans: (header?: string, only?: (u: PlanUser) => boolean) => Promise<void>,
+) {
+  const now = new Date();
+  const slot = marketPlanSlot(marketRefresh(await liga.market(), now), now);
+  // Cuándo tuvo cada usuario su último plan en esta liga
+  const last = new Map<number, number>();
+  for (const r of await db.select({ userId: espiaPlans.userId, at: max(espiaPlans.createdAt) }).from(espiaPlans)
+    .where(eq(espiaPlans.leagueId, leagueId)).groupBy(espiaPlans.userId)) {
+    if (r.userId != null && r.at) last.set(r.userId, new Date(r.at).getTime());
+  }
+  const ago = (u: PlanUser) => (u.userId == null ? Infinity : now.getTime() - (last.get(u.userId) ?? 0));
+  const reach = (u: PlanUser) => !!u.chat || u.userId != null;
+  const keyOf = (u: PlanUser) => `plan-mercado:${slot?.key}:${u.userId ?? "yo"}`;
+  // Con plan hace menos de 90 min (recordatorio de cierre, por ejemplo) no se repite
+  const bySlot = (u: PlanUser) => !!slot && reach(u) && !seen.has(keyOf(u)) && ago(u) >= PLAN_GAP_MIN * 60e3;
+  const stale = (u: PlanUser) => reach(u) && u.userId != null && ago(u) >= MARKET_PLAN.fallbackH * 3600e3;
+  if (slot && planUsers.some(bySlot)) {
+    const due = planUsers.filter(bySlot);
+    await runPlans(marketPlanHeader(slot, leagueName, esc), (u) => due.includes(u));
+    await db.insert(espiaEvents).values(due.map((u) => ({ leagueId, activityId: keyOf(u), createdAt: now, sentAt: now }))).onConflictDoNothing();
+    due.forEach((u) => seen.add(keyOf(u)));
+  }
+  const old = planUsers.filter((u) => !(slot && seen.has(keyOf(u))) && stale(u));
+  if (old.length) await runPlans(undefined, (u) => old.includes(u));
 }
 
 // Hora y media antes de que se renueve el mercado de la liga: a quien le queden pujas del último plan

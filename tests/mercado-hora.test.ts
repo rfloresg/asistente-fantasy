@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bidReminderText, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { bidReminderText, marketPlanSlot, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
 
 const now = new Date("2026-11-10T17:45:00+01:00");
 const item = (id: string, exp: string, seller = false) => ({
@@ -40,4 +40,20 @@ describe("día de la renovación", () => {
     expect(hourText(new Date("2026-11-11T13:14:00+01:00"), n)).toBe("mañana a las 13:14");
     expect(hourText(new Date("2026-11-12T13:14:00+01:00"), n)).toBe("el jueves a las 13:14");
   });
+});
+
+describe("plan al ritmo del mercado", () => {
+  const refresh = new Date("2026-11-18T12:14:00Z"); // el mercado de hoy salió el 17 a las 13:14 de Madrid
+  const at = (iso: string) => marketPlanSlot(refresh, new Date(iso));
+  it("nada más salir el mercado (desde 10 min)", () => {
+    expect(at("2026-11-17T12:20:00Z")).toBeNull();
+    expect(at("2026-11-17T12:30:00Z")?.kind).toBe("nuevo");
+    expect(at("2026-11-17T12:30:00Z")?.key).toBe("nuevo:2026-11-17T12:14:00.000Z");
+  });
+  it("12 h después; si cae de noche, a las 8", () => {
+    expect(at("2026-11-18T00:30:00Z")).toBeNull(); // 01:30 en Madrid: de noche
+    expect(at("2026-11-18T07:00:00Z")?.kind).toBe("medio"); // 08:00 en Madrid
+    expect(at("2026-11-18T08:30:00Z")).toBeNull(); // más de 20 h
+  });
+  it("sin hora de mercado, nada", () => expect(marketPlanSlot(null, new Date())).toBeNull());
 });

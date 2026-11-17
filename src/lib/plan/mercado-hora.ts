@@ -38,3 +38,29 @@ export function bidReminderText(refresh: Date, now: Date, pend: BidAction[], esc
   const list = pend.map((a) => `• ${esc(a.titulo ?? a.jugador ?? "")}`).join("\n");
   return `⏳ <b>Tu mercado se renueva ${hourText(refresh, now)}</b> (en ${left}) y entonces se resuelven las pujas. Te quedan por hacer:\n${list}\n\nSi ya las has hecho, márcalas como hechas en la app.`;
 }
+
+// Plan al ritmo del mercado: uno nada más renovarse (cuando salen los jugadores nuevos)
+// y otro 12 h después. El mercado actual salió 24 h antes de su próxima renovación.
+// De noche (antes de las 8 en Madrid) no se manda: espera a las 8 si aún está en su margen.
+export const MARKET_PLAN = { afterMin: 10, firstUntilH: 8, secondH: 12, secondUntilH: 20, quietUntil: 8, fallbackH: 26 };
+
+export interface MarketSlot { key: string; kind: "nuevo" | "medio"; publishedAt: Date }
+
+const madridHour = (d: Date) => Number(d.toLocaleString("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hourCycle: "h23" }));
+
+export function marketPlanSlot(refresh: Date | null, now: Date): MarketSlot | null {
+  if (!refresh || madridHour(now) < MARKET_PLAN.quietUntil) return null;
+  const pub = refresh.getTime() - 24 * 3600e3;
+  const since = now.getTime() - pub;
+  const at = new Date(pub);
+  const H = 3600e3;
+  if (since >= MARKET_PLAN.afterMin * 60e3 && since < MARKET_PLAN.firstUntilH * H) return { key: `nuevo:${at.toISOString()}`, kind: "nuevo", publishedAt: at };
+  if (since >= MARKET_PLAN.secondH * H && since < MARKET_PLAN.secondUntilH * H) return { key: `medio:${at.toISOString()}`, kind: "medio", publishedAt: at };
+  return null;
+}
+
+export function marketPlanHeader(s: MarketSlot, league: string, esc: (s: string) => string): string {
+  return s.kind === "nuevo"
+    ? `🆕 <b>Mercado nuevo en ${esc(league)}</b>. Tu plan con los jugadores que acaban de salir:`
+    : `🕐 <b>Media jornada de mercado en ${esc(league)}</b> (12 h desde que salió). Tu plan actualizado:`;
+}
