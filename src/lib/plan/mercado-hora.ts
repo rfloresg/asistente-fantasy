@@ -40,7 +40,7 @@ export function bidReminderText(refresh: Date, now: Date, pend: BidAction[], esc
 }
 
 // Plan al ritmo del mercado: uno nada más renovarse (cuando salen los jugadores nuevos)
-// y otro 12 h después. El mercado actual salió 24 h antes de su próxima renovación.
+// y, 12 h después, otro solo si hay que hacer algo distinto (planChanged). El mercado actual salió 24 h antes de su próxima renovación.
 // De noche (antes de las 8 en Madrid) no se manda: espera a las 8 si aún está en su margen.
 export const MARKET_PLAN = { afterMin: 10, firstUntilH: 8, secondH: 12, secondUntilH: 20, quietUntil: 8, fallbackH: 26 };
 
@@ -62,5 +62,15 @@ export function marketPlanSlot(refresh: Date | null, now: Date): MarketSlot | nu
 export function marketPlanHeader(s: MarketSlot, league: string, esc: (s: string) => string): string {
   return s.kind === "nuevo"
     ? `🆕 <b>Mercado nuevo en ${esc(league)}</b>. Tu plan con los jugadores que acaban de salir:`
-    : `🕐 <b>Media jornada de mercado en ${esc(league)}</b> (12 h desde que salió). Tu plan actualizado:`;
+    : `🔄 <b>Tu plan ha cambiado en ${esc(league)}</b> desde que salió el mercado. Lo que toca ahora:`;
+}
+
+// ¿Hay algo nuevo que hacer? (fichar, clausular, vender o proteger a alguien que no estaba en el último plan).
+// Las cantidades no cuentan, ni lo que ya has hecho o ha dejado de hacer falta: eso no merece otro mensaje.
+interface PlanAction { tipo: string; playerId?: string; hecho?: boolean }
+const DOING = new Set(["pujar", "clausulazo", "vender", "proteger"]);
+const sig = (a: PlanAction) => `${a.tipo}:${a.playerId ?? ""}`;
+export function planChanged(prev: PlanAction[], next: PlanAction[]): boolean {
+  const before = new Set(prev.filter((a) => DOING.has(a.tipo)).map(sig));
+  return next.some((a) => DOING.has(a.tipo) && !a.hecho && !before.has(sig(a)));
 }

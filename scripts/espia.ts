@@ -24,7 +24,7 @@ import { myIds, playersNow } from "../src/lib/plan/squad-db";
 import { FRIENDS_WINDOW_H, friendClaims, type FriendPlan } from "../src/lib/plan/amigos";
 import { bestLineup, lineupDisputes } from "../src/lib/plan/lineup";
 import { FAIR, pastBuys, type PastBuy } from "../src/lib/plan/puja-justa";
-import { BID_REMINDER_MIN, MARKET_PLAN, bidReminderText, hourText, marketPlanHeader, marketPlanSlot, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { BID_REMINDER_MIN, MARKET_PLAN, bidReminderText, hourText, marketPlanHeader, marketPlanSlot, marketRefresh, pendingBids, planChanged } from "../src/lib/plan/mercado-hora";
 import { weekSummaryPush, weekSummaryText, type WeekInput } from "../src/lib/semana";
 import { planPush, pushToUser } from "../src/lib/push";
 import { loadAciertos } from "../src/lib/aciertos-db";
@@ -180,10 +180,10 @@ async function runLeague(
     };
     const getMoney = () => moneyFor(reader);
     // El plan de cada usuario de esta liga que lo tiene activado
-    const runPlans = async (header?: string, only?: (u: PlanUser) => boolean) => {
+    const runPlans = async (header?: string, only?: (u: PlanUser) => boolean, onlyIfChanged = false) => {
       for (const u of planUsers.filter(only ?? (() => true))) {
         try {
-          await runPlan(db, await ligaFor(u.userId), leagueId, leagueName, standing, await moneyFor(u.userId), acts, ctx, u, header);
+          await runPlan(db, await ligaFor(u.userId), leagueId, leagueName, standing, await moneyFor(u.userId), acts, ctx, u, header, onlyIfChanged);
         } catch (e) {
           console.error(`${leagueName}, plan del usuario ${u.userId}: ${String(e instanceof Error ? e.message : e)}`);
           if (e instanceof SessionExpired && e.firstTime && u.chat && mode !== "preview") {
@@ -421,7 +421,7 @@ async function myOffers(liga: Liga, market: MarketItem[], myTeamId: string, myNa
 
 async function marketPlans(
   db: Db, liga: Liga, leagueId: string, leagueName: string, planUsers: PlanUser[], seen: Set<string>,
-  runPlans: (header?: string, only?: (u: PlanUser) => boolean) => Promise<void>,
+  runPlans: (header?: string, only?: (u: PlanUser) => boolean, onlyIfChanged?: boolean) => Promise<void>,
 ) {
   const now = new Date();
   const slot = marketPlanSlot(marketRefresh(await liga.market(), now), now);
@@ -439,7 +439,7 @@ async function marketPlans(
   const stale = (u: PlanUser) => reach(u) && u.userId != null && ago(u) >= MARKET_PLAN.fallbackH * 3600e3;
   if (slot && planUsers.some(bySlot)) {
     const due = planUsers.filter(bySlot);
-    await runPlans(marketPlanHeader(slot, leagueName, esc), (u) => due.includes(u));
+    await runPlans(marketPlanHeader(slot, leagueName, esc), (u) => due.includes(u), slot.kind === "medio");
     await db.insert(espiaEvents).values(due.map((u) => ({ leagueId, activityId: keyOf(u), createdAt: now, sentAt: now }))).onConflictDoNothing();
     due.forEach((u) => seen.add(keyOf(u)));
   }
@@ -609,7 +609,7 @@ async function detectPremium(db: Db, token: string, leagueId: string) {
 async function runPlan(
   db: Db, liga: Liga, leagueId: string, leagueName: string,
   standing: Awaited<ReturnType<Liga["standing"]>>, money: Awaited<ReturnType<typeof estimateLeagueMoney>>,
-  acts: Activity[], ctx: Ctx, user: PlanUser, header?: string,
+  acts: Activity[], ctx: Ctx, user: PlanUser, header?: string, onlyIfChanged = false,
 ) {
   // Dos disparos seguidos (el externo y uno de GitHub con retraso) no mandan el plan dos veces
   if (mode === "plan" && !process.env.FORCE && user.userId != null) {
@@ -710,6 +710,15 @@ async function runPlan(
     disputes: lineupDisputes(lineup).map((d) => ({ id: d.id, name: d.name, sources: sourcesText(d.sources), sub: d.sub.name })),
   };
   const ligaSnap = buildLigaSnap({ standing, teams, acts, ctx, market, myTeamId: money.mine.teamId, moneyByTeam: money.byTeam, now });
+  // A las 12 h del mercado: solo si hay que hacer algo distinto que en el último plan
+  if (onlyIfChanged && user.userId != null) {
+    const [prev] = await db.select({ acciones: espiaPlans.acciones }).from(espiaPlans)
+      .where(and(eq(espiaPlans.leagueId, leagueId), eq(espiaPlans.userId, user.userId))).orderBy(desc(espiaPlans.createdAt)).limit(1);
+    if (prev && !planChanged(prev.acciones, acciones)) {
+      console.log(`${leagueName}: el plan del usuario ${user.userId} no ha cambiado, no se manda`);
+      return;
+    }
+  }
   const text = (header ? `${header}\n\n` : "") + planMessage(leagueName, money.mine.money, acciones);
   const chat = user.chat;
   if (mode === "preview" || !chat) {

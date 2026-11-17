@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bidReminderText, marketPlanSlot, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
+import { bidReminderText, marketPlanSlot, planChanged, marketRefresh, pendingBids } from "../src/lib/plan/mercado-hora";
 
 const now = new Date("2026-11-10T17:45:00+01:00");
 const item = (id: string, exp: string, seller = false) => ({
@@ -56,4 +56,18 @@ describe("plan al ritmo del mercado", () => {
     expect(at("2026-11-18T08:30:00Z")).toBeNull(); // más de 20 h
   });
   it("sin hora de mercado, nada", () => expect(marketPlanSlot(null, new Date())).toBeNull());
+});
+
+describe("¿ha cambiado el plan?", () => {
+  const a = (tipo: string, playerId: string, hecho = false) => ({ tipo, playerId, hecho });
+  it("mismas acciones (aunque cambien cifras o avisos): no", () => {
+    expect(planChanged([a("pujar", "1"), a("aviso", "9")], [a("pujar", "1"), a("saldo", "")])).toBe(false);
+  });
+  it("otro jugador o una acción nueva: sí", () => {
+    expect(planChanged([a("pujar", "1")], [a("pujar", "2")])).toBe(true);
+    expect(planChanged([a("pujar", "1")], [a("pujar", "1"), a("vender", "3")])).toBe(true);
+  });
+  it("hacer lo que decía o que algo deje de hacer falta: no", () => {
+    expect(planChanged([a("pujar", "1"), a("vender", "2")], [a("pujar", "1", true)])).toBe(false);
+  });
 });
