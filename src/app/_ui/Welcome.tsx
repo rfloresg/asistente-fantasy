@@ -30,7 +30,7 @@ export default async function Welcome({ userId }: { userId: number }) {
     },
     {
       title: "Elige tus ligas",
-      text: "Activa el plan en las ligas que quieras. Te llega aquí y por Telegram a las 9:00 y a las 18:00.",
+      text: "Activa el plan en las ligas que quieras. Te llega aquí y por Telegram en cuanto se renueva el mercado de tu liga.",
       done: connected && mine.some((m) => m.plan),
       cta: connected ? { label: "Ver mis ligas", href: "/conectar#ligas" } : undefined,
     },

@@ -19,6 +19,7 @@ import { espiaClauses, espiaDone, espiaEvents, espiaPlans, espiaRaises, espiaSta
 import { blocks, marketPhase, metaAlerts, nextMatchday } from "../src/lib/meta/calendario";
 import { applyDone, dailyPlan, planMessage, type Accion } from "../src/lib/plan/plan";
 import { watchEvents } from "../src/lib/seguir";
+import { parseShard, shardOf } from "../src/lib/espia/shards";
 import { lastMinute, lastMinuteText } from "../src/lib/plan/ultima-hora";
 import { myIds, playersNow } from "../src/lib/plan/squad-db";
 import { FRIENDS_WINDOW_H, friendClaims, type FriendPlan } from "../src/lib/plan/amigos";
@@ -115,8 +116,17 @@ async function loadTargets(db: Db) {
 async function main() {
   const { db, close } = await getConn();
   try {
-    const targets = await loadTargets(db);
-    if (!targets.length) throw new Error("No hay ligas: conecta una en la web (Cuenta) o pon ESPIA_LIGAS");
+    const all = await loadTargets(db);
+    if (!all.length) throw new Error("No hay ligas: conecta una en la web (Cuenta) o pon ESPIA_LIGAS");
+    // Varias pasadas a la vez (SHARD=i/n): cada una se queda con sus grupos de ligas
+    const shard = parseShard(process.env.SHARD);
+    const where = shardOf(all, shard.n);
+    // Plan pedido por un usuario (al conectar, «Actualizar plan» o «Hecho»): solo sus ligas y solo él
+    const only = Number(process.env.USUARIO) || null;
+    const targets = all.filter((t) => where.get(t) === shard.i)
+      .map((t) => (only ? { ...t, planUsers: t.planUsers.filter((u) => u.userId === only) } : t))
+      .filter((t) => !only || t.planUsers.length);
+    if (shard.n > 1) console.log(`Pasada ${shard.i + 1} de ${shard.n}: ${targets.length} de ${all.length} ligas`);
 
     // Una renovación de sesión por usuario y pasada (cada renovación cambia el token guardado)
     const cache = new Map<string, Promise<string>>();
@@ -149,8 +159,8 @@ async function main() {
         console.error(msg);
       }
     }
-    if (mode === "resumen") await sendDigest(db).catch((e) => console.error(`parte: ${e}`));
-    if (mode === "resumen") await pruneActivity(db).catch(() => {});
+    if (mode === "resumen" && shard.i === 0) await sendDigest(db).catch((e) => console.error(`parte: ${e}`));
+    if (mode === "resumen" && shard.i === 0) await pruneActivity(db).catch(() => {});
     if (failed) {
       await alertAdmin(db, errors);
       throw new Error(`${failed} liga(s) con error`);
@@ -612,7 +622,7 @@ async function runPlan(
   acts: Activity[], ctx: Ctx, user: PlanUser, header?: string, onlyIfChanged = false,
 ) {
   // Dos disparos seguidos (el externo y uno de GitHub con retraso) no mandan el plan dos veces
-  if (mode === "plan" && !process.env.FORCE && user.userId != null) {
+  if (mode === "plan" && !process.env.FORCE && !process.env.USUARIO && user.userId != null) {
     const [last] = await db.select({ at: espiaPlans.createdAt }).from(espiaPlans)
       .where(and(eq(espiaPlans.leagueId, leagueId), eq(espiaPlans.userId, user.userId))).orderBy(desc(espiaPlans.createdAt)).limit(1);
     if (last && Date.now() - last.at.getTime() < PLAN_GAP_MIN * 60e3) {
@@ -721,13 +731,16 @@ async function runPlan(
   }
   const text = (header ? `${header}\n\n` : "") + planMessage(leagueName, money.mine.money, acciones);
   const chat = user.chat;
-  if (mode === "preview" || !chat) {
+  const quiet = process.env.SILENCIOSO === "1"; // lo pidió desde la web: solo se guarda
+  if (quiet && mode !== "preview") {
+    console.log(`${leagueName}: plan del usuario ${user.userId} para la web, sin mensaje`);
+  } else if (mode === "preview" || !chat) {
     console.log(`\n== Plan (privado) de ${leagueName}${user.userId !== null ? ` · usuario ${user.userId}` : ""}${chat ? "" : " · sin chat privado no se envía"}`);
     await send(undefined, pack(text.split("\n")));
   } else {
     await send(chat, pack(text.split("\n")), appButton);
   }
-  if (mode !== "preview" && user.userId != null) {
+  if (mode !== "preview" && !quiet && user.userId != null) {
     await pushToUser(db, user.userId, planPush(leagueName, acciones)).catch((e) => console.error(`aviso al móvil: ${e}`));
   }
   if (mode !== "preview") {

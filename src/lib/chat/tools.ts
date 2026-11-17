@@ -111,7 +111,7 @@ async function planDelDia(userId: number | null) {
       acciones: r.acciones.map((a) => `${a.tipo}: ${a.texto.replace(/<\/?b>/g, "")}`),
     });
   }
-  return out.length ? { planes: out } : { error: "Aún no hay plan: se genera a las 9:00 y a las 18:00" };
+  return out.length ? { planes: out } : { error: "Aún no hay plan: se genera cuando se renueva el mercado de tu liga" };
 }
 
 // Su último plan (de su liga más reciente): para no recomendarle fichar a uno que ya es suyo

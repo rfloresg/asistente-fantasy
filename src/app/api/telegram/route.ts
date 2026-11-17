@@ -7,7 +7,10 @@
 // - En un grupo: al meter el bot, si quien lo mete ya está conectado, se activa solo (o elige la liga con un botón).
 import { NextResponse } from "next/server";
 import { getDb, type Db } from "@/db";
-import { feedback } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { feedback, users } from "@/db/schema";
+import { deleteUser } from "@/lib/borrar";
+import { inviteWaiting, joinWaitlist } from "@/lib/espera";
 import { adminChat } from "@/lib/admin";
 import { ConnectError, findCallback, finishConnect, startConnect } from "@/lib/conectar";
 import { dispatchPlan } from "@/lib/github";
@@ -79,7 +82,8 @@ Cada día te digo a quién <b>proteger</b>, por quién <b>pujar</b>, a quién <b
 
 👇 Te dejo una imagen de cómo se hace.
 
-🔒 Tu contraseña la escribes en LaLiga: yo nunca la veo. Solo leo; nunca ficho ni vendo.`;
+🔒 Tu contraseña la escribes en LaLiga: yo nunca la veo. Solo leo; nunca ficho ni vendo.
+Al conectar aceptas las <a href="${APP_URL}/condiciones">condiciones</a> y la <a href="${APP_URL}/privacidad">privacidad</a>. App no oficial, sin relación con LaLiga.`;
 
 const HELP_IMAGE = `${APP_URL}/promo/como-conectar.png`;
 const sendHelp = (chatId: number, caption: string) =>
@@ -92,16 +96,17 @@ async function start(db: Db, chatId: number, from?: From, force = false) {
   const mine = force ? null : await telegramLeagues(db, String(chatId));
   if (mine) {
     const ligas = mine.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna";
-    await reply(chatId, `✅ Ya estás conectado. Tus ligas: ${ligas}.\n\nTe mando el plan aquí a las 9:00 y a las 18:00.`, [
+    await reply(chatId, `✅ Ya estás conectado. Tus ligas: ${ligas}.\n\nTe mando el plan aquí cada vez que se renueva el mercado de tu liga.`, [
       [addToGroup()], [appButton], [webButton(chatId, from)], [opinionButton], [{ text: "🔐 Volver a conectar", callback_data: "conectar" }],
     ]);
     return;
   }
   if (!(await canJoin(db, user.id))) {
-    await reply(chatId, "🔒 <b>La beta está completa</b> ahora mismo.\n\nTe he apuntado: en cuanto haya sitio te escribo por aquí.");
+    const n = await joinWaitlist(db, user.id);
+    await reply(chatId, `🔒 <b>La beta está completa</b> ahora mismo.\n\nTe he apuntado en la lista de espera (eres el ${n}.º). En cuanto haya sitio te escribo por aquí.`);
     const admin = await adminChat(db);
     const { used, max } = await seats(db);
-    if (admin) await reply(Number(admin), `⏳ <b>${esc(user.name)}</b> quiere entrar, pero la beta está completa (${used}/${max}). Sube MAX_USUARIOS en Vercel para dejarle.`);
+    if (admin) await reply(Number(admin), `⏳ <b>${esc(user.name)}</b> quiere entrar, pero la beta está completa (${used}/${max}). Hay ${n} en la lista de espera. Sube MAX_USUARIOS en Vercel y pulsa «Avisar a la lista» en Administración.`);
     return;
   }
   const url = await startConnect(db, user.id);
@@ -152,6 +157,19 @@ export async function POST(req: Request) {
         await edit(msg.chat.id, msg.message_id, ok
           ? "✅ <b>¡Dentro!</b> Vuelve a la app (o a la web): ya estás en tu plan. No hace falta repetirlo, se acuerda de ti."
           : "⌛ Este botón ha caducado. Vuelve a la app y pulsa <b>Entrar con Telegram</b> otra vez.");
+      } else if (cq.data === "borrar" && msg?.chat.type === "private") {
+        // Confirmado: se borra todo lo suyo (sesión de LaLiga, planes, ligas, avisos)
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+        const [me] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users).where(eq(users.telegramId, String(cq.from.id)));
+        if (me?.isAdmin) {
+          await edit(msg.chat.id, msg.message_id, "La cuenta de administrador no se borra desde aquí: usa npm run usuario:borrar.");
+          return NextResponse.json({ ok: true });
+        }
+        if (me) await deleteUser(db, me.id);
+        if (me) await inviteWaiting(db).catch(() => 0); // su plaza, para el siguiente de la lista
+        await edit(msg.chat.id, msg.message_id, me
+          ? "🗑️ <b>Hecho: tu cuenta está borrada.</b> Tu sesión de LaLiga, tus planes y tus ligas ya no están. Si algún día quieres volver, escribe /start."
+          : "No tenía nada tuyo guardado.");
       } else if (cq.data === "conectar" && msg?.chat.type === "private") {
         await tg("answerCallbackQuery", { callback_query_id: cq.id });
         await start(db, msg.chat.id, cq.from, true);
@@ -201,10 +219,10 @@ export async function POST(req: Request) {
         await reply(m.chat.id, "⏳ Conectando con LaLiga…");
         try {
           const out = await finishConnect(db, user.id, text);
-          await dispatchPlan().catch(() => null);
+          await dispatchPlan(user.id).catch(() => null);
           const ligas = out.leagues.map((l) => `<b>${esc(l.name)}</b>`).join(", ") || "ninguna (¿estás en alguna liga?)";
           await reply(m.chat.id,
-            `✅ <b>¡Conectado!</b> Tus ligas: ${ligas}.\n\n📋 Tu primer plan <b>te llega aquí en un minuto</b>. Luego, cada día a las 9:00 y a las 18:00.\n\n🕵️ <b>Último paso (opcional):</b> pulsa el botón, elige el grupo de tu liga y el Espía se activa solo.`,
+            `✅ <b>¡Conectado!</b> Tus ligas: ${ligas}.\n\n📋 Tu primer plan <b>te llega aquí en un minuto</b>. Luego, cada vez que se renueva el mercado de tu liga.\n\n🕵️ <b>Último paso (opcional):</b> pulsa el botón, elige el grupo de tu liga y el Espía se activa solo.`,
             [[addToGroup()], [appButton], [webButton(m.chat.id, m.from)], [opinionButton]]);
         } catch (e) {
           const msg = e instanceof ConnectError ? e.message : "Algo ha fallado al guardar tu sesión. Prueba otra vez en un momento.";
@@ -215,6 +233,10 @@ export async function POST(req: Request) {
         await reply(m.chat.id,
           "🔑 <b>¿Entras en el Asistente Fantasy?</b>\nPulsa el botón solo si lo acabas de pedir tú desde la app o la web.",
           [[{ text: "✅ Sí, soy yo: entrar", callback_data: `entrar:${startArg.slice(CODE_PREFIX.length)}` }]]);
+      } else if (cmd === "/borrarme") {
+        await reply(m.chat.id,
+          "🗑️ <b>¿Borrar tu cuenta?</b>\nSe borran tu sesión de LaLiga, tus planes, tus ligas, tus avisos y tu lista de seguimiento. No se puede deshacer.",
+          [[{ text: "Sí, borrar todo", callback_data: "borrar" }]]);
       } else if (cmd === "/app" || startArg === "app") {
         await reply(m.chat.id, "📱 <b>La app</b>\nEn Android, descárgala e instálala. En iPhone, añádela a la pantalla de inicio desde Safari. Luego pulsa <b>Entrar con Telegram</b> una vez y listo.", [[appButton]]);
       } else if (cmd === "/web" || startArg === "web") {

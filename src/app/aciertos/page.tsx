@@ -47,7 +47,7 @@ export default async function Aciertos() {
         <p className="lead">Lo que te dijo el plan y qué pasó después.</p>
         <div className="empty">
           <h2>Aún no hay planes tuyos</h2>
-          <p>Con el primer plan (a las 9:00 o a las 18:00) empezamos a medir. En unos días tendrás aquí los primeros resultados.</p>
+          <p>Con el primer plan (llega cuando se renueva el mercado de tu liga) empezamos a medir. En unos días tendrás aquí los primeros resultados.</p>
         </div>
       </main>
     );

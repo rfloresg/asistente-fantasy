@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: "Entra primero en la web" }, { status: 401 });
     const { pasted } = (await req.json().catch(() => ({}))) as { pasted?: string };
     const out = await finishConnect(await getDb(), user.id, pasted ?? "");
-    await dispatchPlan().catch(() => null); // su primer plan, ya
+    await dispatchPlan(user.id).catch(() => null); // su primer plan, ya
     return NextResponse.json({ ok: true, ...out });
   } catch (e) {
     const msg = String(e instanceof Error ? e.message : e);

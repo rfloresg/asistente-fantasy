@@ -155,6 +155,13 @@
       "when": 1794494911575,
       "tag": "0021_seguir",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794915178213,
+      "tag": "0022_lista_espera",
+      "breakpoints": true
     }
   ]
 }

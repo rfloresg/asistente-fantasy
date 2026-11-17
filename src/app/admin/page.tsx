@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { activity, chatUsage, espiaPlans, feedback, laligaSessions, leagues, memberships, users } from "@/db/schema";
 import { activeDays } from "@/lib/actividad";
 import { seats } from "@/lib/plazas";
+import { waiting } from "@/lib/espera";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function Admin() {
   if (!me.isAdmin) notFound();
   const db = await getDb();
   const week = new Date(Date.now() - 7 * 864e5);
-  const [us, ss, ms, ls, plans, chats, ops, plazas, acts] = await Promise.all([
+  const [us, ss, ms, ls, plans, chats, ops, plazas, acts, enEspera] = await Promise.all([
     db.select().from(users).orderBy(users.id),
     db.select().from(laligaSessions),
     db.select().from(memberships),
@@ -35,6 +36,7 @@ export default async function Admin() {
     db.select().from(feedback).orderBy(desc(feedback.createdAt)).limit(50),
     seats(db),
     db.select().from(activity).where(gte(activity.createdAt, week)).orderBy(desc(activity.createdAt)).limit(2000),
+    waiting(db),
   ]);
   const leagueName = new Map(ls.map((l) => [l.leagueId, l.name]));
   const nameOf = new Map(us.map((u) => [u.id, u.name]));
@@ -80,9 +82,17 @@ export default async function Admin() {
         <div><dt>Conectados</dt><dd className="cash">{ss.filter((s) => !s.lastError).length}</dd></div>
         <div><dt>Activos esta semana</dt><dd>{friends.filter((r) => r.days > 0).length}</dd></div>
         <div><dt>Plazas</dt><dd>{plazas.max ? `${plazas.used}/${plazas.max}` : "∞"}</dd></div>
+        <div><dt>En espera</dt><dd>{enEspera}</dd></div>
         <div><dt>Grupos con Espía</dt><dd>{ls.filter((l) => l.active && l.groupChatId).length}</dd></div>
       </dl>
       {!plazas.max && <p className="small">Sin tope de plazas: pon MAX_USUARIOS en Vercel.</p>}
+      {enEspera > 0 && (
+        <form method="post" action="/api/admin/espera" className="small">
+          {plazas.left === 0 ? <>La beta está llena: sube MAX_USUARIOS en Vercel y luego </> : null}
+          <button type="submit" className="chip">📣 Avisar a la lista de espera</button>{" "}
+          (a tantos como plazas libres: {plazas.left ?? "sin tope"})
+        </form>
+      )}
       {stale.length > 0 && <p className="bad">Sin plan en más de 26 h aunque están conectados: {stale.map((r) => r.u.name).join(", ")}. Mira los registros de GitHub Actions.</p>}
 
       <section aria-labelledby="usuarios">

@@ -23,6 +23,6 @@ export async function POST(req: Request) {
     const a = plan?.acciones.find((x) => x.key === key);
     await logActivity(db, user.id, "hecho", `${a?.titulo ?? key}${plan ? ` · ${plan.leagueName}` : ""}`);
   }
-  const error = await dispatchPlan();
+  const error = await dispatchPlan(user?.id ?? null, true);
   return error ? NextResponse.json({ error }, { status: 502 }) : NextResponse.json({ ok: true });
 }

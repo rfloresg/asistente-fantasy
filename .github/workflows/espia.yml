@@ -15,11 +15,12 @@ on:
       modo:
         description: "eventos, resumen, plan o manana (resumen y plan)"
         default: "eventos"
-
-# Una pasada cada vez: la sesión de LaLiga se renueva en cada uso y dos a la vez la romperían
-concurrency:
-  group: laliga-session
-  cancel-in-progress: false
+      usuario:
+        description: "solo el plan de este usuario (id); vacío = todos"
+        default: ""
+      silencioso:
+        description: "1 = guardar el plan para la web sin mandar mensajes"
+        default: ""
 
 jobs:
   espia:
@@ -27,7 +28,17 @@ jobs:
     # que llegan con horas de retraso, no hacen nada. Variable del repositorio CRON_EXTERNO = 1
     if: github.event_name != 'schedule' || vars.CRON_EXTERNO != '1'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    # 4 pasadas a la vez, cada una con sus grupos de ligas (src/lib/espia/shards.ts). Las ligas que comparten
+    # usuario van siempre a la misma pasada, y cada pasada va de una en una: la sesión de LaLiga se renueva
+    # en cada uso y dos a la vez la romperían
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    concurrency:
+      group: laliga-session-${{ matrix.shard }}
+      cancel-in-progress: false
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SESSION_KEY: ${{ secrets.SESSION_KEY }}
@@ -43,6 +54,9 @@ jobs:
       VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
       FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
       APP_URL: ${{ vars.APP_URL || 'https://asistente-fantasy.vercel.app' }}
+      SHARD: ${{ matrix.shard }}/4
+      USUARIO: ${{ github.event.inputs.usuario }}
+      SILENCIOSO: ${{ github.event.inputs.silencioso }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

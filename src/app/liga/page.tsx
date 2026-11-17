@@ -26,7 +26,7 @@ export default async function Liga() {
         <p className="lead">Clasificación, dinero de cada mánager, fichajes y cláusulas.</p>
         <div className="empty">
           <h2>Aún no hay datos de la liga</h2>
-          <p>Llegan con el próximo plan (a las 9:00 o a las 18:00). Si acabas de conectar, en un par de minutos están aquí.</p>
+          <p>Llegan con el próximo plan (cuando se renueve el mercado de tu liga). Si acabas de conectar, en un par de minutos están aquí.</p>
         </div>
       </main>
     );

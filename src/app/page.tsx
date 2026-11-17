@@ -1,5 +1,5 @@
 // Hoy: tu plan en la liga elegida (movimientos por prioridad) y tu once en el campo.
-// Lo genera el Espía a las 9:00 y a las 18:00 (npm run espia plan).
+// Lo genera el Espía cuando se renueva el mercado de cada liga (y si cambia, 12 h después).
 
 import { eq } from "drizzle-orm";
 import Link from "next/link";
@@ -103,7 +103,7 @@ export default async function Hoy() {
         {connected && !viewing && (
           <div className="empty">
             <h2>Aún no hay plan</h2>
-            <p>Se genera solo a las 9:00 y a las 18:00. Para tenerlo ya, pulsa el botón.</p>
+            <p>Se genera solo cuando se renueva el mercado de tu liga. Para tenerlo ya, pulsa el botón.</p>
             <div style={{ marginTop: 16 }}><Refresh since={null} /></div>
           </div>
         )}
@@ -196,7 +196,7 @@ export default async function Hoy() {
 
       <p className="small" style={{ marginTop: 16 }}>
         Plan de las {madrid(plan.createdAt, { hour: "2-digit", minute: "2-digit" })} del {madrid(plan.createdAt, { day: "numeric", month: "long" })}
-        {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza a las 9:00, a las 18:00 y 4 horas antes del cierre; si mueves algo en LaLiga, pulsa Actualizar plan. El dinero de los rivales es un máximo.
+        {plan.scoreDay ? ", con las notas de ese día" : ""}. Se actualiza cuando se renueva el mercado, 12 h después si hay algo nuevo y 4 horas antes del cierre; si mueves algo en LaLiga, pulsa Actualizar plan. El dinero de los rivales es un máximo.
       </p>
     </main>
   );

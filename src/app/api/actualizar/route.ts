@@ -22,6 +22,6 @@ export async function GET(req: Request) {
 export async function POST() {
   const user = await currentUser().catch(() => null);
   if (user && !user.isAdmin) await logActivity(await getDb(), user.id, "actualizar");
-  const error = await dispatchPlan();
+  const error = await dispatchPlan(user?.id ?? null, true);
   return error ? NextResponse.json({ error }, { status: 502 }) : NextResponse.json({ ok: true });
 }

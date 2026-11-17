@@ -94,7 +94,7 @@ export default async function Login({ searchParams }: { searchParams: Search }) 
           </details>
         )}
         <p className="small" style={{ marginTop: 20 }}>
-          <a href="/privacidad">Privacidad</a> · Proyecto personal, sin relación con LaLiga ni con LaLiga Fantasy.
+          <a href="/privacidad">Privacidad</a> · <a href="/condiciones">Condiciones</a> · Proyecto personal, sin relación con LaLiga ni con LaLiga Fantasy.
         </p>
       </section>
     </main>

@@ -2,7 +2,7 @@
 // Si era quien leía para un grupo, el grupo pasa a otro miembro con sesión; si no hay nadie, el Espía deja ese grupo.
 import { and, eq, inArray, isNull, like, ne } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activity, chatUsage, espiaDone, espiaPlans, laligaSessions, leagues, loginAttempts, memberships, users } from "@/db/schema";
+import { activity, chatUsage, espiaDone, espiaPlans, feedback, laligaSessions, leagues, loginAttempts, memberships, pushDevices, users, watchlist } from "@/db/schema";
 import { doneKeyPrefix } from "@/lib/plan/plan";
 
 export async function deleteUser(db: Db, userId: number) {
@@ -28,6 +28,9 @@ export async function deleteUser(db: Db, userId: number) {
   await db.delete(activity).where(eq(activity.userId, userId));
   await db.delete(loginAttempts).where(eq(loginAttempts.userId, userId));
   await db.delete(laligaSessions).where(eq(laligaSessions.userId, userId));
+  await db.delete(pushDevices).where(eq(pushDevices.userId, userId));
+  await db.delete(watchlist).where(eq(watchlist.userId, userId));
+  await db.delete(feedback).where(eq(feedback.userId, userId));
 
   // Ligas que ya no sigue nadie y sin grupo: el Espía las deja
   const ids = mine.map((m) => m.leagueId);

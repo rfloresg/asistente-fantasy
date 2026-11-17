@@ -14,6 +14,8 @@ export default function Privacidad() {
         <li><b>Tu Telegram:</b> tu nombre y tu número de usuario. Sirve para que entres sin contraseña y para mandarte el plan por privado.</li>
         <li><b>Tu sesión de LaLiga:</b> el permiso que te da LaLiga al entrar, guardado cifrado. <b>Nunca vemos ni guardamos tu contraseña</b>: la escribes en la página de LaLiga, no aquí.</li>
         <li><b>Tus ligas y tus planes:</b> qué ligas sigues, los planes que te hacemos y los movimientos que marcas como hechos.</li>
+        <li><b>Avisos al móvil</b> (si los activas): un identificador del dispositivo para poder mandarte el aviso. Si los desactivas o borras la cuenta, se borra.</li>
+        <li><b>Los jugadores que sigues</b> (⭐), para avisarte si salen al mercado de tu liga.</li>
         <li><b>Lo que haces en la web</b>: cuándo entras, lo que marcas como hecho y lo que preguntas en Pregunta. Sirve para el límite diario de preguntas y para que el administrador vea si el asistente se entiende y acierta. Se borra a los 30 días.</li>
       </ul>
 
@@ -32,17 +34,21 @@ export default function Privacidad() {
       <p>Con nadie para vender ni para publicidad. Para funcionar usamos estos servicios:</p>
       <ul>
         <li><b>Telegram</b>, para los mensajes.</li>
-        <li><b>Vercel</b> (la web), <b>Neon</b> (la base de datos) y <b>GitHub</b> (las tareas que leen LaLiga cada 30 minutos).</li>
+        <li><b>Google Firebase</b> (en la app de Android) y el servicio de avisos de tu navegador, para los avisos al móvil. Solo les llega el texto del aviso.</li>
+        <li><b>Vercel</b> (la web), <b>Neon</b> (la base de datos) y <b>GitHub</b> (las tareas que leen LaLiga cada 30 minutos; el código es público, tus datos no están en él).</li>
         <li><b>Anthropic</b> (Claude), que redacta las respuestas de Pregunta y lee los nombres de las capturas que subes. Le llega tu pregunta y los datos de jugadores que hacen falta para contestarla.</li>
       </ul>
 
       <h2>Borrarlo todo</h2>
-      <p>En <Link href="/conectar">Cuenta</Link>, abajo del todo, pulsa <b>Borrar mi cuenta</b>. Se borran tu sesión de LaLiga, tus planes, lo que marcaste como hecho y tus ligas, en el momento. Si el Espía leía un grupo con tu cuenta, pasa a otro miembro conectado; si no hay nadie, deja de publicar en ese grupo.</p>
+      <p>En <Link href="/conectar">Cuenta</Link>, abajo del todo, pulsa <b>Borrar mi cuenta</b>, o escribe <b>/borrarme</b> al bot. Se borran tu sesión de LaLiga, tus planes, lo que marcaste como hecho y tus ligas, en el momento. Si el Espía leía un grupo con tu cuenta, pasa a otro miembro conectado; si no hay nadie, deja de publicar en ese grupo.</p>
+
+      <h2>Quién lo lleva y tus derechos</h2>
+      <p>Lo lleva una persona, el administrador del servicio, como proyecto personal. Guardamos tus datos porque tú lo pides al conectar tu cuenta, y solo mientras la uses. Puedes pedir verlos, corregirlos o borrarlos escribiendo <b>/opinion</b> al bot; borrarlo todo lo puedes hacer tú mismo al momento. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
 
       <h2>Aviso</h2>
       <p className="muted">El Asistente Fantasy es un proyecto personal. No tiene relación con LaLiga ni con LaLiga Fantasy, y usa su app de la misma forma que tú.</p>
 
-      <p style={{ marginTop: 32 }}><Link href="/">Volver</Link></p>
+      <p style={{ marginTop: 32 }}><Link href="/">Volver</Link> · <Link href="/condiciones">Condiciones de uso</Link></p>
     </main>
   );
 }

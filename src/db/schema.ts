@@ -350,3 +350,10 @@ export const watchlist = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.playerId] })],
 );
+
+// Lista de espera de la beta: quien escribe al bot con la beta llena. Se le avisa cuando hay sitio.
+export const waitlist = pgTable("waitlist", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  invitedAt: timestamp("invited_at", { withTimezone: true }),
+});

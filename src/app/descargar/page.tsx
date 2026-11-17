@@ -52,7 +52,7 @@ export default async function Descargar() {
         </ol>
       </section>
 
-      <p className="small"><Link href="/">Volver</Link> · <Link href="/privacidad">Privacidad</Link></p>
+      <p className="small"><Link href="/">Volver</Link> · <Link href="/privacidad">Privacidad</Link> · <Link href="/condiciones">Condiciones</Link></p>
     </main>
   );
 }
