@@ -74,21 +74,16 @@ async function send(chatId: string | undefined, messages: string[], buttons: Url
   for (const [i, m] of messages.entries()) await sendMessage(chatId, m, i === messages.length - 1 ? buttons : []);
 }
 
-// Mensajes al grupo de la liga. Si el bot ya no está en el grupo (lo sacaron, o se cambió de bot), no se cae
-// toda la liga: se salta el grupo (planes y avisos privados siguen) y se avisa al administrador una vez al día
+// Mensajes al grupo de la liga. Si el bot ya no está en el grupo (lo sacaron, o se cambió de bot), se desconecta
+// el grupo de esa liga sin hacer ruido: planes y avisos privados siguen. Si alguien vuelve a meter el bot, se reactiva solo
 const GONE = /chat not found|bot was kicked|not a member|bot is not a member|group chat was upgraded|have no rights to send/i;
 async function groupSend(db: Db, leagueId: string, leagueName: string, chatId: string | undefined, messages: string[], buttons: UrlButton[][] = []) {
   try {
     await send(chatId, messages, buttons);
   } catch (e) {
     if (!GONE.test(String(e))) throw e;
-    console.error(`${leagueName}: el bot no puede escribir en el grupo (${e}); se salta el grupo`);
-    const key = `grupo-fuera:${leagueId}:${today()}`;
-    const [seen] = await db.select().from(espiaEvents).where(and(eq(espiaEvents.leagueId, leagueId), eq(espiaEvents.activityId, key)));
-    if (seen) return;
-    await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
-    const admin = await adminChat(db);
-    if (admin) await sendMessage(admin, `🕵️ <b>El Espía no puede escribir en el grupo de ${esc(leagueName)}</b>\nMete al bot en el grupo (y hazlo administrador). Mientras, los planes y avisos privados siguen llegando.`).catch(() => {});
+    console.log(`${leagueName}: el bot no está en el grupo (${e}); se desconecta el grupo, los planes siguen`);
+    await db.update(leagues).set({ groupChatId: null }).where(and(eq(leagues.leagueId, leagueId), eq(leagues.groupChatId, chatId!)));
   }
 }
 
