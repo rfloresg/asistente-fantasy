@@ -74,6 +74,24 @@ async function send(chatId: string | undefined, messages: string[], buttons: Url
   for (const [i, m] of messages.entries()) await sendMessage(chatId, m, i === messages.length - 1 ? buttons : []);
 }
 
+// Mensajes al grupo de la liga. Si el bot ya no está en el grupo (lo sacaron, o se cambió de bot), no se cae
+// toda la liga: se salta el grupo (planes y avisos privados siguen) y se avisa al administrador una vez al día
+const GONE = /chat not found|bot was kicked|not a member|bot is not a member|group chat was upgraded|have no rights to send/i;
+async function groupSend(db: Db, leagueId: string, leagueName: string, chatId: string | undefined, messages: string[], buttons: UrlButton[][] = []) {
+  try {
+    await send(chatId, messages, buttons);
+  } catch (e) {
+    if (!GONE.test(String(e))) throw e;
+    console.error(`${leagueName}: el bot no puede escribir en el grupo (${e}); se salta el grupo`);
+    const key = `grupo-fuera:${leagueId}:${today()}`;
+    const [seen] = await db.select().from(espiaEvents).where(and(eq(espiaEvents.leagueId, leagueId), eq(espiaEvents.activityId, key)));
+    if (seen) return;
+    await db.insert(espiaEvents).values({ leagueId, activityId: key, createdAt: new Date(), sentAt: new Date() }).onConflictDoNothing();
+    const admin = await adminChat(db);
+    if (admin) await sendMessage(admin, `🕵️ <b>El Espía no puede escribir en el grupo de ${esc(leagueName)}</b>\nMete al bot en el grupo (y hazlo administrador). Mientras, los planes y avisos privados siguen llegando.`).catch(() => {});
+  }
+}
+
 // Debajo del plan privado: abrirlo en la app (en Android abre la app instalada; si no, la web)
 const appButton: UrlButton[][] = [[{ text: "📱 Abrir en la app", url: `${APP_URL}/` }]];
 
@@ -271,9 +289,9 @@ async function runLeague(
         // Liga sin grupo: solo se guardan como vistas
       } else if (firstRun) {
         // Primera vez: no publicamos el historial, solo avisamos de que está activo
-        await send(chatId, [`🕵️ <b>Espía activado</b> en ${esc(leagueName)}. Desde ahora publicaré fichajes, ventas y cláusulas, y un resumen cada mañana.`]);
+        await groupSend(db, leagueId, leagueName, chatId, [`🕵️ <b>Espía activado</b> en ${esc(leagueName)}. Desde ahora publicaré fichajes, ventas y cláusulas, y un resumen cada mañana.`]);
       } else if (lines.length) {
-        await send(chatId, pack(lines));
+        await groupSend(db, leagueId, leagueName, chatId, pack(lines));
       }
       if (mode !== "preview" && acts.length) {
         const now = new Date();
@@ -319,7 +337,7 @@ async function runLeague(
         money,
         unlocksSoon,
       });
-      await send(mode === "preview" ? undefined : chatId, pack(text.split("\n")));
+      await groupSend(db, leagueId, leagueName, mode === "preview" ? undefined : chatId, pack(text.split("\n")));
       if (mode === "resumen") {
         const points = Object.fromEntries(standing.map((st) => [String(st.team.id), st.points]));
         await db.insert(espiaState).values({ leagueId, lastSummaryDay: day, points })
